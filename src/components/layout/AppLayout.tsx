@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from "react-router-dom";
-import { Sidebar } from "./Sidebar";
+import Sidebar from "@/components/layout/Sidebar";
 import { Topbar } from "./Topbar";
 
 const titleByPath: Record<string, string> = {
