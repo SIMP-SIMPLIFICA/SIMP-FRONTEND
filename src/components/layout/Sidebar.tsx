@@ -7,6 +7,7 @@ import {
   BookOpen,
   Settings,
   Users,
+  Shield,
   ChevronLeft,
   LogOut,
 } from "lucide-react";
@@ -82,6 +83,12 @@ export default function Sidebar() {
         icon: <Users className="h-5 w-5" />,
         anyOf: ["users:read", "users:manage"],
       },
+      {
+        label: "Roles",
+        to: "/roles",
+        icon: <Shield className="h-5 w-5" />,
+        anyOf: ["roles:read", "roles:manage"],
+      },
     ],
     []
   );
@@ -132,9 +139,7 @@ export default function Sidebar() {
               >
                 <span className="shrink-0">{it.icon}</span>
                 {!collapsed && (
-                  <span className="text-[15px] font-semibold">
-                    {it.label}
-                  </span>
+                  <span className="text-[15px] font-semibold">{it.label}</span>
                 )}
               </NavLink>
             </li>
@@ -171,7 +176,9 @@ export default function Sidebar() {
           )}
         >
           <LogOut className="h-5 w-5 text-red-200" />
-          {!collapsed && <span className="font-semibold text-red-100">Sair</span>}
+          {!collapsed && (
+            <span className="font-semibold text-red-100">Sair</span>
+          )}
         </button>
 
         {/* opcional: debugzinho pra ver rota atual */}

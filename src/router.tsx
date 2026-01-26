@@ -8,6 +8,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
 import Users from "@/pages/Users";
+import Roles from "@/pages/Roles";
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +32,11 @@ export const router = createBrowserRouter([
           {
             element: <PermissionGate anyOf={["users:read", "users:manage"]} />,
             children: [{ path: "/usuarios", element: <Users /> }],
+          },
+
+          {
+            element: <PermissionGate anyOf={["roles:read", "roles:manage"]} />,
+            children: [{ path: "/roles", element: <Roles /> }],
           },
         ],
       },
