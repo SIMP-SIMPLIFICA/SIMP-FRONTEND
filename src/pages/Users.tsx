@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { toast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/api";
+import { Search, Power, Eye } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiRequest } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
+
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +17,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 type ApiPagination = {
   page: number;
   limit: number;
@@ -24,264 +37,487 @@ type ApiPagination = {
   hasPrev: boolean;
 };
 
-type RoleInner = {
-  id?: string;
-  name?: string;
-  displayName?: string;
-  permissions?: string[];
+type ApiRoleRef = {
+  role: {
+    id: string;
+    name: string;
+    displayName?: string;
+  };
 };
-
-type RoleWrapper = { role?: RoleInner };
-type RoleFlat = { name?: string; displayName?: string };
 
 type ApiUser = {
   id: string;
   email: string;
-  username?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  isActive?: boolean;
-  isVerified?: boolean;
-  createdAt?: string;
-  roles?: Array<RoleWrapper | RoleFlat>;
+  username: string;
+  firstName: string;
+  lastName: string;
+  avatar: string;
+  isActive: boolean;
+  isVerified: boolean;
+  twoFactorEnabled: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  roles: ApiRoleRef[];
 };
 
 type UsersResponse = {
   data: ApiUser[];
-  pagination?: ApiPagination;
+  pagination: ApiPagination;
 };
 
-function isRoleWrapper(x: unknown): x is RoleWrapper {
-  return typeof x === "object" && x !== null && "role" in x;
+type PatchUserStatusBody = {
+  isActive: boolean;
+  reason?: string;
+};
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
 }
 
-function isRoleFlat(x: unknown): x is RoleFlat {
-  return typeof x === "object" && x !== null && ("name" in x || "displayName" in x);
-}
-
-function getRoleLabel(u: ApiUser): string {
-  const first = u.roles?.[0];
-  if (!first) return "—";
-
-  if (isRoleWrapper(first)) {
-    return first.role?.displayName ?? first.role?.name ?? "—";
-  }
-
-  if (isRoleFlat(first)) {
-    return first.displayName ?? first.name ?? "—";
-  }
-
-  return "—";
+function readErrorMessage(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message;
+  if (isRecord(err) && typeof err.message === "string") return err.message;
+  return "Ocorreu um erro inesperado.";
 }
 
 function fullName(u: ApiUser): string {
   const a = (u.firstName ?? "").trim();
   const b = (u.lastName ?? "").trim();
   const name = `${a} ${b}`.trim();
-  const fallback = (u.username ?? "").trim() || u.email;
-  return name || fallback;
+  return name || u.username || u.email;
 }
 
-function formatDate(iso?: string): string {
+function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
 }
 
-function getErrorMessage(err: unknown): string {
-  if (typeof err === "string") return err;
-  if (err instanceof Error) return err.message;
-  if (typeof err === "object" && err !== null && "message" in err) {
-    const msg = (err as { message: unknown }).message;
-    return typeof msg === "string" ? msg : "Erro desconhecido";
-  }
-  return "Erro desconhecido";
+function getRoleLabels(u: ApiUser): string[] {
+  return u.roles.length > 0
+    ? u.roles.map((r) => r.role.displayName || r.role.name)
+    : ["—"];
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <Badge
+      className={[
+        "rounded-full border px-3 py-1",
+        active
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-slate-100 text-slate-700 border-slate-200",
+      ].join(" ")}
+    >
+      {active ? "Ativo" : "Inativo"}
+    </Badge>
+  );
+}
+
+function SmallFlag({ ok, onLabel, offLabel }: { ok: boolean; onLabel: string; offLabel: string }) {
+  return (
+    <Badge
+      className={[
+        "rounded-full border px-2 py-0.5 text-xs",
+        ok
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-amber-50 text-amber-700 border-amber-200",
+      ].join(" ")}
+    >
+      {ok ? onLabel : offLabel}
+    </Badge>
+  );
 }
 
 export default function Users() {
-  const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<ApiUser[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState<string>("");
+  const [page, setPage] = useState<number>(1);
   const limit = 20;
 
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return items;
+  // Dialog status
+  const [statusDialogOpen, setStatusDialogOpen] = useState<boolean>(false);
+  const [statusUser, setStatusUser] = useState<ApiUser | null>(null);
+  const [statusReason, setStatusReason] = useState<string>("");
+  const [statusSubmitting, setStatusSubmitting] = useState<boolean>(false);
 
+  // Dialog detalhes
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState<boolean>(false);
+  const [detailsUser, setDetailsUser] = useState<ApiUser | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
     return items.filter((u) => {
-      const name = fullName(u).toLowerCase();
-      const email = u.email.toLowerCase();
-      const username = (u.username ?? "").toLowerCase();
-      const role = getRoleLabel(u).toLowerCase();
+      const rolesJoined = getRoleLabels(u).join(" ").toLowerCase();
       return (
-        name.includes(term) ||
-        email.includes(term) ||
-        username.includes(term) ||
-        role.includes(term)
+        fullName(u).toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.username.toLowerCase().includes(q) ||
+        rolesJoined.includes(q)
       );
     });
-  }, [items, q]);
+  }, [items, query]);
 
-  useEffect(() => {
-    let alive = true;
+  async function fetchUsers(p: number) {
+    setLoading(true);
+    try {
+      const res = await apiRequest<UsersResponse>(
+        `/api/v1/users?page=${p}&limit=${limit}`
+      );
+      setItems(res.data);
+      setPagination(res.pagination);
+    } catch (err: unknown) {
+      toast({
+        title: "Falha ao carregar usuários",
+        description: readErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    async function load() {
-      setLoading(true);
-      try {
-        // endpoint do boilerplate
-        const res = await apiRequest<UsersResponse>(`/api/v1/users?page=${page}&limit=${limit}`);
-        if (!alive) return;
+  function openStatusDialog(u: ApiUser) {
+    setStatusUser(u);
+    setStatusReason("");
+    setStatusDialogOpen(true);
+  }
 
-        setItems(res.data ?? []);
-        setPagination(res.pagination ?? null);
-      } catch (err: unknown) {
-        if (!alive) return;
+  function onStatusDialogOpenChange(open: boolean) {
+    setStatusDialogOpen(open);
+    if (!open) {
+      setStatusUser(null);
+      setStatusReason("");
+      setStatusSubmitting(false);
+    }
+  }
 
-        toast({
-          title: "Falha ao carregar usuários",
-          description: getErrorMessage(err),
-          variant: "destructive",
-        });
+  async function confirmStatusChange() {
+    if (!statusUser) return;
 
-        setItems([]);
-        setPagination(null);
-      } finally {
-        if (alive) setLoading(false);
-      }
+    const reason = statusReason.trim();
+    if (reason.length < 3) {
+      toast({
+        title: "Informe um motivo",
+        description: "Digite pelo menos 3 caracteres.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    void load();
-    return () => {
-      alive = false;
-    };
+    const next = !statusUser.isActive;
+
+    try {
+      setStatusSubmitting(true);
+
+      const body: PatchUserStatusBody = { isActive: next, reason };
+
+      await apiRequest(`/api/v1/users/${statusUser.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+
+      toast({
+        title: "Usuário atualizado",
+        description: `${fullName(statusUser)} agora está ${next ? "ativo" : "inativo"}.`,
+      });
+
+      onStatusDialogOpenChange(false);
+      await fetchUsers(page);
+    } catch (err: unknown) {
+      toast({
+        title: "Erro ao atualizar",
+        description: readErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setStatusSubmitting(false);
+    }
+  }
+
+  function openDetailsDialog(u: ApiUser) {
+    setDetailsUser(u);
+    setDetailsDialogOpen(true);
+  }
+
+  function onDetailsDialogOpenChange(open: boolean) {
+    setDetailsDialogOpen(open);
+    if (!open) setDetailsUser(null);
+  }
+
+  useEffect(() => {
+    void fetchUsers(page);
   }, [page]);
 
+  const totalOnPage = filtered.length;
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Usuários</h1>
+          <h1 className="text-3xl font-semibold text-slate-900">Usuários</h1>
           <p className="mt-1 text-sm text-slate-500">
             Listagem consumindo <span className="font-mono">/api/v1/users</span>
           </p>
         </div>
 
-        <div className="w-full max-w-sm">
+        <div className="relative w-full sm:w-[420px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nome, e-mail, usuário ou role…"
-            className="h-11 rounded-2xl"
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+            placeholder="Buscar por nome, e-mail, usuário ou role..."
+            className="h-11 rounded-2xl pl-10"
           />
         </div>
       </div>
 
-      <Card className="rounded-2xl border-slate-200">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base text-slate-900">
-            {loading ? "Carregando…" : `Total na página: ${filtered.length}`}
-          </CardTitle>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="rounded-2xl"
-              disabled={loading || (pagination ? !pagination.hasPrev : page <= 1)}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Anterior
-            </Button>
-
-            <div className="text-sm text-slate-600">
-              Página <span className="font-medium text-slate-900">{page}</span>
-              {pagination?.totalPages ? (
+      <Card className="rounded-3xl border-slate-200 shadow-sm">
+        <CardContent className="p-5">
+          {/* Top bar (count + pagination) */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-slate-700">
+              <span className="font-semibold">Total na página:</span> {totalOnPage}
+              {pagination ? (
                 <>
-                  {" "}
-                  de <span className="font-medium text-slate-900">{pagination.totalPages}</span>
+                  <span className="mx-2 text-slate-300">•</span>
+                  <span className="text-slate-500">
+                    Total: {pagination.total} • Página: {pagination.page}/{pagination.totalPages}
+                  </span>
                 </>
               ) : null}
             </div>
 
-            <Button
-              className="rounded-2xl bg-[#0A5BC4] hover:bg-[#094fa8]"
-              disabled={loading || (pagination ? !pagination.hasNext : filtered.length < limit)}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Próxima
-            </Button>
-          </div>
-        </CardHeader>
+            <div className="flex items-center justify-between gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                className="h-10 rounded-2xl"
+                disabled={!pagination?.hasPrev || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Anterior
+              </Button>
 
-        <CardContent>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <Table>
+              <Button
+                variant="outline"
+                className="h-10 rounded-2xl"
+                disabled={!pagination?.hasNext || loading}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+            <Table className="table-fixed">
               <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Verificação</TableHead>
-                  <TableHead className="text-right">Criado em</TableHead>
+                <TableRow className="bg-slate-50 border-b border-slate-200">
+                  <TableHead className="w-[34%]">Usuário</TableHead>
+                  <TableHead className="w-[36%]">E-mail</TableHead>
+                  <TableHead className="w-[18%] text-center">Status</TableHead>
+                  <TableHead className="w-[12%] text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
-                {filtered.length === 0 ? (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-slate-500">
-                      {loading ? "Carregando usuários…" : "Nenhum usuário encontrado."}
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-500">
+                      Carregando usuários...
+                    </TableCell>
+                  </TableRow>
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-500">
+                      Nenhum usuário encontrado.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filtered.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium text-slate-900">{fullName(u)}</TableCell>
-                      <TableCell className="text-slate-700">{u.email}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={[
-                              "h-2 w-2 rounded-full",
-                              u.isActive ? "bg-emerald-500" : "bg-slate-300",
-                            ].join(" ")}
-                          />
-                          <span className="text-sm text-slate-700">
-                            {u.isActive ? "Ativo" : "Inativo"}
-                          </span>
+                    <TableRow key={u.id} className="hover:bg-slate-50/60 border-b border-slate-100">
+                      <TableCell className="min-w-0">
+                        <div className="truncate font-medium text-slate-900">{fullName(u)}</div>
+                        <div className="truncate text-xs text-slate-500">@{u.username}</div>
+                      </TableCell>
+
+                      <TableCell className="min-w-0">
+                        <div className="truncate text-slate-700">{u.email}</div>
+                        <div className="text-xs text-slate-500">
+                          Criado: {formatDate(u.createdAt)}
                         </div>
                       </TableCell>
 
-                      <TableCell>
-                        {u.isVerified ? (
-                          <Badge className="rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                            Verificado
-                          </Badge>
-                        ) : (
-                          <Badge className="rounded-full bg-amber-50 text-amber-700 hover:bg-amber-50">
-                            Não verificado
-                          </Badge>
-                        )}
+                      <TableCell className="text-center">
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <StatusBadge active={u.isActive} />
+                          <SmallFlag ok={u.isVerified} onLabel="Verificado" offLabel="Pendente" />
+                          <SmallFlag ok={u.twoFactorEnabled} onLabel="2FA On" offLabel="2FA Off" />
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right text-slate-600">{formatDate(u.createdAt)}</TableCell>
+
+                      <TableCell className="text-center">
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-2xl"
+                            onClick={() => openDetailsDialog(u)}
+                            disabled={loading}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-2xl"
+                            onClick={() => openStatusDialog(u)}
+                            disabled={loading}
+                          >
+                            <Power className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </div>
-
-          {pagination ? (
-            <div className="mt-4 text-sm text-slate-500">
-              Total: <span className="font-medium text-slate-700">{pagination.total}</span> •
-              Limite: <span className="font-medium text-slate-700">{pagination.limit}</span>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+
+      {/* Dialog Ativar/Desativar */}
+      <Dialog open={statusDialogOpen} onOpenChange={onStatusDialogOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {statusUser?.isActive ? "Desativar usuário" : "Ativar usuário"}
+            </DialogTitle>
+            <DialogDescription>
+              Usuário: <span className="font-medium">{statusUser?.email ?? "—"}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="status-reason">Motivo</Label>
+            <Textarea
+              id="status-reason"
+              value={statusReason}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setStatusReason(e.target.value)
+              }
+              placeholder="Ex.: Solicitação do suporte / política interna..."
+              className="min-h-[110px]"
+              disabled={statusSubmitting}
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onStatusDialogOpenChange(false)}
+              disabled={statusSubmitting}
+            >
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => void confirmStatusChange()}
+              disabled={statusSubmitting || !statusUser}
+            >
+              {statusSubmitting ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Detalhes */}
+      <Dialog open={detailsDialogOpen} onOpenChange={onDetailsDialogOpenChange}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do usuário</DialogTitle>
+            <DialogDescription>
+              {detailsUser ? detailsUser.email : "—"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsUser ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Nome</div>
+                <div className="mt-1 text-sm text-slate-900">{fullName(detailsUser)}</div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Username</div>
+                <div className="mt-1 text-sm text-slate-900">@{detailsUser.username}</div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Roles</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {detailsUser.roles.length > 0 ? (
+                    detailsUser.roles.map((r) => (
+                      <Badge
+                        key={r.role.id}
+                        variant="secondary"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-slate-800"
+                        title={r.role.name}
+                      >
+                        {r.role.displayName || r.role.name}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500">—</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Segurança</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <SmallFlag ok={detailsUser.isVerified} onLabel="Verificado" offLabel="Pendente" />
+                  <SmallFlag ok={detailsUser.twoFactorEnabled} onLabel="2FA On" offLabel="2FA Off" />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Criado em</div>
+                <div className="mt-1 text-sm text-slate-900">
+                  {formatDate(detailsUser.createdAt)}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-xs font-medium text-slate-500">Último login</div>
+                <div className="mt-1 text-sm text-slate-900">
+                  {formatDate(detailsUser.lastLoginAt)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-slate-500">—</div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onDetailsDialogOpenChange(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
