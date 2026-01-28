@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Shield, Eye } from "lucide-react";
+import { Search, Plus, RefreshCw, Shield } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -7,15 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +20,9 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
+import { RoleDetailsDialog } from "@/components/roles/RoleDetailsDialog";
+import { RolesTable, type RolesTableRole } from "@/components/roles/RolesTable";
+
 type ApiPagination = {
   page: number;
   limit: number;
@@ -35,26 +32,38 @@ type ApiPagination = {
   hasPrev: boolean;
 };
 
-type ApiRole = {
-  id: string;
-  name: string;
-  displayName: string;
-  description: string | null;
-  color: string | null;
-  permissions: string[];
-  isSystem: boolean;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  _count?: {
-    users?: number;
-  };
-};
+type ApiRole = RolesTableRole;
 
 type RolesResponse = {
   data: ApiRole[];
   pagination: ApiPagination;
 };
+
+type AvailablePermissionsResponse = {
+  permissions: {
+    key: string;
+    description?: string;
+    category?: string;
+    level?: "read" | "write" | "delete" | "manage" | "admin";
+  }[];
+  categories: {
+    name: string;
+    displayName: string;
+    permissions: string[];
+  }[];
+};
+
+type CreateRoleBody = {
+  name: string;
+  displayName: string;
+  description?: string;
+  color?: string;
+  permissions: string[];
+  parentId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type UpsertMode = "create" | "edit";
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -67,19 +76,27 @@ function readErrorMessage(err: unknown): string {
   return "Ocorreu um erro inesperado.";
 }
 
-function formatDate(iso?: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-}
-
 function Pill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full bg-slate-50 px-2 py-1 text-xs text-slate-700 border border-slate-200">
+    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-700">
       {children}
     </span>
   );
+}
+
+function clampHexColor(v: string): string {
+  const s = v.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(s)) return s;
+  return "#0A5BC4";
+}
+
+function sortPermissions(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function isValidRoleName(name: string): boolean {
+  if (name.length < 1 || name.length > 50) return false;
+  return /^[a-zA-Z0-9_-]+$/.test(name);
 }
 
 export default function Roles() {
@@ -91,32 +108,41 @@ export default function Roles() {
   const [page, setPage] = useState<number>(1);
   const limit = 20;
 
-  // Dialog detalhes
+  // Details dialog
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [detailsRole, setDetailsRole] = useState<ApiRole | null>(null);
+
+  // Upsert dialog (create/edit)
+  const [upsertMode, setUpsertMode] = useState<UpsertMode>("create");
+  const [editingRole, setEditingRole] = useState<ApiRole | null>(null);
+
+  const [createOpen, setCreateOpen] = useState<boolean>(false);
+  const [createName, setCreateName] = useState<string>("");
+  const [createDisplayName, setCreateDisplayName] = useState<string>("");
+  const [createDescription, setCreateDescription] = useState<string>("");
+  const [createColor, setCreateColor] = useState<string>("#0A5BC4");
+  const [createSubmitting, setCreateSubmitting] = useState<boolean>(false);
+
+  const [catalog, setCatalog] = useState<AvailablePermissionsResponse | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState<boolean>(false);
+  const [permSearch, setPermSearch] = useState<string>("");
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
 
     return items.filter((r) => {
-      const a = r.displayName.toLowerCase();
-      const b = r.name.toLowerCase();
-      const c = (r.description ?? "").toLowerCase();
-      return a.includes(q) || b.includes(q) || c.includes(q);
+      const name = `${r.displayName} ${r.name}`.toLowerCase();
+      const perms = r.permissions.join(" ").toLowerCase();
+      return name.includes(q) || perms.includes(q);
     });
   }, [items, query]);
 
   async function fetchRoles(p: number) {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set("page", String(p));
-      params.set("limit", String(limit));
-      // OBS: busca real via backend (também tem filtro client-side)
-      if (query.trim()) params.set("search", query.trim());
-
-      const res = await apiRequest<RolesResponse>(`/api/v1/roles?${params.toString()}`);
+      const res = await apiRequest<RolesResponse>(`/api/v1/roles?page=${p}&limit=${limit}`);
       setItems(res.data);
       setPagination(res.pagination);
     } catch (err: unknown) {
@@ -130,6 +156,24 @@ export default function Roles() {
     }
   }
 
+  async function fetchCatalog() {
+    setCatalogLoading(true);
+    try {
+      const res = await apiRequest<AvailablePermissionsResponse>(
+        "/api/v1/roles/permissions/available"
+      );
+      setCatalog(res);
+    } catch (err: unknown) {
+      toast({
+        title: "Falha ao carregar permissões",
+        description: readErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setCatalogLoading(false);
+    }
+  }
+
   function openDetails(role: ApiRole) {
     setDetailsRole(role);
     setDetailsOpen(true);
@@ -140,21 +184,203 @@ export default function Roles() {
     if (!open) setDetailsRole(null);
   }
 
-  // Recarrega quando muda page
+  function resetUpsertForm() {
+    setUpsertMode("create");
+    setEditingRole(null);
+    setCreateName("");
+    setCreateDisplayName("");
+    setCreateDescription("");
+    setCreateColor("#0A5BC4");
+    setPermSearch("");
+    setSelectedPerms(new Set());
+    setCreateSubmitting(false);
+  }
+
+  async function openCreateDialog() {
+    setUpsertMode("create");
+    setEditingRole(null);
+    setCreateOpen(true);
+
+    if (!catalog && !catalogLoading) {
+      await fetchCatalog();
+    }
+  }
+
+  async function openEditDialog(role: ApiRole) {
+    if (role.isSystem) {
+      toast({
+        title: "Não permitido",
+        description: "Roles do sistema não podem ser editadas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpsertMode("edit");
+    setEditingRole(role);
+
+    setCreateName(role.name);
+    setCreateDisplayName(role.displayName);
+    setCreateDescription(role.description ?? "");
+    setCreateColor(role.color ?? "#0A5BC4");
+    setPermSearch("");
+    setSelectedPerms(new Set(role.permissions));
+
+    setCreateOpen(true);
+
+    if (!catalog && !catalogLoading) {
+      await fetchCatalog();
+    }
+  }
+
+  function onCreateOpenChange(open: boolean) {
+    setCreateOpen(open);
+    if (!open) resetUpsertForm();
+  }
+
+  function togglePerm(key: string) {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function selectAllFromCategory(categoryPerms: string[]) {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      for (const p of categoryPerms) next.add(p);
+      return next;
+    });
+  }
+
+  function clearAllFromCategory(categoryPerms: string[]) {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      for (const p of categoryPerms) next.delete(p);
+      return next;
+    });
+  }
+
+  async function submitUpsertRole() {
+    const name = createName.trim();
+    const displayName = createDisplayName.trim();
+    const description = createDescription.trim();
+    const color = clampHexColor(createColor);
+
+    if (!isValidRoleName(name)) {
+      toast({
+        title: "Name inválido",
+        description: "Use apenas letras/números/_/- (1 a 50 caracteres).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (displayName.length < 1 || displayName.length > 100) {
+      toast({
+        title: "Display Name inválido",
+        description: "Informe entre 1 e 100 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (description.length > 500) {
+      toast({
+        title: "Descrição muito longa",
+        description: "Máximo de 500 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedPerms.size < 1) {
+      toast({
+        title: "Selecione permissões",
+        description: "Você precisa selecionar pelo menos 1 permissão.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const body: CreateRoleBody = {
+      name,
+      displayName,
+      permissions: Array.from(selectedPerms).sort(sortPermissions),
+    };
+
+    if (description.length > 0) body.description = description;
+    if (color) body.color = color;
+
+    try {
+      setCreateSubmitting(true);
+
+      if (upsertMode === "create") {
+        await apiRequest("/api/v1/roles", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+
+        toast({
+          title: "Role criada",
+          description: `${displayName} (${name}) foi criada com sucesso.`,
+        });
+      } else {
+        if (!editingRole) {
+          toast({
+            title: "Erro interno",
+            description: "Role para edição não definida.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        await apiRequest(`/api/v1/roles/${editingRole.id}`, {
+          method: "PUT",
+          body: JSON.stringify(body), // pode enviar permissions sempre ✅
+        });
+
+        toast({
+          title: "Role atualizada",
+          description: `${displayName} foi atualizada com sucesso.`,
+        });
+      }
+
+      onCreateOpenChange(false);
+      await fetchRoles(page);
+    } catch (err: unknown) {
+      toast({
+        title: upsertMode === "create" ? "Erro ao criar role" : "Erro ao atualizar role",
+        description: readErrorMessage(err),
+        variant: "destructive",
+      });
+    } finally {
+      setCreateSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     void fetchRoles(page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  // Recarrega quando muda busca (volta pra page 1)
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      setPage(1);
-      void fetchRoles(1);
-    }, 250);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  const totalOnPage = filtered.length;
+
+  const catalogPerms = catalog?.permissions ?? [];
+  const categories = catalog?.categories ?? [];
+
+  const filteredCatalogPerms = useMemo(() => {
+    const q = permSearch.trim().toLowerCase();
+    if (!q) return catalogPerms;
+    return catalogPerms.filter((p) => {
+      const key = p.key.toLowerCase();
+      const desc = (p.description ?? "").toLowerCase();
+      const cat = (p.category ?? "").toLowerCase();
+      const lvl = (p.level ?? "").toLowerCase();
+      return key.includes(q) || desc.includes(q) || cat.includes(q) || lvl.includes(q);
+    });
+  }, [catalogPerms, permSearch]);
 
   return (
     <div className="space-y-5">
@@ -167,14 +393,21 @@ export default function Roles() {
           </p>
         </div>
 
-        <div className="relative w-full sm:w-[420px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-            placeholder="Buscar por displayName, name ou descrição..."
-            className="h-11 rounded-2xl pl-10"
-          />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative w-full sm:w-[420px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+              placeholder="Buscar por name, displayName ou permissão..."
+              className="h-11 rounded-2xl pl-10"
+            />
+          </div>
+
+          <Button className="h-11 rounded-2xl gap-2" onClick={() => void openCreateDialog()}>
+            <Plus className="h-4 w-4" />
+            Nova role
+          </Button>
         </div>
       </div>
 
@@ -183,7 +416,7 @@ export default function Roles() {
           {/* Top bar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-slate-700">
-              <span className="font-semibold">Total nesta página:</span> {filtered.length}
+              <span className="font-semibold">Total na página:</span> {totalOnPage}
               {pagination ? (
                 <>
                   <span className="mx-2 text-slate-300">•</span>
@@ -215,206 +448,278 @@ export default function Roles() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead className="w-[42%]">Role</TableHead>
-                  <TableHead className="w-[18%] text-center">Usuários</TableHead>
-                  <TableHead className="w-[28%]">Flags</TableHead>
-                  <TableHead className="w-[12%] text-center">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-500">
-                      Carregando roles...
-                    </TableCell>
-                  </TableRow>
-                ) : filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-sm text-slate-500">
-                      Nenhuma role encontrada.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((r) => {
-                    const usersCount = r._count?.users ?? 0;
-                    return (
-                      <TableRow key={r.id} className="hover:bg-slate-50/60">
-                        <TableCell className="min-w-0">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700">
-                              <Shield className="h-4 w-4" />
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="truncate font-medium text-slate-900">
-                                {r.displayName}
-                              </div>
-                              <div className="truncate text-xs text-slate-500">
-                                <span className="font-mono">{r.name}</span>
-                                {r.description ? (
-                                  <>
-                                    <span className="mx-2 text-slate-300">•</span>
-                                    <span className="truncate">{r.description}</span>
-                                  </>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-center">
-                          <Badge className="rounded-full bg-slate-100 text-slate-800 border border-slate-200">
-                            {usersCount}
-                          </Badge>
-                        </TableCell>
-
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Pill>{r.permissions.length} permissões</Pill>
-                            <Pill>{r.isSystem ? "System" : "Custom"}</Pill>
-                            <Badge
-                              className={[
-                                "rounded-full border px-2 py-0.5 text-xs",
-                                r.isActive
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-slate-100 text-slate-700 border-slate-200",
-                              ].join(" ")}
-                            >
-                              {r.isActive ? "Ativa" : "Inativa"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-2xl"
-                            onClick={() => openDetails(r)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <RolesTable
+            loading={loading}
+            roles={filtered}
+            onOpenDetails={openDetails}
+            onEdit={(r) => void openEditDialog(r)}
+          />
         </CardContent>
       </Card>
 
-      {/* Dialog detalhes */}
-      <Dialog open={detailsOpen} onOpenChange={onDetailsOpenChange}>
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+      <RoleDetailsDialog open={detailsOpen} onOpenChange={onDetailsOpenChange} role={detailsRole} />
+
+      {/* Dialog Create/Edit */}
+      <Dialog open={createOpen} onOpenChange={onCreateOpenChange}>
+        <DialogContent className="sm:max-w-4xl max-h-[88vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Detalhes da role</DialogTitle>
+            <DialogTitle>{upsertMode === "create" ? "Nova role" : "Editar role"}</DialogTitle>
             <DialogDescription>
-              {detailsRole ? (
+              {upsertMode === "create" ? (
                 <>
-                  <span className="font-medium">{detailsRole.displayName}</span>{" "}
-                  <span className="text-slate-400">•</span>{" "}
-                  <span className="font-mono">{detailsRole.name}</span>
+                  Cria uma nova role usando <span className="font-mono">POST /api/v1/roles</span>.
                 </>
               ) : (
-                "—"
-              )}
+                <>
+                  Atualiza usando <span className="font-mono">PUT /api/v1/roles/:id</span>.
+                </>
+              )}{" "}
+              Selecione pelo menos 1 permissão.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto pr-1">
-            {detailsRole ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Status</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge
-                        className={[
-                          "rounded-full border px-2 py-0.5 text-xs",
-                          detailsRole.isActive
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-slate-100 text-slate-700 border-slate-200",
-                        ].join(" ")}
-                      >
-                        {detailsRole.isActive ? "Ativa" : "Inativa"}
-                      </Badge>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-sm font-semibold text-slate-900">Informações</div>
 
-                      <Pill>{detailsRole.isSystem ? "System" : "Custom"}</Pill>
-                      {detailsRole.color ? <Pill>Cor: {detailsRole.color}</Pill> : <Pill>Sem cor</Pill>}
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="create-name">Name</Label>
+                    <Input
+                      id="create-name"
+                      value={createName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setCreateName(e.target.value)
+                      }
+                      placeholder="ex: moderator"
+                      className="h-11 rounded-2xl"
+                      disabled={createSubmitting}
+                    />
+                    <div className="text-xs text-slate-500">
+                      Padrão: letras/números/_/- (1 a 50).
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Auditoria</div>
-                    <div className="mt-2 flex flex-col gap-2 text-sm text-slate-700">
-                      <div>
-                        <span className="text-slate-500">Criada em:</span>{" "}
-                        {formatDate(detailsRole.createdAt)}
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Atualizada em:</span>{" "}
-                        {formatDate(detailsRole.updatedAt)}
-                      </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="create-displayName">Display Name</Label>
+                    <Input
+                      id="create-displayName"
+                      value={createDisplayName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setCreateDisplayName(e.target.value)
+                      }
+                      placeholder="ex: Moderator"
+                      className="h-11 rounded-2xl"
+                      disabled={createSubmitting}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-description">Descrição</Label>
+                    <Textarea
+                      id="create-description"
+                      value={createDescription}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                        setCreateDescription(e.target.value)
+                      }
+                      placeholder="Opcional"
+                      className="min-h-[110px]"
+                      disabled={createSubmitting}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="create-color">Cor (hex)</Label>
+                    <Input
+                      id="create-color"
+                      value={createColor}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setCreateColor(e.target.value)
+                      }
+                      placeholder="#0A5BC4"
+                      className="h-11 rounded-2xl"
+                      disabled={createSubmitting}
+                    />
+                    <div className="text-xs text-slate-500">
+                      Ex.: <span className="font-mono">#0A5BC4</span>
                     </div>
-                  </div>
-                </div>
-
-                {detailsRole.description ? (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Descrição</div>
-                    <div className="mt-2 text-sm text-slate-800">{detailsRole.description}</div>
-                  </div>
-                ) : null}
-
-                <Separator />
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Permissões</div>
-                      <div className="text-xs text-slate-500">
-                        Total: {detailsRole.permissions.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 max-h-[320px] overflow-y-auto pr-1">
-                    {detailsRole.permissions.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-slate-500">
-                        Nenhuma permissão.
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {detailsRole.permissions.map((p) => (
-                          <Badge
-                            key={p}
-                            variant="secondary"
-                            className="rounded-full bg-slate-100 px-3 py-1 text-slate-800 border border-slate-200"
-                          >
-                            {p}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="text-sm text-slate-500">—</div>
-            )}
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Permissões</div>
+                    <div className="mt-1 text-xs text-slate-500">
+                      Catálogo via{" "}
+                      <span className="font-mono">GET /api/v1/roles/permissions/available</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-2xl gap-2"
+                    onClick={() => void fetchCatalog()}
+                    disabled={catalogLoading || createSubmitting}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Atualizar
+                  </Button>
+                </div>
+
+                <div className="mt-4">
+                  <Input
+                    value={permSearch}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermSearch(e.target.value)}
+                    placeholder="Buscar permissões..."
+                    className="h-11 rounded-2xl"
+                    disabled={catalogLoading || createSubmitting}
+                  />
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Pill>Selecionadas: {selectedPerms.size}</Pill>
+                </div>
+
+                <Separator className="my-4" />
+
+                {catalogLoading ? (
+                  <div className="py-10 text-center text-sm text-slate-500">
+                    Carregando catálogo...
+                  </div>
+                ) : !catalog ? (
+                  <div className="py-10 text-center text-sm text-slate-500">
+                    Catálogo não carregado.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {categories.length > 0 ? (
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-slate-500">Categorias</div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {categories.map((c) => (
+                            <div
+                              key={c.name}
+                              className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2"
+                            >
+                              <div className="text-xs font-medium text-slate-800">
+                                {c.displayName}
+                              </div>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-2xl"
+                                onClick={() => selectAllFromCategory(c.permissions)}
+                                disabled={createSubmitting}
+                              >
+                                Selecionar
+                              </Button>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 rounded-2xl"
+                                onClick={() => clearAllFromCategory(c.permissions)}
+                                disabled={createSubmitting}
+                              >
+                                Limpar
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="max-h-[420px] overflow-y-auto pr-1">
+                      {filteredCatalogPerms.length === 0 ? (
+                        <div className="py-10 text-center text-sm text-slate-500">
+                          Nenhuma permissão encontrada.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredCatalogPerms.map((p) => {
+                            const checked = selectedPerms.has(p.key);
+
+                            return (
+                              <div
+                                key={p.key}
+                                className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    checked={checked}
+                                    onCheckedChange={() => togglePerm(p.key)}
+                                    disabled={createSubmitting}
+                                  />
+
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-mono text-sm text-slate-900">
+                                        {p.key}
+                                      </span>
+                                      {p.level ? (
+                                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-800">
+                                          {p.level}
+                                        </span>
+                                      ) : null}
+                                    </div>
+
+                                    {p.description ? (
+                                      <div className="mt-1 text-xs text-slate-500">
+                                        {p.description}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 rounded-2xl"
+                                  onClick={() => togglePerm(p.key)}
+                                  disabled={createSubmitting}
+                                >
+                                  {checked ? "Remover" : "Adicionar"}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onDetailsOpenChange(false)}>
-              Fechar
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => onCreateOpenChange(false)}>
+              Cancelar
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => void submitUpsertRole()}
+              disabled={createSubmitting}
+              className="gap-2"
+            >
+              <Shield className="h-4 w-4" />
+              {createSubmitting
+                ? upsertMode === "create"
+                  ? "Criando..."
+                  : "Salvando..."
+                : upsertMode === "create"
+                ? "Criar role"
+                : "Salvar alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
