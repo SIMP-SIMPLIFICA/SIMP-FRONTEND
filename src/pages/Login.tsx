@@ -132,12 +132,7 @@ export default function Login() {
                   <button
                     type="button"
                     className="text-sm font-semibold text-[#0A5BC4] hover:underline"
-                    onClick={() =>
-                      toast({
-                        title: "Esqueci a senha",
-                        description: "Use o fluxo de recuperação de senha.",
-                      })
-                    }
+                    onClick={() => nav("/forgot-password")}
                   >
                     Esqueceu a senha?
                   </button>

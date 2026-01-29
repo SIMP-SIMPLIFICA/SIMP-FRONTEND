@@ -10,6 +10,7 @@ import {
   Shield,
   ChevronLeft,
   LogOut,
+  User,
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -73,6 +74,11 @@ export default function Sidebar() {
         icon: <BookOpen className="h-5 w-5" />,
       },
       {
+        label: "Meu Perfil",
+        to: "/profile",
+        icon: <User className="h-5 w-5" />,
+      },
+      {
         label: "Configurações",
         to: "/configuracoes",
         icon: <Settings className="h-5 w-5" />,
@@ -109,7 +115,6 @@ export default function Sidebar() {
         collapsed ? "w-[88px]" : "w-[280px]"
       )}
     >
-      {/* Header / Brand */}
       <div className="flex h-16 items-center gap-3 px-6">
         <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/15">
           <LayoutGrid className="h-5 w-5" />
@@ -119,7 +124,6 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* Nav */}
       <nav className="px-4 pt-4">
         <ul className="space-y-2">
           {visibleItems.map((it) => (
@@ -147,10 +151,8 @@ export default function Sidebar() {
         </ul>
       </nav>
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Footer actions */}
       <div className="px-4 pb-5 space-y-2">
         <button
           onClick={toggleCollapsed}
@@ -180,11 +182,6 @@ export default function Sidebar() {
             <span className="font-semibold text-red-100">Sair</span>
           )}
         </button>
-
-        {/* opcional: debugzinho pra ver rota atual */}
-        <div className="mt-2 px-1 text-[11px] text-white/50">
-          {!collapsed ? location.pathname : ""}
-        </div>
       </div>
     </aside>
   );

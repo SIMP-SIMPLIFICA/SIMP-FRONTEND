@@ -1,6 +1,5 @@
 import { Bell } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
-import { clearAccessToken } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
 function initialsFromName(first?: string | null, last?: string | null, fallback?: string) {
@@ -29,11 +28,6 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
 
   const initials = initialsFromName(user?.firstName, user?.lastName, user?.username || user?.email);
 
-  function logout() {
-    clearAccessToken();
-    nav("/login");
-  }
-
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="text-xl font-semibold text-slate-800">{title}</div>
@@ -45,9 +39,9 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
         </button>
 
         <button
-          onClick={logout}
-          className="flex items-center gap-3 rounded-2xl px-2 py-1 hover:bg-slate-50"
-          title="Sair"
+          onClick={() => nav("/profile")}
+          className="flex items-center gap-3 rounded-2xl px-2 py-1 hover:bg-slate-50 transition-colors"
+          title="Ir para meu perfil"
         >
           <div className="text-right leading-tight">
             <div className="font-semibold text-slate-800">{fullName}</div>
