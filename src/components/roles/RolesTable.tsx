@@ -1,4 +1,4 @@
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, Trash2, Copy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,8 +47,10 @@ export function RolesTable(props: {
   roles: RolesTableRole[];
   onOpenDetails: (role: RolesTableRole) => void;
   onEdit: (role: RolesTableRole) => void;
+  onDuplicate: (role: RolesTableRole) => void;
+  onDelete: (role: RolesTableRole) => void;
 }) {
-  const { loading, roles, onOpenDetails, onEdit } = props;
+  const { loading, roles, onOpenDetails, onEdit, onDuplicate, onDelete } = props;
 
   return (
     <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
@@ -56,9 +58,9 @@ export function RolesTable(props: {
         <TableHeader>
           <TableRow className="bg-slate-50 border-b border-slate-200">
             <TableHead className="w-[36%]">Role</TableHead>
-            <TableHead className="w-[40%]">Permissões</TableHead>
+            <TableHead className="w-[32%]">Permissões</TableHead>
             <TableHead className="w-[12%] text-center">Tipo</TableHead>
-            <TableHead className="w-[12%] text-center">Ações</TableHead>
+            <TableHead className="w-[20%] text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -122,11 +124,33 @@ export function RolesTable(props: {
                       size="sm"
                       variant="outline"
                       className="rounded-2xl"
+                      onClick={() => onDuplicate(r)}
+                      disabled={loading}
+                      title="Duplicar Role"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-2xl"
                       onClick={() => onEdit(r)}
                       disabled={loading || r.isSystem}
                       title={r.isSystem ? "Roles do sistema não podem ser editadas" : "Editar"}
                     >
                       <Pencil className="h-4 w-4" />
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                      onClick={() => onDelete(r)}
+                      disabled={loading || r.isSystem}
+                      title={r.isSystem ? "Roles do sistema não podem ser excluídas" : "Excluir"}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>

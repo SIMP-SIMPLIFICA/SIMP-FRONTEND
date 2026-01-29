@@ -6,19 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
-import { setAccessToken } from "@/lib/auth";
+import { setAuthTokens } from "@/lib/auth"; 
 import { LayoutGrid } from "lucide-react";
 
 type LoginResponse = {
   message?: string;
   user?: unknown;
   tokens?: { accessToken?: string; refreshToken?: string; expiresIn?: number };
+  accessToken?: string;
+  refreshToken?: string;
 };
 
 export default function Login() {
   const nav = useNavigate();
   const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("Admin123!"); // ajuste conforme seu seed
+  const [password, setPassword] = useState("Admin123!");
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -33,37 +35,37 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
 
-      const token = data?.tokens?.accessToken;
-      if (!token) throw { message: "Token não retornou no login." };
+      const accessToken = data.tokens?.accessToken || data.accessToken;
+      const refreshToken = data.tokens?.refreshToken || data.refreshToken;
 
-      // "remember me": se falso, poderia usar sessionStorage (simplificado aqui)
-      setAccessToken(token);
+      if (!accessToken) {
+        throw { message: "Token de acesso não retornado pela API." };
+      }
+
+      setAuthTokens(accessToken, refreshToken);
 
       toast({ title: "Login realizado", description: "Bem-vindo ao SIMP." });
       nav("/");
     } catch (err: unknown) {
-			let msg = "Não foi possível entrar. Verifique e-mail/senha e tente novamente.";
+      let msg = "Não foi possível entrar.";
 
-			if (typeof err === "string") {
-				msg = err;
-			} else if (err && typeof err === "object") {
-				if ("message" in err && typeof (err as { message?: unknown }).message === "string") {
-					msg = (err as { message: string }).message;
-				} else if ("error" in err && typeof (err as { error?: unknown }).error === "string") {
-					msg = (err as { error: string }).error;
-				}
-			}
+      if (typeof err === "string") {
+        msg = err;
+      } else if (err && typeof err === "object") {
+        const e = err as any;
+        msg = e.message || e.error || JSON.stringify(e);
+      }
 
-			toast({ title: "Falha no login", description: msg, variant: "destructive" });
-		} finally {
-			setLoading(false);
-		}
+      toast({ title: "Falha no login", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div className="min-h-screen bg-[#0A5BC4]">
       <div className="mx-auto grid min-h-screen max-w-[1200px] grid-cols-1 overflow-hidden lg:grid-cols-2">
-        {/* LEFT */}
+        {/* LEFT - Banner */}
         <div className="relative hidden lg:flex flex-col justify-center px-14 text-white">
           <div className="mb-10 flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/15">
@@ -81,35 +83,11 @@ export default function Login() {
             A ferramenta definitiva para governança pública, integrando finanças,
             projetos e transparência em um só lugar.
           </p>
-
-          <div className="mt-10 flex gap-4">
-            <div className="w-[220px] rounded-2xl bg-white/10 p-5 ring-1 ring-white/10">
-              <div className="text-2xl font-semibold">100%</div>
-              <div className="mt-1 text-sm text-white/80">Transparência Digital</div>
-            </div>
-            <div className="w-[220px] rounded-2xl bg-white/10 p-5 ring-1 ring-white/10">
-              <div className="text-2xl font-semibold">24/7</div>
-              <div className="mt-1 text-sm text-white/80">Suporte Técnico</div>
-            </div>
-          </div>
-
-          <div className="pointer-events-none absolute inset-0 opacity-20">
-            <div className="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-white blur-3xl" />
-          </div>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT - Form */}
         <div className="flex items-center justify-center bg-[#F6F8FC] px-6 py-10 lg:px-12">
           <div className="w-full max-w-md">
-            <div className="mb-8 lg:hidden">
-              <div className="flex items-center gap-3 text-white">
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15">
-                  <LayoutGrid className="h-6 w-6 text-white" />
-                </div>
-                <div className="text-2xl font-semibold text-white">SIMP</div>
-              </div>
-            </div>
-
             <Card className="rounded-3xl border-slate-200 p-8 shadow-sm">
               <h2 className="text-3xl font-semibold text-slate-900">Bem-vindo</h2>
               <p className="mt-2 text-slate-500">
@@ -145,9 +123,9 @@ export default function Login() {
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2 text-sm text-slate-600">
                     <Checkbox
-											checked={remember}
-											onCheckedChange={(v: boolean | "indeterminate") => setRemember(v === true)}
-										/>
+                      checked={remember}
+                      onCheckedChange={(v) => setRemember(v === true)}
+                    />
                     Lembrar-me
                   </label>
 
@@ -157,7 +135,7 @@ export default function Login() {
                     onClick={() =>
                       toast({
                         title: "Esqueci a senha",
-                        description: "Depois conectamos com /forgot-password 😉",
+                        description: "Use o fluxo de recuperação de senha.",
                       })
                     }
                   >
@@ -172,13 +150,6 @@ export default function Login() {
                 >
                   {loading ? "Entrando..." : "Entrar no Sistema"}
                 </Button>
-
-                <div className="pt-4 text-center text-sm text-slate-500">
-                  Novo por aqui?{" "}
-                  <span className="font-semibold text-[#0A5BC4]">
-                    Solicite acesso ao RH.
-                  </span>
-                </div>
               </form>
             </Card>
           </div>
