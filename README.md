@@ -127,28 +127,5 @@ npm run build
 
 The files will be generated in the `dist/` folder.
 
----
-
-## 📝 License
-
-This project is for private municipal management use.
-
 ```
 
----
-
-### 2. Git Commands
-
-Run these commands in your terminal to include the code cleanup, the environment example, and the new documentation:
-
-```bash
-# 1. Stage all changes (Cleanup + .env.example + README.md)
-git add .
-
-# 2. Commit
-git commit -m "chore: cleanup code, add env example and update readme" -m "- Remove debug comments and unused imports in Sidebar and UserFormDialog" -m "- Add .env.example for project setup" -m "- Update README.md with comprehensive English documentation"
-
-# 3. Push to repository
-git push origin main
-
-```
