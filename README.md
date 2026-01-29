@@ -1,73 +1,154 @@
-# React + TypeScript + Vite
+Here is the updated **`README.md`** in English, replacing the generic Vite template with the specific documentation for your SIMP project.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+After updating the file, run the git commands below.
 
-Currently, two official plugins are available:
+### 1. Update `README.md`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Replace all content in your `README.md` file with this:
 
-## React Compiler
+```markdown
+# SIMP - Frontend (Municipal Management System)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Modern administrative interface for municipal management, built with **React**, **TypeScript**, and **Tailwind CSS**. This project consumes a Node.js/Fastify API (Boilerplate) with full authentication and Role-Based Access Control (RBAC).
 
-## Expanding the ESLint configuration
+![Status](https://img.shields.io/badge/Status-Finished-success)
+![Coverage](https://img.shields.io/badge/Swagger-100%25_Covered-blue)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 Technologies
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+* **Core:** React 18, TypeScript, Vite
+* **Styling:** Tailwind CSS, shadcn/ui (Radix Primitives)
+* **Routing:** React Router DOM v6
+* **Icons:** Lucide React
+* **Http Client:** Fetch API (Custom wrapper with Interceptors)
+* **State Management:** Native Hooks + Context API (Auth)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## ✨ Features
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 🔐 Authentication & Security
+* Login with "Remember me" support.
+* **Automatic Refresh Token:** Silent session renewal (401 Interceptor).
+* **Password Recovery:** Full "Forgot Password" and "Reset Password" flow via email token.
+* **Sessions:** View and remotely revoke connected devices.
+
+### 👥 User Management
+* **Full CRUD:** Create, List, Update, and Delete users.
+* **Status Control:** Activate/Deactivate accounts with reason logging.
+* **Force Reset:** Admin can force a password reset for any user.
+* **Session Management:** Admin can terminate specific user sessions.
+
+### 🛡️ Access Management (RBAC)
+* **Roles:** Create, Edit, Duplicate, and Delete access profiles.
+* **Permissions:** Visual catalog organized by modules (Users, Financial, System, etc.) with Fallback support.
+* **Protection:** Edit lock for System Roles (`isSystem`).
+
+### 👤 User Profile (My Account)
+* Profile update (Name, Surname).
+* Secure password change.
+* Self-management of active sessions.
+
+---
+
+## 🛠️ How to Run
+
+### Prerequisites
+* Node.js (v18+)
+* Backend (API) running locally or remotely.
+
+### 1. Installation
+Clone the repository and install dependencies:
+
+```bash
+git clone [https://github.com/your-username/simp-frontend.git](https://github.com/your-username/simp-frontend.git)
+cd simp-frontend
+npm install
+
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env` file in the project root (based on `.env.example`):
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+# Backend API URL
+VITE_API_URL=http://localhost:3000
+
+```
+
+### 3. Running
+
+Start the development server:
+
+```bash
+npm run dev
+
+```
+
+Access `http://localhost:5173` in your browser.
+
+---
+
+## 🔑 Default Credentials (Dev Environment)
+
+If using the standard backend seed:
+
+* **Email:** `admin@example.com`
+* **Password:** `Admin123!`
+
+---
+
+## 📂 Project Structure
+
+```text
+src/
+├── components/
+│   ├── layout/       # Sidebar, Topbar, AuthGate, PermissionGate
+│   ├── roles/        # Roles specific modals and tables
+│   ├── users/        # Users specific modals and tables
+│   └── ui/           # Base components (shadcn/ui)
+├── hooks/            # Custom hooks (useMe, useToast)
+├── lib/
+│   ├── api.ts        # HTTP Client with Refresh Token interceptor
+│   ├── auth.ts       # Token Management (LocalStorage)
+│   └── permissions.ts# Permission verification utilities
+├── pages/            # Application screens (Login, Dashboard, Users...)
+└── router.tsx        # Definition of public and protected routes
+
+```
+
+## 📦 Build for Production
+
+To generate optimized static files for deployment:
+
+```bash
+npm run build
+
+```
+
+The files will be generated in the `dist/` folder.
+
+---
+
+## 📝 License
+
+This project is for private municipal management use.
+
+```
+
+---
+
+### 2. Git Commands
+
+Run these commands in your terminal to include the code cleanup, the environment example, and the new documentation:
+
+```bash
+# 1. Stage all changes (Cleanup + .env.example + README.md)
+git add .
+
+# 2. Commit
+git commit -m "chore: cleanup code, add env example and update readme" -m "- Remove debug comments and unused imports in Sidebar and UserFormDialog" -m "- Add .env.example for project setup" -m "- Update README.md with comprehensive English documentation"
+
+# 3. Push to repository
+git push origin main
+
 ```
