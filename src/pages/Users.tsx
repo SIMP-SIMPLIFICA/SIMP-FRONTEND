@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Power, Eye, RefreshCw, XCircle } from "lucide-react";
+import { Search, Power, Eye, RefreshCw, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -29,6 +29,10 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
+
+import { UserFormDialog } from "@/components/users/UserFormDialog";
+
+// --- TYPES ---
 type ApiPagination = {
   page: number;
   limit: number;
@@ -42,7 +46,7 @@ type ApiRoleRef = {
   role: {
     id: string;
     name: string;
-    displayName?: string;
+    displayName: string;
   };
 };
 
@@ -87,21 +91,7 @@ type UserSessionsResponse = {
   sessions: ApiUserSession[];
 };
 
-type TerminateSessionsResponse = {
-  message: string;
-};
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-function readErrorMessage(err: unknown): string {
-  if (typeof err === "string") return err;
-  if (err instanceof Error) return err.message;
-  if (isRecord(err) && typeof err.message === "string") return err.message;
-  return "Ocorreu um erro inesperado.";
-}
-
+// --- HELPERS ---
 function fullName(u: ApiUser): string {
   const a = (u.firstName ?? "").trim();
   const b = (u.lastName ?? "").trim();
@@ -131,46 +121,7 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
-function SmallFlag({
-  ok,
-  onLabel,
-  offLabel,
-}: {
-  ok: boolean;
-  onLabel: string;
-  offLabel: string;
-}) {
-  return (
-    <Badge
-      className={[
-        "rounded-full border px-2 py-0.5 text-xs",
-        ok
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-          : "bg-amber-50 text-amber-700 border-amber-200",
-      ].join(" ")}
-    >
-      {ok ? onLabel : offLabel}
-    </Badge>
-  );
-}
-
-function sessionPrimaryLabel(s: ApiUserSession): string {
-  return (
-    s.deviceName ||
-    s.deviceType ||
-    (s.userAgent ? s.userAgent : null) ||
-    s.ipAddress ||
-    s.id
-  );
-}
-
-function sessionSecondaryLabel(s: ApiUserSession): string {
-  const parts: string[] = [];
-  if (s.ipAddress) parts.push(`IP: ${s.ipAddress}`);
-  if (s.fingerprint) parts.push(`FP: ${s.fingerprint}`);
-  return parts.length ? parts.join(" • ") : "—";
-}
-
+// --- MAIN COMPONENT ---
 export default function Users() {
   const [items, setItems] = useState<ApiUser[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
@@ -180,26 +131,37 @@ export default function Users() {
   const [page, setPage] = useState<number>(1);
   const limit = 20;
 
-  // Dialog status
-  const [statusDialogOpen, setStatusDialogOpen] = useState<boolean>(false);
+  // DIALOGS
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [statusUser, setStatusUser] = useState<ApiUser | null>(null);
-  const [statusReason, setStatusReason] = useState<string>("");
-  const [statusSubmitting, setStatusSubmitting] = useState<boolean>(false);
+  const [statusReason, setStatusReason] = useState("");
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
 
-  // Dialog detalhes
-  const [detailsDialogOpen, setDetailsDialogOpen] = useState<boolean>(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [detailsUser, setDetailsUser] = useState<ApiUser | null>(null);
+
+  // Form Dialog (Create/Edit)
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
+
+  // Delete Dialog
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<ApiUser | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  // Reset Password Dialog
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetUser, setResetUser] = useState<ApiUser | null>(null);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   // Sessões
   const [sessions, setSessions] = useState<ApiUserSession[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState<boolean>(false);
-  const [terminateAllLoading, setTerminateAllLoading] = useState<boolean>(false);
-  const [terminateOneLoadingId, setTerminateOneLoadingId] = useState<string | null>(null);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [terminateAllLoading, setTerminateAllLoading] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-
     return items.filter((u) => {
       const name = fullName(u).toLowerCase();
       const email = u.email.toLowerCase();
@@ -211,330 +173,242 @@ export default function Users() {
   async function fetchUsers(p: number) {
     setLoading(true);
     try {
-      const res = await apiRequest<UsersResponse>(
-        `/api/v1/users?page=${p}&limit=${limit}`
-      );
+      const res = await apiRequest<UsersResponse>(`/api/v1/users?page=${p}&limit=${limit}`);
       setItems(res.data);
       setPagination(res.pagination);
-    } catch (err: unknown) {
-      toast({
-        title: "Falha ao carregar usuários",
-        description: readErrorMessage(err),
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   }
 
-  function openStatusDialog(u: ApiUser) {
+  // --- ACTIONS: CREATE / EDIT ---
+  function openCreate() {
+    setEditingUser(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(u: ApiUser) {
+    setEditingUser(u);
+    setFormOpen(true);
+  }
+
+  // --- ACTIONS: DELETE ---
+  function openDelete(u: ApiUser) {
+    setDeleteUser(u);
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteUser) return;
+    try {
+      setDeleteSubmitting(true);
+      await apiRequest(`/api/v1/users/${deleteUser.id}`, { method: "DELETE" });
+      toast({ title: "Sucesso", description: "Usuário removido." });
+      setDeleteOpen(false);
+      void fetchUsers(page);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }
+
+  // --- ACTIONS: FORCE PASSWORD RESET ---
+  function openReset(u: ApiUser) {
+    setResetUser(u);
+    setResetOpen(true);
+  }
+
+  async function confirmReset() {
+    if (!resetUser) return;
+    try {
+      setResetSubmitting(true);
+      const res = await apiRequest<{ newPassword?: string; message?: string }>(
+        `/api/v1/users/${resetUser.id}/force-password-reset`,
+        { method: "POST" }
+      );
+
+      setResetOpen(false);
+      
+      if (res.newPassword) {
+        // Se o backend retorna a senha (comum em admins resets)
+        navigator.clipboard.writeText(res.newPassword);
+        toast({
+          title: "Senha Resetada!",
+          description: `Nova senha: ${res.newPassword} (Copiada)`,
+          duration: 10000,
+        });
+      } else {
+        toast({ title: "Sucesso", description: res.message || "Reset iniciado." });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setResetSubmitting(false);
+    }
+  }
+
+  // --- ACTIONS: STATUS ---
+  function openStatus(u: ApiUser) {
     setStatusUser(u);
     setStatusReason("");
     setStatusDialogOpen(true);
   }
 
-  function onStatusDialogOpenChange(open: boolean) {
-    setStatusDialogOpen(open);
-    if (!open) {
-      setStatusUser(null);
-      setStatusReason("");
-      setStatusSubmitting(false);
-    }
-  }
-
   async function confirmStatusChange() {
     if (!statusUser) return;
-
-    const reason = statusReason.trim();
-    if (reason.length < 3) {
-      toast({
-        title: "Informe um motivo",
-        description: "Digite pelo menos 3 caracteres.",
-        variant: "destructive",
-      });
+    if (statusReason.length < 3) {
+      toast({ title: "Atenção", description: "Informe um motivo válido.", variant: "destructive" });
       return;
     }
-
     const next = !statusUser.isActive;
-
     try {
       setStatusSubmitting(true);
-
-      const body: PatchUserStatusBody = { isActive: next, reason };
-
       await apiRequest(`/api/v1/users/${statusUser.id}/status`, {
         method: "PATCH",
-        body: JSON.stringify(body),
+        body: JSON.stringify({ isActive: next, reason: statusReason }),
       });
-
-      toast({
-        title: "Usuário atualizado",
-        description: `${fullName(statusUser)} agora está ${
-          next ? "ativo" : "inativo"
-        }.`,
-      });
-
-      onStatusDialogOpenChange(false);
-      await fetchUsers(page);
-    } catch (err: unknown) {
-      toast({
-        title: "Erro ao atualizar",
-        description: readErrorMessage(err),
-        variant: "destructive",
-      });
+      toast({ title: "Sucesso", description: `Usuário ${next ? "ativado" : "inativado"}.` });
+      setStatusDialogOpen(false);
+      void fetchUsers(page);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setStatusSubmitting(false);
     }
   }
 
-  function openDetailsDialog(u: ApiUser) {
+  // --- DETAILS & SESSIONS ---
+  function openDetails(u: ApiUser) {
     setDetailsUser(u);
     setDetailsDialogOpen(true);
   }
 
-  function onDetailsDialogOpenChange(open: boolean) {
-    setDetailsDialogOpen(open);
-    if (!open) {
-      setDetailsUser(null);
-      setSessions([]);
-      setSessionsLoading(false);
-      setTerminateAllLoading(false);
-      setTerminateOneLoadingId(null);
+  useEffect(() => {
+    if (detailsDialogOpen && detailsUser) {
+      void fetchUserSessions(detailsUser.id);
     }
-  }
+  }, [detailsDialogOpen, detailsUser]);
 
-  async function fetchUserSessions(userId: string) {
+  async function fetchUserSessions(id: string) {
     setSessionsLoading(true);
     try {
-      const res = await apiRequest<UserSessionsResponse>(
-        `/api/v1/users/${userId}/sessions`
-      );
+      const res = await apiRequest<UserSessionsResponse>(`/api/v1/users/${id}/sessions`);
       setSessions(res.sessions);
-    } catch (err: unknown) {
-      toast({
-        title: "Falha ao carregar sessões",
-        description: readErrorMessage(err),
-        variant: "destructive",
-      });
+    } catch {
       setSessions([]);
     } finally {
       setSessionsLoading(false);
     }
   }
 
-  async function terminateAllSessions(userId: string) {
+  async function terminateAllSessions(id: string) {
+    setTerminateAllLoading(true);
     try {
-      setTerminateAllLoading(true);
-      const res = await apiRequest<TerminateSessionsResponse>(
-        `/api/v1/users/${userId}/sessions`,
-        { method: "DELETE" }
-      );
-
-      toast({
-        title: "Sessões encerradas",
-        description: res.message,
-      });
-
-      await fetchUserSessions(userId);
-    } catch (err: unknown) {
-      toast({
-        title: "Não foi possível encerrar sessões",
-        description: readErrorMessage(err),
-        variant: "destructive",
-      });
+      await apiRequest(`/api/v1/users/${id}/sessions`, { method: "DELETE" });
+      toast({ title: "Sucesso", description: "Sessões encerradas." });
+      void fetchUserSessions(id);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
       setTerminateAllLoading(false);
     }
   }
 
-  async function terminateSession(sessionId: string, userId: string) {
-    try {
-      setTerminateOneLoadingId(sessionId);
-
-      await apiRequest(`/api/v1/auth/sessions/${sessionId}`, {
-        method: "DELETE",
-      });
-
-      toast({
-        title: "Sessão encerrada",
-        description: "A sessão foi encerrada com sucesso.",
-      });
-
-      // mantém lista consistente
-      await fetchUserSessions(userId);
-    } catch (err: unknown) {
-      toast({
-        title: "Não foi possível encerrar",
-        description: readErrorMessage(err),
-        variant: "destructive",
-      });
-    } finally {
-      setTerminateOneLoadingId(null);
-    }
-  }
-
+  // --- EFFECTS ---
   useEffect(() => {
     void fetchUsers(page);
   }, [page]);
 
-  useEffect(() => {
-    if (!detailsDialogOpen) return;
-    if (!detailsUser) return;
-    void fetchUserSessions(detailsUser.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailsDialogOpen, detailsUser?.id]);
-
-  const totalOnPage = filtered.length;
-
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold text-slate-900">Usuários</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Listagem consumindo <span className="font-mono">/api/v1/users</span>
+            Gestão de contas e acessos.
           </p>
         </div>
-
-        <div className="relative w-full sm:w-[420px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input
-            value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setQuery(e.target.value)
-            }
-            placeholder="Buscar por nome, e-mail ou usuário..."
-            className="h-11 rounded-2xl pl-10"
-          />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+          <div className="relative w-full sm:w-[320px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar usuários..."
+              className="h-11 rounded-2xl pl-10"
+            />
+          </div>
+          <Button className="h-11 rounded-2xl gap-2 bg-[#0A5BC4] hover:bg-[#094FA8]" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Novo Usuário
+          </Button>
         </div>
       </div>
 
+      {/* TABLE */}
       <Card className="rounded-3xl border-slate-200 shadow-sm">
         <CardContent className="p-5">
-          {/* Top bar */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-slate-700">
-              <span className="font-semibold">Total na página:</span> {totalOnPage}
-              {pagination ? (
-                <>
-                  <span className="mx-2 text-slate-300">•</span>
-                  <span className="text-slate-500">
-                    Total: {pagination.total} • Página: {pagination.page}/
-                    {pagination.totalPages}
-                  </span>
-                </>
-              ) : null}
-            </div>
-
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <Button
-                variant="outline"
-                className="h-10 rounded-2xl"
-                disabled={!pagination?.hasPrev || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Anterior
-              </Button>
-
-              <Button
-                variant="outline"
-                className="h-10 rounded-2xl"
-                disabled={!pagination?.hasNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Próxima
-              </Button>
-            </div>
+          {/* Pagination Top */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+             <div className="text-sm text-slate-500">
+                Página {pagination?.page || 1} de {pagination?.totalPages || 1} • Total: {pagination?.total || 0}
+             </div>
+             <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination?.hasPrev}>Anterior</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination?.hasNext}>Próxima</Button>
+             </div>
           </div>
 
-          {/* Table */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-            <Table className="table-fixed">
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200">
-                  <TableHead className="w-[34%]">Usuário</TableHead>
-                  <TableHead className="w-[36%]">E-mail</TableHead>
-                  <TableHead className="w-[18%] text-center">Status</TableHead>
-                  <TableHead className="w-[12%] text-center">Ações</TableHead>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="w-[30%]">Usuário</TableHead>
+                  <TableHead className="w-[30%]">Contato</TableHead>
+                  <TableHead className="w-[15%] text-center">Status</TableHead>
+                  <TableHead className="w-[25%] text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="py-10 text-center text-sm text-slate-500"
-                    >
-                      Carregando usuários...
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Carregando...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="py-10 text-center text-sm text-slate-500"
-                    >
-                      Nenhum usuário encontrado.
-                    </TableCell>
-                  </TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Nenhum usuário encontrado.</TableCell></TableRow>
                 ) : (
-                  filtered.map((u) => (
-                    <TableRow key={u.id} className="hover:bg-slate-50/60">
-                      <TableCell className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">
-                          {fullName(u)}
-                        </div>
-                        <div className="truncate text-xs text-slate-500">
-                          @{u.username}
-                        </div>
+                  filtered.map(u => (
+                    <TableRow key={u.id} className="hover:bg-slate-50/50">
+                      <TableCell>
+                        <div className="font-medium text-slate-900">{fullName(u)}</div>
+                        <div className="text-xs text-slate-500">@{u.username}</div>
                       </TableCell>
-
-                      <TableCell className="min-w-0">
-                        <div className="truncate text-slate-700">{u.email}</div>
-                        <div className="text-xs text-slate-500">
-                          Criado: {formatDate(u.createdAt)}
-                        </div>
+                      <TableCell>
+                        <div className="text-sm text-slate-700">{u.email}</div>
+                        <div className="text-xs text-slate-400">{formatDate(u.createdAt)}</div>
                       </TableCell>
-
                       <TableCell className="text-center">
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                          <StatusBadge active={u.isActive} />
-                          <SmallFlag
-                            ok={u.isVerified}
-                            onLabel="Verificado"
-                            offLabel="Pendente"
-                          />
-                          <SmallFlag
-                            ok={u.twoFactorEnabled}
-                            onLabel="2FA On"
-                            offLabel="2FA Off"
-                          />
-                        </div>
+                         <StatusBadge active={u.isActive} />
                       </TableCell>
-
                       <TableCell className="text-center">
-                        <div className="flex justify-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-2xl"
-                            onClick={() => openDetailsDialog(u)}
-                            disabled={loading}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-2xl"
-                            onClick={() => openStatusDialog(u)}
-                            disabled={loading}
-                          >
-                            <Power className="h-4 w-4" />
-                          </Button>
+                        <div className="flex items-center justify-center gap-1">
+                           <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500" title="Detalhes" onClick={() => openDetails(u)}>
+                              <Eye className="h-4 w-4" />
+                           </Button>
+                           <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" title="Editar" onClick={() => openEdit(u)}>
+                              <Pencil className="h-4 w-4" />
+                           </Button>
+                           <Button size="icon" variant="ghost" className="h-8 w-8 text-amber-600" title="Status" onClick={() => openStatus(u)}>
+                              <Power className="h-4 w-4" />
+                           </Button>
+                           <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-600" title="Resetar Senha" onClick={() => openReset(u)}>
+                              <KeyRound className="h-4 w-4" />
+                           </Button>
+                           <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" title="Excluir" onClick={() => openDelete(u)}>
+                              <Trash2 className="h-4 w-4" />
+                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -546,267 +420,124 @@ export default function Users() {
         </CardContent>
       </Card>
 
-      {/* Dialog Ativar/Desativar */}
-      <Dialog open={statusDialogOpen} onOpenChange={onStatusDialogOpenChange}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {statusUser?.isActive ? "Desativar usuário" : "Ativar usuário"}
-            </DialogTitle>
-            <DialogDescription>
-              Usuário:{" "}
-              <span className="font-medium">{statusUser?.email ?? "—"}</span>
-            </DialogDescription>
-          </DialogHeader>
+      {/* --- DIALOGS --- */}
 
-          <div className="space-y-2">
-            <Label htmlFor="status-reason">Motivo</Label>
-            <Textarea
-              id="status-reason"
-              value={statusReason}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                setStatusReason(e.target.value)
-              }
-              placeholder="Ex.: Solicitação do suporte / política interna..."
-              className="min-h-[110px]"
-              disabled={statusSubmitting}
-            />
-          </div>
+      {/* Create / Edit Form */}
+      <UserFormDialog 
+        open={formOpen} 
+        onOpenChange={setFormOpen} 
+        user={editingUser} 
+        onSuccess={() => void fetchUsers(page)} 
+      />
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onStatusDialogOpenChange(false)}
-              disabled={statusSubmitting}
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="button"
-              onClick={() => void confirmStatusChange()}
-              disabled={statusSubmitting || !statusUser}
-            >
-              {statusSubmitting ? "Salvando..." : "Confirmar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+      {/* Delete Confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+         <DialogContent>
+            <DialogHeader>
+               <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+               </div>
+               <DialogTitle className="text-center">Excluir Usuário?</DialogTitle>
+               <DialogDescription className="text-center">
+                  Tem certeza que deseja remover <strong>{deleteUser?.username}</strong>? Essa ação não pode ser desfeita.
+               </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="sm:justify-center gap-2">
+               <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+               <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleteSubmitting}>
+                  {deleteSubmitting ? "Excluindo..." : "Sim, Excluir"}
+               </Button>
+            </DialogFooter>
+         </DialogContent>
       </Dialog>
 
-      {/* Dialog Detalhes */}
-      <Dialog open={detailsDialogOpen} onOpenChange={onDetailsDialogOpenChange}>
-        {/* aqui é a correção principal: limitar altura e criar layout com scroll */}
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Detalhes do usuário</DialogTitle>
-            <DialogDescription>
-              {detailsUser ? detailsUser.email : "—"}
-            </DialogDescription>
-          </DialogHeader>
+      {/* Reset Password Confirmation */}
+      <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+         <DialogContent>
+            <DialogHeader>
+               <DialogTitle>Forçar Reset de Senha</DialogTitle>
+               <DialogDescription>
+                  Isso irá gerar uma nova senha aleatória para <strong>{resetUser?.username}</strong> e invalidar a atual.
+               </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+               <Button variant="outline" onClick={() => setResetOpen(false)}>Cancelar</Button>
+               <Button onClick={() => void confirmReset()} disabled={resetSubmitting}>
+                  {resetSubmitting ? "Processando..." : "Gerar Nova Senha"}
+               </Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
 
-          {/* corpo com scroll */}
-          <div className="flex-1 overflow-y-auto pr-1">
-            {detailsUser ? (
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Nome</div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      {fullName(detailsUser)}
-                    </div>
+      {/* Status Change */}
+      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+         <DialogContent>
+            <DialogHeader>
+               <DialogTitle>{statusUser?.isActive ? "Desativar" : "Ativar"} Usuário</DialogTitle>
+               <DialogDescription>Motivo da alteração de status para {statusUser?.username}.</DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+               <Textarea 
+                  placeholder="Ex: Solicitação do RH..." 
+                  value={statusReason} 
+                  onChange={e => setStatusReason(e.target.value)} 
+               />
+            </div>
+            <DialogFooter>
+               <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancelar</Button>
+               <Button onClick={() => void confirmStatusChange()} disabled={statusSubmitting}>Confirmar</Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
+
+      {/* Details View (Session Management) */}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+            <DialogHeader>
+               <DialogTitle>Detalhes: {detailsUser?.username}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl border bg-slate-50">
+                     <div className="text-xs text-slate-500">ID Interno</div>
+                     <div className="font-mono text-sm">{detailsUser?.id}</div>
                   </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">
-                      Username
-                    </div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      @{detailsUser.username}
-                    </div>
+                  <div className="p-4 rounded-xl border bg-slate-50">
+                     <div className="text-xs text-slate-500">Roles</div>
+                     <div className="flex flex-wrap gap-1 mt-1">
+                        {detailsUser?.roles.map(r => (
+                           <Badge key={r.role.id} variant="secondary" className="text-[10px]">{r.role.displayName}</Badge>
+                        ))}
+                     </div>
                   </div>
+               </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">Roles</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {detailsUser.roles.length > 0 ? (
-                        detailsUser.roles.map((r) => (
-                          <Badge
-                            key={r.role.id}
-                            variant="secondary"
-                            className="rounded-full bg-slate-100 px-3 py-1 text-slate-800"
-                            title={r.role.name}
-                          >
-                            {r.role.displayName || r.role.name}
-                          </Badge>
-                        ))
-                      ) : (
-                        <span className="text-sm text-slate-500">—</span>
-                      )}
-                    </div>
+               <Separator />
+
+               <div>
+                  <div className="flex items-center justify-between mb-4">
+                     <h3 className="font-semibold text-slate-900">Sessões Ativas</h3>
+                     <Button size="sm" variant="destructive" onClick={() => detailsUser && void terminateAllSessions(detailsUser.id)} disabled={terminateAllLoading}>
+                        Encerrar Todas
+                     </Button>
                   </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">
-                      Segurança
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <SmallFlag
-                        ok={detailsUser.isVerified}
-                        onLabel="Verificado"
-                        offLabel="Pendente"
-                      />
-                      <SmallFlag
-                        ok={detailsUser.twoFactorEnabled}
-                        onLabel="2FA On"
-                        offLabel="2FA Off"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">
-                      Criado em
-                    </div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      {formatDate(detailsUser.createdAt)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <div className="text-xs font-medium text-slate-500">
-                      Último login
-                    </div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      {formatDate(detailsUser.lastLoginAt)}
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Sessões */}
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        Sessões ativas
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        GET{" "}
-                        <span className="font-mono">
-                          /api/v1/users/{detailsUser.id}/sessions
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-2xl"
-                        onClick={() => void fetchUserSessions(detailsUser.id)}
-                        disabled={sessionsLoading || terminateAllLoading}
-                        title="Atualizar"
-                      >
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Atualizar
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50"
-                        onClick={() => void terminateAllSessions(detailsUser.id)}
-                        disabled={sessionsLoading || terminateAllLoading}
-                        title="Encerrar todas as sessões do usuário"
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        {terminateAllLoading ? "Encerrando..." : "Encerrar todas"}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* lista com scroll próprio (pra não ficar gigantesca) */}
-                  <div className="mt-4">
-                    <div className="max-h-[320px] overflow-y-auto pr-1 space-y-2">
-                      {sessionsLoading ? (
-                        <div className="py-6 text-center text-sm text-slate-500">
-                          Carregando sessões...
-                        </div>
-                      ) : sessions.length === 0 ? (
-                        <div className="py-6 text-center text-sm text-slate-500">
-                          Nenhuma sessão ativa encontrada.
-                        </div>
-                      ) : (
-                        sessions.map((s) => (
-                          <div
-                            key={s.id}
-                            className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-slate-900">
-                                {sessionPrimaryLabel(s)}
-                              </div>
-                              <div className="mt-0.5 truncate text-xs text-slate-500">
-                                {sessionSecondaryLabel(s)}
-                              </div>
-                              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                                <span className="rounded-full bg-slate-50 px-2 py-1">
-                                  Último uso: {formatDate(s.lastUsedAt)}
-                                </span>
-                                <span className="rounded-full bg-slate-50 px-2 py-1">
-                                  Expira: {formatDate(s.expiresAt)}
-                                </span>
-                              </div>
+                  <div className="space-y-2">
+                     {sessionsLoading ? <div className="text-center py-4 text-slate-500">Carregando...</div> : 
+                      sessions.length === 0 ? <div className="text-center py-4 text-slate-500">Nenhuma sessão ativa.</div> :
+                      sessions.map(s => (
+                         <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                               <div className="font-medium text-sm">{s.deviceName || "Dispositivo desconhecido"}</div>
+                               <div className="text-xs text-slate-500">{s.ipAddress} • {formatDate(s.lastUsedAt)}</div>
                             </div>
-
-                            <div className="flex items-center gap-2 sm:justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50"
-                                onClick={() =>
-                                  void terminateSession(s.id, detailsUser.id)
-                                }
-                                disabled={
-                                  terminateAllLoading ||
-                                  terminateOneLoadingId === s.id
-                                }
-                                title="DELETE /api/v1/auth/sessions/:sessionId"
-                              >
-                                {terminateOneLoadingId === s.id
-                                  ? "Encerrando..."
-                                  : "Encerrar"}
-                              </Button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    {sessions.length > 0 ? (
-                      <div className="mt-2 text-xs text-slate-500">
-                        Mostrando {sessions.length} sessão(ões).
-                      </div>
-                    ) : null}
+                            <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Derrubar"><XCircle className="h-4 w-4" /></Button>
+                         </div>
+                      ))
+                     }
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500">—</div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => onDetailsDialogOpenChange(false)}
-            >
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+               </div>
+            </div>
+         </DialogContent>
       </Dialog>
     </div>
   );
