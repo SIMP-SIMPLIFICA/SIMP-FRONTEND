@@ -13,8 +13,10 @@ import Placeholder from "@/pages/Placeholder";
 import Users from "@/pages/Users";
 import Roles from "@/pages/Roles";
 import Profile from "@/pages/Profile";
+import Grants from "@/pages/Grants"; // Import da página de Convênios
 
 export const router = createBrowserRouter([
+  // --- Rotas Públicas ---
   {
     path: "/login",
     element: <Login />,
@@ -28,12 +30,17 @@ export const router = createBrowserRouter([
     element: <ResetPassword />,
   },
 
+  // --- Rotas Privadas (Protegidas) ---
   {
+    element: <AuthGate />, // Garante que só logado acessa
     children: [
       {
         element: <AppLayout />,
         children: [
           { path: "/", element: <Dashboard /> },
+          
+          // Nova Rota de Convênios
+          { path: "/convenios", element: <Grants /> },
 
           { path: "/financeiro", element: <Placeholder title="Financeiro" /> },
           { path: "/workspaces", element: <Placeholder title="Workspaces" /> },
@@ -42,6 +49,7 @@ export const router = createBrowserRouter([
 
           { path: "/profile", element: <Profile /> },
 
+          // Rotas com Permissão Específica
           {
             element: <PermissionGate anyOf={["users:read", "users:manage"]} />,
             children: [{ path: "/usuarios", element: <Users /> }],

@@ -16,6 +16,7 @@ import {
 import { useMe } from "@/hooks/useMe";
 import { hasAnyPermission } from "@/lib/permissions";
 import { clearAccessToken } from "@/lib/auth";
+import { HandCoins } from "lucide-react";
 
 type NavItem = {
   label: string;
@@ -94,6 +95,11 @@ export default function Sidebar() {
         to: "/roles",
         icon: <Shield className="h-5 w-5" />,
         anyOf: ["roles:read", "roles:manage"],
+      },
+      {
+        label: "Convênios",
+        to: "/convenios",
+        icon: <HandCoins className="h-5 w-5" />,
       },
     ],
     []
