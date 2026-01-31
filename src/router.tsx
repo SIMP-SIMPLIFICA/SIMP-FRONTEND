@@ -1,6 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
 
-import { AuthGate } from "@/components/layout/AuthGate";
 import { PermissionGate } from "@/components/layout/PermissionGate";
 import { AppLayout } from "@/components/layout/AppLayout";
 
@@ -13,6 +12,8 @@ import Placeholder from "@/pages/Placeholder";
 import Users from "@/pages/Users";
 import Roles from "@/pages/Roles";
 import Profile from "@/pages/Profile";
+import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
+import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
 
 export const router = createBrowserRouter([
   {
@@ -36,7 +37,10 @@ export const router = createBrowserRouter([
           { path: "/", element: <Dashboard /> },
 
           { path: "/financeiro", element: <Placeholder title="Financeiro" /> },
-          { path: "/workspaces", element: <Placeholder title="Workspaces" /> },
+          
+          { path: "/workspaces", element: <WorkspacesPage /> },
+          { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
+
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
           { path: "/configuracoes", element: <Placeholder title="Configurações" /> },
 

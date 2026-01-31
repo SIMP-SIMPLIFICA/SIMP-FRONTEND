@@ -3,7 +3,7 @@ import {
   getRefreshToken,
   setAuthTokens,
   clearAuth,
-} from "./auth";
+} from "./auth"; // Certifique-se que este caminho está correto
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -81,6 +81,7 @@ export async function apiRequest<T = unknown>(
 
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
+          // Ajuste conforme o retorno exato do seu backend
           const newAccess = refreshData.accessToken || refreshData.token || refreshData.tokens?.accessToken;
           const newRefresh = refreshData.refreshToken || refreshData.tokens?.refreshToken;
 
@@ -100,9 +101,25 @@ export async function apiRequest<T = unknown>(
     isRefreshing = false;
     processQueue(data || "Sessão expirada");
     clearAuth();
+    // Opcional: Redirecionar para login aqui window.location.href = '/login'
     throw { message: "Sessão expirada. Faça login novamente." };
   }
 
   if (!res.ok) throw data;
   return data as T;
 }
+
+// --- ADAPTER PARA SERVIÇOS (Compatibilidade com WorkspaceService) ---
+export const api = {
+  get: <T>(path: string, options?: ApiOptions) => 
+    apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
+    
+  post: <T>(path: string, body: any, options?: ApiOptions) => 
+    apiRequest<T>(path, { ...options, method: "POST", body: JSON.stringify(body) }).then(data => ({ data })),
+    
+  put: <T>(path: string, body: any, options?: ApiOptions) => 
+    apiRequest<T>(path, { ...options, method: "PUT", body: JSON.stringify(body) }).then(data => ({ data })),
+    
+  delete: <T>(path: string, options?: ApiOptions) => 
+    apiRequest<T>(path, { ...options, method: "DELETE" }).then(data => ({ data })),
+};
