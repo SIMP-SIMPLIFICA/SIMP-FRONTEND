@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { type Task, type TaskDetails, type CreateTaskDTO, type UpdateTaskDTO } from "@/types/task";
 
-// Ajuste a URL se necessário (ex: variavel de ambiente ou hardcoded)
+// Defina a URL base manualmente ou via env para garantir
 const BASE_URL = "http://localhost:3000"; 
 
 export const taskService = {
@@ -47,22 +47,22 @@ export const taskService = {
     await api.delete(`/tasks/${id}`);
   },
 
-  // --- Anexos (CORREÇÃO DEFINITIVA COM FETCH) ---
+  // --- Anexos (USANDO FETCH PARA RESOLVER ERRO 415/401) ---
   uploadAttachment: async (taskId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Usamos fetch nativo. Ele lida perfeitamente com multipart/form-data.
-    // 'credentials: include' garante que o cookie de sessão seja enviado.
+    // O fetch lida melhor com multipart/form-data que o axios configurado com JSON
     const response = await fetch(`${BASE_URL}/tasks/${taskId}/attachments`, {
       method: 'POST',
       body: formData,
-      credentials: 'include', 
+      credentials: 'include', // IMPORTANTE: Envia os cookies de auth
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Erro no upload (${response.status}): ${errorText}`);
+      console.error("Erro upload:", errorText);
+      throw new Error(`Falha no upload: ${response.status}`);
     }
 
     return response.json();
