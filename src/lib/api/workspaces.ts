@@ -16,4 +16,18 @@ export const workspaceService = {
     const response = await api.post<Workspace>("/workspaces", data);
     return response.data;
   },
+
+  addMember: async (workspaceId: string, email: string, role: 'ADMIN' | 'MEMBER' | 'VIEWER' = 'MEMBER') => {
+    const response = await api.post(`/workspaces/${workspaceId}/members`, { email, role });
+    return response.data;
+  },
+
+  removeMember: async (workspaceId: string, userId: string) => {
+    await api.delete(`/workspaces/${workspaceId}/members/${userId}`);
+  },
+
+  // --- NOVO MÉTODO DE EXCLUSÃO ---
+  delete: async (id: string) => {
+    await api.delete(`/workspaces/${id}`);
+  }
 };

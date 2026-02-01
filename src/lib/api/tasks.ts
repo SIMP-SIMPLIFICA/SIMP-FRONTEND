@@ -1,7 +1,17 @@
 import { api } from "@/lib/api";
 import { type Task, type TaskDetails, type CreateTaskDTO, type UpdateTaskDTO } from "@/types/task";
+import { getAccessToken } from "@/lib/auth"; 
 
-// Ajuste a URL se necessário (ex: variavel de ambiente ou hardcoded)
+// Definição do tipo para usuário atribuível (resolve o erro de 'any' no user)
+export interface AssignableUser {
+  id: string;
+  firstName: string;
+  lastName?: string;
+  email: string;
+  avatar?: string;
+}
+
+// Verifique se o seu backend roda na porta 3000 ou outra
 const BASE_URL = "http://localhost:3000"; 
 
 export const taskService = {
@@ -32,7 +42,7 @@ export const taskService = {
   },
 
   updateChecklistItem: async (itemId: string, isDone: boolean) => {
-    const response = await api.put(`/checklist/${itemId}`, { isDone });
+    const response = await api.put(`/tasks/checklist/${itemId}`, { isDone });
     return response.data;
   },
 
@@ -47,16 +57,21 @@ export const taskService = {
     await api.delete(`/tasks/${id}`);
   },
 
-  // --- Anexos (CORREÇÃO DEFINITIVA COM FETCH) ---
+  // --- Anexos ---
   uploadAttachment: async (taskId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Usamos fetch nativo. Ele lida perfeitamente com multipart/form-data.
-    // 'credentials: include' garante que o cookie de sessão seja enviado.
+    const token = getAccessToken();
+    const headers: HeadersInit = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${BASE_URL}/tasks/${taskId}/attachments`, {
       method: 'POST',
       body: formData,
+      headers: headers,
       credentials: 'include', 
     });
 
@@ -69,7 +84,25 @@ export const taskService = {
   },
 
   deleteAttachment: async (attachmentId: string) => {
-    await api.delete(`/attachments/${attachmentId}`);
+    await api.delete(`/tasks/attachments/${attachmentId}`);
+  },
+
+  // --- MÉTODOS QUE FALTAVAM (Gerenciamento de Responsáveis) ---
+  
+  // Busca usuários do workspace que podem receber tarefas
+  getAssignableUsers: async (workspaceId: string) => {
+    const response = await api.get<AssignableUser[]>(`/workspaces/${workspaceId}/assignable-users`);
+    return response.data;
+  },
+
+  // Adiciona um responsável à tarefa
+  addAssignee: async (taskId: string, userId: string) => {
+    const response = await api.post(`/tasks/${taskId}/assignees`, { userId });
+    return response.data;
+  },
+
+  // Remove um responsável da tarefa
+  removeAssignee: async (taskId: string, userId: string) => {
+    await api.delete(`/tasks/${taskId}/assignees/${userId}`);
   }
 };
-

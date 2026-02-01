@@ -3,7 +3,7 @@ import {
   getRefreshToken,
   setAuthTokens,
   clearAuth,
-} from "./auth"; // Certifique-se que este caminho está correto
+} from "./auth";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -33,7 +33,8 @@ export async function apiRequest<T = unknown>(
   const url = `${API_URL}${path}`;
   const headers = new Headers(options.headers);
 
-  if (!headers.has("Content-Type") && options.body) {
+  // Apenas define JSON se NÃO for FormData (para permitir uploads)
+  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -81,7 +82,6 @@ export async function apiRequest<T = unknown>(
 
         if (refreshRes.ok) {
           const refreshData = await refreshRes.json();
-          // Ajuste conforme o retorno exato do seu backend
           const newAccess = refreshData.accessToken || refreshData.token || refreshData.tokens?.accessToken;
           const newRefresh = refreshData.refreshToken || refreshData.tokens?.refreshToken;
 
@@ -101,7 +101,6 @@ export async function apiRequest<T = unknown>(
     isRefreshing = false;
     processQueue(data || "Sessão expirada");
     clearAuth();
-    // Opcional: Redirecionar para login aqui window.location.href = '/login'
     throw { message: "Sessão expirada. Faça login novamente." };
   }
 
@@ -109,24 +108,12 @@ export async function apiRequest<T = unknown>(
   return data as T;
 }
 
-<<<<<<< Updated upstream
-// --- ADAPTER PARA SERVIÇOS (Compatibilidade com WorkspaceService) ---
-=======
-// ... (código anterior do apiRequest mantém igual) ...
-
 // --- ADAPTER PARA SERVIÇOS ---
->>>>>>> Stashed changes
 export const api = {
   get: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
     
   post: <T>(path: string, body: any, options?: ApiOptions) => 
-<<<<<<< Updated upstream
-    apiRequest<T>(path, { ...options, method: "POST", body: JSON.stringify(body) }).then(data => ({ data })),
-    
-  put: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { ...options, method: "PUT", body: JSON.stringify(body) }).then(data => ({ data })),
-=======
     apiRequest<T>(path, { 
       ...options, 
       method: "POST", 
@@ -140,14 +127,12 @@ export const api = {
       body: body instanceof FormData ? body : JSON.stringify(body) 
     }).then(data => ({ data })),
 
-  // ADICIONADO AQUI:
   patch: <T>(path: string, body: any, options?: ApiOptions) => 
     apiRequest<T>(path, { 
       ...options, 
       method: "PATCH", 
       body: body instanceof FormData ? body : JSON.stringify(body) 
     }).then(data => ({ data })),
->>>>>>> Stashed changes
     
   delete: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "DELETE" }).then(data => ({ data })),
