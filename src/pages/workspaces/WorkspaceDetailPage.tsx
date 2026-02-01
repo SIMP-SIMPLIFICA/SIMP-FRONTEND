@@ -1,12 +1,13 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { workspaceService } from "@/lib/api/workspaces";
 import { useWorkspaceTasks, useCreateTask } from "@/hooks/useTasks";
 import { TaskCard } from "@/components/workspaces/TaskCard";
-import { TaskModal } from "@/components/workspaces/TaskModal"; // <--- Importando o Modal
+import { TaskModal } from "@/components/workspaces/TaskModal";
+import { InviteMemberModal } from "@/components/workspaces/InviteMemberModal"; // <--- NOVO IMPORT
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Layout } from "lucide-react";
+import { Plus, Layout, Trash2 } from "lucide-react";
 import { type TaskStatus, type Task } from "@/types/task";
 import { useState } from "react";
 import {
@@ -29,6 +30,7 @@ const COLUMNS: { id: TaskStatus; label: string }[] = [
 
 export default function WorkspaceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate(); // Hook para redirecionar após deletar
   
   // Queries
   const { data: workspace } = useQuery({
@@ -44,7 +46,7 @@ export default function WorkspaceDetailPage() {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
 
-  // Modal de Detalhes da Tarefa (NOVO)
+  // Modal de Detalhes da Tarefa
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -56,7 +58,26 @@ export default function WorkspaceDetailPage() {
     setIsNewTaskOpen(false);
   };
 
-  if (!workspace || isLoading) return <div className="p-8">Carregando quadro...</div>;
+  // Função para deletar o workspace
+  const handleDeleteWorkspace = async () => {
+    if (!id) return;
+    
+    const confirmDelete = window.confirm(
+      "Are you sure? This will delete the workspace and ALL tasks inside it. This action cannot be undone."
+    );
+
+    if (confirmDelete) {
+      try {
+        await workspaceService.deleteWorkspace(id);
+        navigate("/workspaces"); // Volta para a lista
+      } catch (error) {
+        alert("Error deleting workspace. You might not have permission.");
+        console.error(error);
+      }
+    }
+  };
+
+  if (!workspace || isLoading) return <div className="p-8">Loading board...</div>;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -65,32 +86,53 @@ export default function WorkspaceDetailPage() {
         <div className="flex items-center gap-2">
             <Layout className="h-5 w-5 text-gray-500" />
             <h1 className="text-xl font-bold">{workspace.name}</h1>
+            {/* Opcional: Mostrar contagem de membros */}
+            <Badge variant="outline" className="ml-2 font-normal">
+                {workspace._count?.members || 1} members
+            </Badge>
         </div>
         
-        <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Nova Tarefa</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Criar Nova Tarefa</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleCreateTask} className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Título da Tarefa</Label>
-                        <Input 
-                            value={newTaskTitle} 
-                            onChange={(e) => setNewTaskTitle(e.target.value)}
-                            placeholder="Ex: Atualizar documentação"
-                            autoFocus
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">Criar</Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-3">
+            {/* BOTÃO EXCLUIR */}
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                onClick={handleDeleteWorkspace}
+                title="Delete Workspace"
+            >
+                <Trash2 size={18} />
+            </Button>
+
+            {/* BOTÃO CONVIDAR (MODAL) */}
+            <InviteMemberModal workspaceId={id!} />
+
+            {/* BOTÃO NOVA TAREFA */}
+            <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
+                <DialogTrigger asChild>
+                    <Button size="sm"><Plus className="w-4 h-4 mr-2"/> New Task</Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create New Task</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateTask} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Task Title</Label>
+                            <Input 
+                                value={newTaskTitle} 
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                placeholder="Ex: Update documentation"
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit">Create</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
       </header>
 
       {/* Kanban Board Area */}
@@ -116,12 +158,12 @@ export default function WorkspaceDetailPage() {
                     <TaskCard 
                         key={task.id} 
                         task={task} 
-                        onClick={(t) => setSelectedTaskId(t.id)} // Abrindo o modal aqui
+                        onClick={(t) => setSelectedTaskId(t.id)} 
                     />
                   ))}
                   {colTasks.length === 0 && (
                     <div className="text-center py-8 text-xs text-muted-foreground border-2 border-dashed border-gray-200 rounded-md">
-                        Sem tarefas
+                        No tasks
                     </div>
                   )}
                 </div>
@@ -135,6 +177,7 @@ export default function WorkspaceDetailPage() {
       <TaskModal 
         isOpen={!!selectedTaskId}
         taskId={selectedTaskId}
+        workspaceId={id!} // Passando o ID do workspace para atualizar o cache
         onClose={() => setSelectedTaskId(null)}
       />
     </div>

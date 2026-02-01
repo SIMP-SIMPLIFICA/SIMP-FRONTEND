@@ -16,4 +16,12 @@ export const workspaceService = {
     const response = await api.post<Workspace>("/workspaces", data);
     return response.data;
   },
+  inviteMember: async (workspaceId: string, email: string) => {
+    const response = await api.post(`/workspaces/${workspaceId}/members`, { email });
+    return response.data;
+  },
+
+  deleteWorkspace: async (workspaceId: string) => {
+    await api.delete(`/workspaces/${workspaceId}`);
+  }
 };
