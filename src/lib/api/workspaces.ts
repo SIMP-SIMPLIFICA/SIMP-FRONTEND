@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { type CreateWorkspaceDTO, type Workspace } from "@/types/workspace";
+import { type Workspace } from "@/types/workspace"; 
 
 export const workspaceService = {
   getAll: async () => {
@@ -12,13 +12,18 @@ export const workspaceService = {
     return response.data;
   },
 
-  create: async (data: CreateWorkspaceDTO) => {
+  create: async (data: { name: string; description?: string }) => {
     const response = await api.post<Workspace>("/workspaces", data);
     return response.data;
   },
+
   inviteMember: async (workspaceId: string, email: string) => {
     const response = await api.post(`/workspaces/${workspaceId}/members`, { email });
     return response.data;
+  },
+
+  removeMember: async (workspaceId: string, userId: string) => {
+    await api.delete(`/workspaces/${workspaceId}/members/${userId}`);
   },
 
   deleteWorkspace: async (workspaceId: string) => {

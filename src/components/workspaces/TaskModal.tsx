@@ -3,9 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTaskDetails, useTaskNotes, useUpdateTask, useDeleteTask, useAttachments } from "@/hooks/useTasks";
 import { Checklist } from "./Checklist";
-// Importe o componente AssigneeSelector (Ajuste o caminho se necessário)
-import { AssigneeSelector } from "./AssigneeSelector"; 
-import { useQueryClient } from "@tanstack/react-query"; // <--- Importante para atualizar a tela
+import { AssigneeSelector } from "@/components/task/AssigneeSelector";
+import { useQueryClient } from "@tanstack/react-query"; 
 
 import { 
   Calendar as CalendarIcon, 
@@ -30,12 +29,13 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
+  workspaceMembers: any[];
 }
 
 const API_URL = "http://localhost:3000"; 
 
-export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalProps) {
-  const queryClient = useQueryClient(); // <--- Hook para invalidar cache
+export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembers }: TaskModalProps) {
+  const queryClient = useQueryClient();
   const { data: task, isLoading } = useTaskDetails(taskId);
   const { mutate: addNote } = useTaskNotes(taskId || "");
   const { mutate: updateTask } = useUpdateTask(workspaceId);
@@ -57,11 +57,10 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
     }
   };
 
-  // Função passada para o AssigneeSelector atualizar a tela após mudanças
   const handleRefreshTask = () => {
     if (taskId) {
-        queryClient.invalidateQueries({ queryKey: ["task", taskId] }); // Recarrega detalhes
-        queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] }); // Recarrega lista (Kanban)
+        queryClient.invalidateQueries({ queryKey: ["task", taskId] });
+        queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
     }
   };
 
@@ -114,7 +113,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
           <div className="p-8 flex justify-center items-center h-full">Carregando...</div>
         ) : (
           <>
-            {/* --- HEADER --- */}
             <div className="px-6 py-4 border-b bg-background z-10 flex justify-between items-start">
               <div className="space-y-1">
                  <div className="flex gap-2 mb-2">
@@ -161,10 +159,8 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
               </div>
             </div>
 
-            {/* --- CORPO --- */}
             <div className="flex-1 flex overflow-hidden">
                
-               {/* ESQUERDA: Conteúdo Principal */}
                <div className="flex-1 flex flex-col border-r h-full bg-white">
                  <Tabs defaultValue="overview" className="flex-1 flex flex-col h-full">
                     <div className="px-6 pt-4 border-b">
@@ -177,9 +173,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-                        {/* Aba Visão Geral */}
                         <TabsContent value="overview" className="mt-0 space-y-8">
-                            
                             <div className="space-y-2">
                                 <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                                     <AlignLeft className="w-4 h-4" /> Descrição
@@ -234,12 +228,10 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                             </div>
                         </TabsContent>
 
-                        {/* Aba Checklist */}
                         <TabsContent value="checklist" className="mt-0">
                             <Checklist taskId={task.id} items={task.checklist || []} />
                         </TabsContent>
 
-                        {/* Aba Anexos */}
                         <TabsContent value="attachments" className="mt-0">
                              <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
                                 <input 
@@ -295,7 +287,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                              </div>
                         </TabsContent>
 
-                        {/* Aba Histórico */}
                         <TabsContent value="history" className="mt-0">
                              <div className="space-y-6 relative pl-4 border-l-2 border-gray-100 ml-2 py-2">
                                 {task.history?.map((log, idx) => (
@@ -320,20 +311,17 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                  </Tabs>
                </div>
 
-               {/* DIREITA: Sidebar */}
                <div className="w-72 bg-gray-50 p-6 border-l overflow-y-auto shrink-0 space-y-6">
                   
-                  {/* --- AQUI ESTÁ A ALTERAÇÃO --- */}
                   <div className="space-y-3">
                       <AssigneeSelector 
                         taskId={task.id}
                         currentAssignees={task.assignees || []}
                         onUpdate={handleRefreshTask}
+                        members={workspaceMembers} 
                       />
                   </div>
-                  {/* ----------------------------- */}
 
-                  {/* Datas */}
                   <div className="space-y-3">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Prazos</h4>
                       <div className="space-y-2">
