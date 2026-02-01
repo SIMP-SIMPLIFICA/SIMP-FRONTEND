@@ -1,6 +1,16 @@
-import { Bell } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { useNavigate } from "react-router-dom";
+import { NotificationBell } from "./NotificationBell"; 
+
+// Interface local para garantir que o TS reconheça os campos
+interface UserWithDetails {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  username?: string;
+  email: string;
+  roles?: { role?: { displayName?: string; name?: string } }[];
+}
 
 function initialsFromName(first?: string | null, last?: string | null, fallback?: string) {
   const a = (first?.trim()?.[0] ?? "").toUpperCase();
@@ -14,7 +24,9 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
   const nav = useNavigate();
   const { data } = useMe(true);
 
-  const user = data?.user;
+  // Forçamos a tipagem aqui para silenciar o erro do TypeScript
+  const user = data?.user as unknown as UserWithDetails;
+
   const fullName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
     user?.username ||
@@ -33,10 +45,9 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
       <div className="text-xl font-semibold text-slate-800">{title}</div>
 
       <div className="flex items-center gap-4">
-        <button className="relative grid h-10 w-10 place-items-center rounded-full border bg-white">
-          <Bell className="h-5 w-5 text-slate-600" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-400" />
-        </button>
+        
+        {/* Componente de Notificações em Tempo Real */}
+        <NotificationBell />
 
         <button
           onClick={() => nav("/profile")}

@@ -109,16 +109,45 @@ export async function apiRequest<T = unknown>(
   return data as T;
 }
 
+<<<<<<< Updated upstream
 // --- ADAPTER PARA SERVIÇOS (Compatibilidade com WorkspaceService) ---
+=======
+// ... (código anterior do apiRequest mantém igual) ...
+
+// --- ADAPTER PARA SERVIÇOS ---
+>>>>>>> Stashed changes
 export const api = {
   get: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
     
   post: <T>(path: string, body: any, options?: ApiOptions) => 
+<<<<<<< Updated upstream
     apiRequest<T>(path, { ...options, method: "POST", body: JSON.stringify(body) }).then(data => ({ data })),
     
   put: <T>(path: string, body: any, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "PUT", body: JSON.stringify(body) }).then(data => ({ data })),
+=======
+    apiRequest<T>(path, { 
+      ...options, 
+      method: "POST", 
+      body: body instanceof FormData ? body : JSON.stringify(body) 
+    }).then(data => ({ data })),
+    
+  put: <T>(path: string, body: any, options?: ApiOptions) => 
+    apiRequest<T>(path, { 
+      ...options, 
+      method: "PUT", 
+      body: body instanceof FormData ? body : JSON.stringify(body) 
+    }).then(data => ({ data })),
+
+  // ADICIONADO AQUI:
+  patch: <T>(path: string, body: any, options?: ApiOptions) => 
+    apiRequest<T>(path, { 
+      ...options, 
+      method: "PATCH", 
+      body: body instanceof FormData ? body : JSON.stringify(body) 
+    }).then(data => ({ data })),
+>>>>>>> Stashed changes
     
   delete: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "DELETE" }).then(data => ({ data })),
