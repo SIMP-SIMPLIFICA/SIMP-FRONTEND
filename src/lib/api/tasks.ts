@@ -70,5 +70,30 @@ export const taskService = {
 
   deleteAttachment: async (attachmentId: string) => {
     await api.delete(`/attachments/${attachmentId}`);
+  },
+
+  // --- NOVOS MÉTODOS: Assignees ---
+  
+  // Buscar lista de usuários para adicionar
+  getAssignableUsers: async () => {
+    const response = await api.get<{ 
+      id: string; 
+      firstName: string; 
+      lastName: string | null; 
+      email: string; 
+      avatar: string | null 
+    }[]>('/users/assignable');
+    return response.data;
+  },
+
+  // Adicionar membro à tarefa
+  addAssignee: async (taskId: string, userId: string) => {
+    const response = await api.post(`/tasks/${taskId}/assignees`, { userId });
+    return response.data;
+  },
+
+  // Remover membro da tarefa
+  removeAssignee: async (taskId: string, userId: string) => {
+    await api.delete(`/tasks/${taskId}/assignees/${userId}`);
   }
 };

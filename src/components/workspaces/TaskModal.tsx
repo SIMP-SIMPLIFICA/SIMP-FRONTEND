@@ -3,6 +3,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTaskDetails, useTaskNotes, useUpdateTask, useDeleteTask, useAttachments } from "@/hooks/useTasks";
 import { Checklist } from "./Checklist";
+// Importe o componente AssigneeSelector (Ajuste o caminho se necessário)
+import { AssigneeSelector } from "./AssigneeSelector"; 
+import { useQueryClient } from "@tanstack/react-query"; // <--- Importante para atualizar a tela
+
 import { 
   Calendar as CalendarIcon, 
   AlignLeft, 
@@ -15,7 +19,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea"; // <--- Importando seu componente
+import { Textarea } from "@/components/ui/textarea"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
@@ -28,10 +32,10 @@ interface TaskModalProps {
   workspaceId: string;
 }
 
-// Ajuste a URL se necessário (ex: porta 3333)
 const API_URL = "http://localhost:3000"; 
 
 export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalProps) {
+  const queryClient = useQueryClient(); // <--- Hook para invalidar cache
   const { data: task, isLoading } = useTaskDetails(taskId);
   const { mutate: addNote } = useTaskNotes(taskId || "");
   const { mutate: updateTask } = useUpdateTask(workspaceId);
@@ -39,20 +43,25 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
   const { upload, remove: removeAttachment } = useAttachments(taskId || "");
   
   const [noteText, setNoteText] = useState("");
-  // Estado para edição da descrição
   const [description, setDescription] = useState("");
 
-  // Sincroniza o estado local quando a tarefa é carregada
   useEffect(() => {
     if (task) {
       setDescription(task.description || "");
     }
   }, [task]);
 
-  // Salva automaticamente ao sair do campo (onBlur)
   const handleSaveDescription = () => {
     if (task && description !== task.description) {
       updateTask({ id: task.id, description });
+    }
+  };
+
+  // Função passada para o AssigneeSelector atualizar a tela após mudanças
+  const handleRefreshTask = () => {
+    if (taskId) {
+        queryClient.invalidateQueries({ queryKey: ["task", taskId] }); // Recarrega detalhes
+        queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] }); // Recarrega lista (Kanban)
     }
   };
 
@@ -92,7 +101,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
     const file = e.target.files?.[0];
     if (file && taskId) {
         upload.mutate(file);
-        e.target.value = ""; // Limpa o input
+        e.target.value = ""; 
     }
   };
 
@@ -171,7 +180,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                         {/* Aba Visão Geral */}
                         <TabsContent value="overview" className="mt-0 space-y-8">
                             
-                            {/* --- CAMPO DE DESCRIÇÃO EDITÁVEL (USANDO SEU COMPONENTE) --- */}
                             <div className="space-y-2">
                                 <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
                                     <AlignLeft className="w-4 h-4" /> Descrição
@@ -181,7 +189,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                                     placeholder="Adicione uma descrição mais detalhada..."
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    onBlur={handleSaveDescription} // Salva ao clicar fora
+                                    onBlur={handleSaveDescription} 
                                 />
                                 <p className="text-[10px] text-gray-400 text-right">
                                     Clique fora para salvar automaticamente
@@ -306,9 +314,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
                                         </div>
                                     </div>
                                 ))}
-                                {(!task.history || task.history.length === 0) && (
-                                     <p className="text-xs text-muted-foreground italic">Nenhum registro de atividade.</p>
-                                )}
                              </div>
                         </TabsContent>
                     </div>
@@ -317,21 +322,16 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId }: TaskModalPro
 
                {/* DIREITA: Sidebar */}
                <div className="w-72 bg-gray-50 p-6 border-l overflow-y-auto shrink-0 space-y-6">
-                  {/* Responsáveis */}
+                  
+                  {/* --- AQUI ESTÁ A ALTERAÇÃO --- */}
                   <div className="space-y-3">
-                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Responsáveis</h4>
-                      <div className="flex flex-wrap gap-2">
-                          {task.assignees?.map(assignee => (
-                             <div key={assignee.userId} className="flex items-center gap-2 bg-white px-2 py-1 rounded border shadow-sm text-xs">
-                                <Avatar className="w-5 h-5">
-                                    <AvatarImage src={assignee.user.avatar || undefined} />
-                                    <AvatarFallback>{assignee.user.firstName?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span>{assignee.user.firstName}</span>
-                             </div>
-                          ))}
-                      </div>
+                      <AssigneeSelector 
+                        taskId={task.id}
+                        currentAssignees={task.assignees || []}
+                        onUpdate={handleRefreshTask}
+                      />
                   </div>
+                  {/* ----------------------------- */}
 
                   {/* Datas */}
                   <div className="space-y-3">
