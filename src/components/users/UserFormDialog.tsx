@@ -79,7 +79,7 @@ export function UserFormDialog({
   // Estados de UI
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Roles disponíveis para seleção (apenas na criação)
   const [availableRoles, setAvailableRoles] = useState<UserRoleRef[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
@@ -95,6 +95,11 @@ export function UserFormDialog({
         setEmail(user.email || "");
         setIsActive(user.isActive);
         setPassword(""); // Não edita senha aqui
+
+        // Mapear roles existentes
+        const userRoles = new Set(user.roles?.map(r => r.role.id) || []);
+        setSelectedRoles(userRoles);
+        void fetchRoles(); // Precisamos carregar as opções disponíveis
       } else {
         // Modo Criação
         setFirstName("");
@@ -141,10 +146,10 @@ export function UserFormDialog({
     // VALIDAÇÃO DE USERNAME (Corrige o erro do Backend)
     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(username)) {
-      toast({ 
-        title: "Nome de usuário inválido", 
-        description: "Use apenas letras, números, underline (_) ou hífen (-). Não use pontos ou espaços.", 
-        variant: "destructive" 
+      toast({
+        title: "Nome de usuário inválido",
+        description: "Use apenas letras, números, underline (_) ou hífen (-). Não use pontos ou espaços.",
+        variant: "destructive"
       });
       return;
     }
@@ -166,10 +171,17 @@ export function UserFormDialog({
           email,
           isActive
         };
-        
+
+        // 1. Atualizar dados básicos
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
           body: JSON.stringify(body),
+        });
+
+        // 2. Atualizar Roles
+        await apiRequest(`/api/v1/users/${user.id}/roles`, {
+          method: "POST",
+          body: JSON.stringify({ roleIds: Array.from(selectedRoles) })
         });
 
         toast({ title: "Usuário atualizado", description: "Dados alterados com sucesso." });
@@ -303,43 +315,41 @@ export function UserFormDialog({
             </Label>
           </div>
 
-          {/* Seleção de Roles (apenas criação) */}
-          {!isEditing && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Atribuir Perfis (Roles)</Label>
-                  {loadingRoles && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto border rounded-lg p-2 bg-slate-50">
-                  {availableRoles.map((role) => (
-                    <div key={role.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`role-${role.id}`}
-                        checked={selectedRoles.has(role.id)}
-                        onCheckedChange={() => toggleRole(role.id)}
-                        disabled={submitting}
-                      />
-                      <label
-                        htmlFor={`role-${role.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
-                        title={role.displayName}
-                      >
-                        {role.displayName}
-                      </label>
-                    </div>
-                  ))}
-                  {!loadingRoles && availableRoles.length === 0 && (
-                    <div className="text-xs text-slate-500 col-span-2 text-center py-2">
-                      Nenhuma role disponível.
-                    </div>
-                  )}
-                </div>
+          {/* Seleção de Roles (Sempre disponível) */}
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Atribuir Perfis (Roles)</Label>
+                {loadingRoles && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
               </div>
-            </>
-          )}
+
+              <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto border rounded-lg p-2 bg-slate-50">
+                {availableRoles.map((role) => (
+                  <div key={role.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`role-${role.id}`}
+                      checked={selectedRoles.has(role.id)}
+                      onCheckedChange={() => toggleRole(role.id)}
+                      disabled={submitting}
+                    />
+                    <label
+                      htmlFor={`role-${role.id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
+                      title={role.displayName}
+                    >
+                      {role.displayName}
+                    </label>
+                  </div>
+                ))}
+                {!loadingRoles && availableRoles.length === 0 && (
+                  <div className="text-xs text-slate-500 col-span-2 text-center py-2">
+                    Nenhuma role disponível.
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
 
           <DialogFooter className="gap-2 sm:gap-0 mt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>

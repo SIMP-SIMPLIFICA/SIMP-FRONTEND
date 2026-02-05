@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   LogOut,
   User,
+  FileText, // Ícone para Comunicação
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -59,14 +60,19 @@ export default function Sidebar() {
         icon: <LayoutGrid className="h-5 w-5" />,
       },
       {
-        label: "Financeiro",
-        to: "/financeiro",
-        icon: <BarChart3 className="h-5 w-5" />,
+        label: "Comunicação",
+        to: "/communication",
+        icon: <FileText className="h-5 w-5" />,
       },
       {
         label: "Workspaces",
         to: "/workspaces",
         icon: <Briefcase className="h-5 w-5" />,
+      },
+      {
+        label: "Financeiro",
+        to: "/financeiro",
+        icon: <BarChart3 className="h-5 w-5" />,
       },
       {
         label: "Biblioteca",
@@ -107,6 +113,12 @@ export default function Sidebar() {
     });
   }, [items, data]);
 
+  // Verifica se a rota atual começa com o path do item (para active state em sub-rotas)
+  const isItemActive = (to: string) => {
+    if (to === "/") return location.pathname === "/";
+    return location.pathname.startsWith(to);
+  };
+
   return (
     <aside
       className={classNames(
@@ -134,7 +146,7 @@ export default function Sidebar() {
                   classNames(
                     "flex items-center gap-3 rounded-2xl px-4 py-3 transition",
                     "hover:bg-white/10",
-                    isActive
+                    isItemActive(it.to) // Lógica de active melhorada para sub-rotas
                       ? "bg-white/12 ring-1 ring-white/15"
                       : "bg-transparent"
                   )

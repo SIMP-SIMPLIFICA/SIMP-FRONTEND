@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, RefreshCw, Shield, AlertTriangle, Layers, Lock, Users as UsersIcon, Settings } from "lucide-react";
+import { Search, Plus, RefreshCw, Shield, AlertTriangle, Layers, Lock, Settings } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -43,7 +43,7 @@ type RolesResponse = {
 
 type PermissionItem = {
   key: string;
-  description: string; 
+  description: string;
   category?: string;
   level?: string;
 };
@@ -81,7 +81,8 @@ const FALLBACK_CATALOG: CatalogData = {
     { name: "roles", displayName: "Gestão de Perfis (Roles)", permissions: ["roles:read", "roles:write", "roles:delete", "roles:manage"] },
     { name: "financial", displayName: "Módulo Financeiro", permissions: ["finance:read", "finance:write", "finance:approve", "finance:export"] },
     { name: "system", displayName: "Configurações do Sistema", permissions: ["system:admin", "settings:read", "settings:write", "audit:read", "audit:export"] },
-    { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] }
+    { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] },
+    { name: "communication", displayName: "Comunicação e Protocolo", permissions: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"] }
   ],
   permissions: [
     // Users
@@ -110,6 +111,12 @@ const FALLBACK_CATALOG: CatalogData = {
     { key: "sessions:manage", description: "Derrubar sessões de usuários", category: "security" },
     { key: "backup:create", description: "Gerar backup manual", category: "security" },
     { key: "backup:restore", description: "Restaurar sistema", category: "security" },
+    // Communication (Added manually as requested)
+    { key: "documents:read", description: "Visualizar documentos", category: "communication" },
+    { key: "documents:create", description: "Criar documentos", category: "communication" },
+    { key: "documents:manage", description: "Gerenciar documentos", category: "communication" },
+    { key: "documents:sign", description: "Assinar documentos", category: "communication" },
+    { key: "documents:send", description: "Enviar/Protocolar", category: "communication" },
     // Profile
     { key: "profile:read", description: "Ver próprio perfil", category: "other" },
     { key: "profile:write", description: "Editar próprio perfil", category: "other" },
@@ -161,7 +168,7 @@ export default function Roles() {
   const [upsertMode, setUpsertMode] = useState<UpsertMode>("create");
   const [editingRole, setEditingRole] = useState<ApiRole | null>(null);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
-  
+
   // Form States
   const [createName, setCreateName] = useState<string>("");
   const [createDisplayName, setCreateDisplayName] = useState<string>("");
@@ -208,7 +215,7 @@ export default function Roles() {
         if (!pDef) return permKey.includes(q);
         return pDef.key.toLowerCase().includes(q) || pDef.description.toLowerCase().includes(q);
       });
-      
+
       return {
         ...cat,
         permissions: matchingPerms
@@ -239,7 +246,7 @@ export default function Roles() {
     setCatalogLoading(true);
     try {
       const res = await apiRequest<unknown>("/api/v1/roles/permissions/available");
-      
+
       let rawPermissions: unknown[] = [];
       let rawCategories: unknown[] = [];
 
@@ -251,7 +258,7 @@ export default function Roles() {
         } else if (isRecord(res.data) && Array.isArray(res.data.permissions)) {
           rawPermissions = res.data.permissions;
         } else if (Array.isArray(res.data)) {
-           rawPermissions = res.data;
+          rawPermissions = res.data;
         }
 
         if (Array.isArray(res.categories)) {
@@ -486,7 +493,7 @@ export default function Roles() {
           <p className="mt-1 text-sm text-slate-500">Gestão de perfis e acesso</p>
         </div>
         <div className="flex items-center gap-2">
-           <div className="relative w-full sm:w-[320px]">
+          <div className="relative w-full sm:w-[320px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={query}
@@ -504,7 +511,7 @@ export default function Roles() {
 
       <Card className="rounded-3xl border-slate-200 shadow-sm">
         <CardContent className="p-5">
-           <RolesTable
+          <RolesTable
             loading={loading}
             roles={filteredRoles}
             onOpenDetails={openDetails}
@@ -513,13 +520,13 @@ export default function Roles() {
             onDelete={openDeleteDialog}
           />
           {pagination && (
-             <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-                <div>Página {pagination.page} de {pagination.totalPages}</div>
-                <div className="flex gap-2">
-                   <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>Anterior</Button>
-                   <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>Próxima</Button>
-                </div>
-             </div>
+            <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+              <div>Página {pagination.page} de {pagination.totalPages}</div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>Anterior</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>Próxima</Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -530,116 +537,116 @@ export default function Roles() {
         <DialogContent className="sm:max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-6 py-5 border-b border-slate-100">
             <div className="flex items-center gap-2">
-               <Shield className="h-5 w-5 text-[#0A5BC4]" />
-               <DialogTitle>{upsertMode === "create" ? "Nova role" : "Editar role"}</DialogTitle>
+              <Shield className="h-5 w-5 text-[#0A5BC4]" />
+              <DialogTitle>{upsertMode === "create" ? "Nova role" : "Editar role"}</DialogTitle>
             </div>
             <DialogDescription>Defina as informações e permissões de acesso.</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto bg-slate-50/50">
             <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] h-full divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
-              
+
               <div className="p-6 space-y-5 bg-white">
-                 <div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                       <Settings className="h-4 w-4 text-slate-500" />
-                       Dados Básicos
-                    </h3>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-slate-500">Slug (Identificador)</Label>
-                          <Input className="h-9" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="ex: gerente_vendas" disabled={createSubmitting} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-slate-500">Nome de Exibição</Label>
-                          <Input className="h-9" value={createDisplayName} onChange={e => setCreateDisplayName(e.target.value)} placeholder="ex: Gerente de Vendas" disabled={createSubmitting} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-slate-500">Cor (Hex)</Label>
-                          <div className="flex gap-2">
-                            <div className="w-9 h-9 rounded-md border shadow-sm shrink-0" style={{ backgroundColor: createColor }}></div>
-                            <Input className="h-9 font-mono" value={createColor} onChange={e => setCreateColor(e.target.value)} disabled={createSubmitting} />
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs text-slate-500">Descrição</Label>
-                          <Textarea className="min-h-[100px] resize-none text-sm" value={createDescription} onChange={e => setCreateDescription(e.target.value)} disabled={createSubmitting} />
-                        </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-slate-500" />
+                    Dados Básicos
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500">Slug (Identificador)</Label>
+                      <Input className="h-9" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="ex: gerente_vendas" disabled={createSubmitting} />
                     </div>
-                 </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500">Nome de Exibição</Label>
+                      <Input className="h-9" value={createDisplayName} onChange={e => setCreateDisplayName(e.target.value)} placeholder="ex: Gerente de Vendas" disabled={createSubmitting} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500">Cor (Hex)</Label>
+                      <div className="flex gap-2">
+                        <div className="w-9 h-9 rounded-md border shadow-sm shrink-0" style={{ backgroundColor: createColor }}></div>
+                        <Input className="h-9 font-mono" value={createColor} onChange={e => setCreateColor(e.target.value)} disabled={createSubmitting} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-slate-500">Descrição</Label>
+                      <Textarea className="min-h-[100px] resize-none text-sm" value={createDescription} onChange={e => setCreateDescription(e.target.value)} disabled={createSubmitting} />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="p-6 flex flex-col h-full bg-slate-50/30">
-                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                       <Lock className="h-4 w-4 text-slate-500" />
-                       Permissões
-                       <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-50">{selectedPerms.size} selecionadas</Badge>
-                    </h3>
-                    <div className="flex items-center gap-2">
-                       <Input 
-                          value={permSearch} 
-                          onChange={e => setPermSearch(e.target.value)} 
-                          placeholder="Filtrar..." 
-                          className="h-8 w-[180px] bg-white"
-                        />
-                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void fetchCatalog()} disabled={catalogLoading}>
-                          <RefreshCw className={`h-4 w-4 ${catalogLoading ? "animate-spin" : ""}`} />
-                       </Button>
-                    </div>
-                 </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-slate-500" />
+                    Permissões
+                    <Badge variant="secondary" className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-50">{selectedPerms.size} selecionadas</Badge>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={permSearch}
+                      onChange={e => setPermSearch(e.target.value)}
+                      placeholder="Filtrar..."
+                      className="h-8 w-[180px] bg-white"
+                    />
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void fetchCatalog()} disabled={catalogLoading}>
+                      <RefreshCw className={`h-4 w-4 ${catalogLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </div>
 
-                 <div className="flex-1 space-y-4 overflow-y-auto pr-2 pb-10">
-                    {filteredCatalogCategories.length === 0 ? (
-                       <div className="py-10 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
-                          Nenhuma permissão encontrada.
-                       </div>
-                    ) : (
-                       filteredCatalogCategories.map(cat => (
-                          <div key={cat.name} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                             <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                   <Layers className="h-4 w-4 text-slate-400" />
-                                   <span className="font-semibold text-sm text-slate-700">{cat.displayName}</span>
-                                </div>
-                                <div className="flex gap-2">
-                                   <button type="button" onClick={() => selectAllFromCategory(cat.permissions)} className="text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline">Todos</button>
-                                   <span className="text-slate-300">|</span>
-                                   <button type="button" onClick={() => clearAllFromCategory(cat.permissions)} className="text-[11px] font-medium text-slate-500 hover:text-red-600 hover:underline">Nenhum</button>
-                                </div>
-                             </div>
-                             
-                             <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {cat.permissions.map(permKey => {
-                                   const pDetails = getPermissionDetails(permKey);
-                                   const isSelected = selectedPerms.has(permKey);
-                                   
-                                   return (
-                                      <div 
-                                        key={permKey} 
-                                        className={`
+                <div className="flex-1 space-y-4 overflow-y-auto pr-2 pb-10">
+                  {filteredCatalogCategories.length === 0 ? (
+                    <div className="py-10 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-xl">
+                      Nenhuma permissão encontrada.
+                    </div>
+                  ) : (
+                    filteredCatalogCategories.map(cat => (
+                      <div key={cat.name} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-slate-400" />
+                            <span className="font-semibold text-sm text-slate-700">{cat.displayName}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => selectAllFromCategory(cat.permissions)} className="text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline">Todos</button>
+                            <span className="text-slate-300">|</span>
+                            <button type="button" onClick={() => clearAllFromCategory(cat.permissions)} className="text-[11px] font-medium text-slate-500 hover:text-red-600 hover:underline">Nenhum</button>
+                          </div>
+                        </div>
+
+                        <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {cat.permissions.map(permKey => {
+                            const pDetails = getPermissionDetails(permKey);
+                            const isSelected = selectedPerms.has(permKey);
+
+                            return (
+                              <div
+                                key={permKey}
+                                className={`
                                           flex items-start gap-3 p-2.5 rounded-lg border cursor-pointer transition-all
                                           ${isSelected ? "bg-blue-50/50 border-blue-200" : "bg-white border-transparent hover:border-slate-200 hover:bg-slate-50"}
                                         `}
-                                        onClick={() => togglePerm(permKey)}
-                                      >
-                                         <Checkbox checked={isSelected} className="mt-0.5" />
-                                         <div className="flex-1 min-w-0">
-                                            <div className={`text-sm font-medium ${isSelected ? "text-blue-900" : "text-slate-700"}`}>
-                                               {pDetails?.description || permKey}
-                                            </div>
-                                            <div className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
-                                               {permKey}
-                                            </div>
-                                         </div>
-                                      </div>
-                                   );
-                                })}
-                             </div>
-                          </div>
-                       ))
-                    )}
-                 </div>
+                                onClick={() => togglePerm(permKey)}
+                              >
+                                <Checkbox checked={isSelected} className="mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-sm font-medium ${isSelected ? "text-blue-900" : "text-slate-700"}`}>
+                                    {pDetails?.description || permKey}
+                                  </div>
+                                  <div className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                                    {permKey}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -647,46 +654,46 @@ export default function Roles() {
           <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-white">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
             <Button onClick={() => void submitUpsertRole()} disabled={createSubmitting} className="min-w-[140px] bg-[#0A5BC4] hover:bg-[#094FA8]">
-               {createSubmitting ? "Salvando..." : upsertMode === "create" ? "Criar Role" : "Salvar Alterações"}
+              {createSubmitting ? "Salvando..." : upsertMode === "create" ? "Criar Role" : "Salvar Alterações"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       <Dialog open={dupOpen} onOpenChange={setDupOpen}>
         <DialogContent>
-           <DialogHeader><DialogTitle>Duplicar Role</DialogTitle></DialogHeader>
-           <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <Label>Novo Slug</Label>
-                <Input value={dupName} onChange={e => setDupName(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Novo Nome de Exibição</Label>
-                <Input value={dupDisplayName} onChange={e => setDupDisplayName(e.target.value)} />
-              </div>
-           </div>
-           <DialogFooter>
-              <Button variant="outline" onClick={() => setDupOpen(false)}>Cancelar</Button>
-              <Button onClick={() => void submitDuplicate()} disabled={dupSubmitting}>Confirmar Cópia</Button>
-           </DialogFooter>
+          <DialogHeader><DialogTitle>Duplicar Role</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Novo Slug</Label>
+              <Input value={dupName} onChange={e => setDupName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Novo Nome de Exibição</Label>
+              <Input value={dupDisplayName} onChange={e => setDupDisplayName(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDupOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void submitDuplicate()} disabled={dupSubmitting}>Confirmar Cópia</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={delOpen} onOpenChange={setDelOpen}>
-         <DialogContent>
-            <DialogHeader>
-               <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
-               </div>
-               <DialogTitle className="text-center">Excluir Role?</DialogTitle>
-               <DialogDescription className="text-center">Ação irreversível para <span className="font-medium text-slate-900">{delTarget?.displayName}</span>.</DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="sm:justify-center gap-2">
-               <Button variant="outline" onClick={() => setDelOpen(false)}>Cancelar</Button>
-               <Button variant="destructive" onClick={() => void submitDelete()} disabled={delSubmitting}>Excluir Definitivamente</Button>
-            </DialogFooter>
-         </DialogContent>
+        <DialogContent>
+          <DialogHeader>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">Excluir Role?</DialogTitle>
+            <DialogDescription className="text-center">Ação irreversível para <span className="font-medium text-slate-900">{delTarget?.displayName}</span>.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="outline" onClick={() => setDelOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => void submitDelete()} disabled={delSubmitting}>Excluir Definitivamente</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );
