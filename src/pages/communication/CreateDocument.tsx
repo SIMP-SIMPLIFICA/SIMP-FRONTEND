@@ -1,376 +1,316 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Send, Printer, Settings } from "lucide-react";
-import { useReactToPrint } from "react-to-print";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Save, Send, X, Paperclip, UploadCloud, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RichTextEditor } from "@/components/ui/RichTextEditor";
-import { useCreateDocument, useSendDocument } from "@/hooks/useCommunication";
-import { useMe } from "@/hooks/useMe";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+
+import { useCreateDocument, useSendDocument, useDocument } from "@/hooks/useCommunication";
 import { useRecipients } from "@/hooks/useRecipients";
-import { Separator } from "@/components/ui/separator";
-import { hasPermission } from "@/lib/permissions";
+import type { CreateDocumentDTO, DocumentType, Priority } from "@/lib/services/communication";
+import { uploadApi } from "@/lib/services/communication";
 
-// --- COMPONENTE DE IMPRESSÃO (O SEGREDO DO PDF) ---
-const PrintableDocument = ({ data, user, content, recipientsList, settings }: any) => {
-  const { fontFamily, header } = settings;
+import RichTextEditor from "@/components/ui/RichTextEditor";
 
-  return (
-    <div className="hidden print:block p-12 max-w-[210mm] mx-auto text-black bg-white" style={{ fontFamily }}>
-      {/* Cabeçalho / Logo */}
-      <div className="text-center mb-8">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Brasao_Pequizeiro_Tocantins.png/120px-Brasao_Pequizeiro_Tocantins.png" alt="Brasão" className="h-24 mx-auto mb-3" />
-        <h2 className="font-bold text-xl uppercase mb-1">{header.municipality}</h2>
-        <h3 className="font-bold text-lg mb-1">{header.department}</h3>
-        <p className="text-sm mt-1">E-mail: {header.email}</p>
-        <p className="text-sm">{header.address}</p>
-      </div>
-
-      {/* Título Oficial */}
-      <div className="text-center mb-12 mt-8">
-        <h1 className="font-bold text-2xl uppercase border-b-2 border-black inline-block pb-1 px-4">
-          {data.documentNumber || `${data.type} (SEM NÚMERO)`}
-        </h1>
-      </div>
-
-      {/* Data e Local */}
-      <div className="text-right mb-10 italic text-lg">
-        Pequizeiro - TO, {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}.
-      </div>
-
-      {/* Cabeçalho do Ofício */}
-      <div className="space-y-6 mb-10 text-justify text-lg leading-relaxed">
-        <div className="flex">
-          <span className="font-bold w-28">PARA:</span>
-          <span className="uppercase flex-1">
-            {recipientsList?.length > 0
-              ? recipientsList.map((u: any) => u.name).join(", ")
-              : "A QUEM POSSA INTERESSAR"}
-          </span>
-        </div>
-        <div className="flex">
-          <span className="font-bold w-28">DE:</span>
-          <span className="uppercase flex-1">
-            {user?.firstName} {user?.lastName} - {user?.email}
-          </span>
-        </div>
-        <div className="flex">
-          <span className="font-bold w-28">ASSUNTO:</span>
-          <span className="uppercase flex-1 font-bold">{data.title}</span>
-        </div>
-      </div>
-
-      {/* Conteúdo Rico */}
-      <div
-        className="text-justify leading-relaxed mb-12 min-h-[300px] text-lg"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
-
-      {/* Assinatura */}
-      <div className="mt-20 text-center">
-        <div className="w-80 mx-auto border-t border-black pt-2">
-          <p className="font-bold uppercase text-lg">{user?.firstName} {user?.lastName}</p>
-          <p className="text-md">Assinado Digitalmente pelo SIMP</p>
-        </div>
-      </div>
-    </div>
-  );
+// Função mais robusta para converter imagem da pasta public em Base64
+const convertImageToBase64 = (url: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject("Canvas context error");
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL('image/png');
+      resolve(dataURL);
+    };
+    img.onerror = (error) => {
+      console.error("Erro ao carregar imagem para Base64:", error);
+      // Retorna string vazia para não quebrar o fluxo, mas avisa no console
+      resolve("");
+    };
+  });
 };
-
-// --- PÁGINA PRINCIPAL ---
-
-interface UserWithProfile {
-  id: string;
-  email: string;
-  firstName?: string | null;
-  lastName?: string | null;
-}
 
 export default function CreateDocument() {
   const navigate = useNavigate();
-  const printRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("id");
+  const { toast } = useToast();
 
-  // Hooks
   const { mutateAsync: createDocument, isPending: isCreating } = useCreateDocument();
   const { mutateAsync: sendDocument, isPending: isSending } = useSendDocument();
-  const { data: rawUser } = useMe();
+  const { data: existingDoc } = useDocument(editId || "");
 
-  // Search state for recipients
-  const [recipientSearch, setRecipientSearch] = useState("");
-  const { data: recipientsList } = useRecipients(recipientSearch);
+  const { data: recipientsData } = useRecipients();
+  const recipientsList = recipientsData || [];
 
-  const user = rawUser as unknown as UserWithProfile | undefined;
-
-  // Permissions
-  // const canCreate = hasPermission(rawUser, "documents:create");
-  // const canSend = hasPermission(rawUser, "documents:send");
-
-  // States
+  // STATES
   const [title, setTitle] = useState("");
-  const [documentNumber, setDocumentNumber] = useState("");
-  const [type, setType] = useState("MEMORANDO");
-  const [priority, setPriority] = useState("MEDIUM");
-  const [content, setContent] = useState("<p>...</p>");
-  const [selectedRecipientId, setSelectedRecipientId] = useState<string>("");
+  const [type, setType] = useState<DocumentType>("OFICIO");
+  const [priority, setPriority] = useState<Priority>("MEDIUM");
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
 
-  // Settings States
-  const [fontFamily, setFontFamily] = useState('"Times New Roman", Times, serif');
-  const [headerMunicipality, setHeaderMunicipality] = useState("Prefeitura Municipal de Pequizeiro");
-  const [headerDepartment, setHeaderDepartment] = useState("Gabinete do Prefeito");
-  const [headerEmail, setHeaderEmail] = useState("prefeiturapequizeiroto@gmail.com");
-  const [headerAddress, setHeaderAddress] = useState("Avenida Salgado Filho, s/n, Centro, Pequizeiro/TO, CEP 77730-000");
-  const [showSettings, setShowSettings] = useState(false);
+  // Layout
+  const currentYear = new Date().getFullYear();
+  const [docNumberPrefix, setDocNumberPrefix] = useState("001");
+  const [customHeader, setCustomHeader] = useState("");
+  const [editorContent, setEditorContent] = useState("");
 
-  const isLoading = isCreating || isSending;
+  // Anexos
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Função de Impressão
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: documentNumber || "Documento",
-  });
+  // --- HELPER PARA NOMES ---
+  const getRecipientName = (u: any) => {
+    const target = u.user || u;
+    if (!target) return "Usuário Desconhecido";
+    return target.firstName ? `${target.firstName} ${target.lastName}` : target.username;
+  };
 
-  const handleSave = async (isDraft: boolean) => {
-    try {
-      const recipients = selectedRecipientId
-        ? [{ userId: selectedRecipientId, role: "TO" as const }]
-        : [];
-
-      // Aqui você juntaria as configs de header/font no payload se o backend suportar,
-      // ou apenas usa para geração do documento
-      const newDoc = await createDocument({
-        title,
-        content,
-        documentType: type,
-        priority: priority as "LOW" | "MEDIUM" | "HIGH" | "URGENT",
-        recipients,
-        // @ts-ignore
-        documentNumber: documentNumber,
-        // Enviar flag de email removida pois agora é automático
-      });
-
-      if (!isDraft && newDoc?.id) {
-        await sendDocument(newDoc.id);
+  // Carregar dados na edição
+  useEffect(() => {
+    if (existingDoc && editId) {
+      setTitle(existingDoc.title);
+      // Tenta recuperar o número editado
+      if (existingDoc.documentNumber) {
+        const parts = existingDoc.documentNumber.split('/');
+        setDocNumberPrefix(parts[0] || "001");
       }
-      navigate("/communication");
-    } catch (error) {
-      console.error(error);
+      if (existingDoc.metadata?.customHeader) setCustomHeader(existingDoc.metadata.customHeader);
+
+      if (existingDoc.metadata?.paragrafos) {
+        // @ts-ignore
+        const html = existingDoc.metadata.paragrafos.map((p) => `<p>${p.texto}</p>`).join("");
+        setEditorContent(html);
+      } else {
+        setEditorContent(existingDoc.content || "");
+      }
+
+      if (existingDoc.recipients) setSelectedRecipientIds(existingDoc.recipients.map((r: any) => r.userId));
+
+      if (existingDoc.attachments) {
+        setAttachments(existingDoc.attachments);
+      }
+    }
+  }, [existingDoc, editId]);
+
+  // --- HANDLERS ---
+  const addRecipient = (userId: string) => {
+    if (!userId || selectedRecipientIds.includes(userId)) return;
+    const newIds = [...selectedRecipientIds, userId];
+    setSelectedRecipientIds(newIds);
+
+    if (newIds.length === 1 && !customHeader && recipientsList) {
+      const userObj = recipientsList.find((u: any) => u.id === userId);
+      if (userObj) {
+        const name = getRecipientName(userObj).toUpperCase();
+        setCustomHeader(`À SUA SENHORIA O(A) SENHOR(A)\n${name}\nCARGO NÃO INFORMADO`);
+      }
     }
   };
 
-  const selectedRecipientUser = recipientsList?.find((u: any) => u.id === selectedRecipientId);
-  const recipientsForPrint = selectedRecipientUser
-    ? [{ name: selectedRecipientUser.name || selectedRecipientUser.username || selectedRecipientUser.email }]
-    : [];
+  const removeRecipient = (userId: string) => setSelectedRecipientIds(ids => ids.filter(id => id !== userId));
 
-  const printSettings = {
-    fontFamily,
-    header: {
-      municipality: headerMunicipality,
-      department: headerDepartment,
-      email: headerEmail,
-      address: headerAddress
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    setIsUploading(true);
+    const file = e.target.files[0];
+    try {
+      const uploaded = await uploadApi.uploadFile(file);
+      setAttachments(prev => [...prev, uploaded]);
+      toast({ title: "Anexo adicionado", description: file.name });
+    } catch (error) {
+      toast({ title: "Erro no upload", description: "Não foi possível enviar o arquivo.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAction = async (action: 'DRAFT' | 'SEND') => {
+    if (!title) return toast({ title: "Erro", description: "Assunto obrigatório.", variant: "destructive" });
+
+    // Preparação dos dados para envio
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(editorContent, 'text/html');
+    const paragraphsArray = Array.from(doc.body.querySelectorAll('p, h1, h2, li'))
+      .map(el => ({ id: crypto.randomUUID(), texto: el.textContent?.trim() || "" }))
+      .filter(p => p.texto !== "");
+
+    if (paragraphsArray.length === 0 && editorContent.trim()) paragraphsArray.push({ id: crypto.randomUUID(), texto: doc.body.textContent || "" });
+
+    // 1. Tenta converter a logo para Base64
+    console.log("Gerando Base64 da logo...");
+    const logoBase64 = await convertImageToBase64("/logo.png");
+    if (!logoBase64) {
+      console.warn("Atenção: Logo retornou vazia. Verifique se 'public/logo.png' existe.");
+    } else {
+      console.log("Logo gerada com sucesso. Tamanho:", logoBase64.length);
+    }
+
+    // 2. Garante que o número do documento seja o editado
+    const finalDocNumber = `${docNumberPrefix}/${currentYear}`;
+
+    const payload: CreateDocumentDTO = {
+      title,
+      content: editorContent,
+      documentType: type,
+      priority: priority,
+      documentNumber: finalDocNumber, // Envia no campo padrão
+      recipients: selectedRecipientIds.map(id => ({ userId: id, role: "TO" })),
+      attachments: attachments,
+      metadata: {
+        // Envia dados cruciais para o gerador de PDF
+        customHeader: customHeader,
+        paragrafos: paragraphsArray,
+        logoBase64: logoBase64, // Logo embutida
+        useCustomLayout: true, // Flag para avisar o backend (se implementado)
+        manualDocumentNumber: finalDocNumber, // Redundância para garantir
+        generated_file: true
+      }
+    };
+
+    try {
+      let docId = editId;
+      if (!docId) {
+        const newDoc = await createDocument(payload);
+        docId = newDoc.id;
+      }
+
+      if (action === 'SEND' && docId) {
+        if (selectedRecipientIds.length === 0) return toast({ title: "Erro", description: "Adicione um destinatário.", variant: "destructive" });
+        await sendDocument(docId);
+        toast({ title: "Sucesso!", description: "Protocolado e Assinado." });
+        navigate("/communication");
+      } else {
+        toast({ title: "Salvo", description: "Rascunho atualizado." });
+        navigate("/communication");
+      }
+    } catch (error: any) {
+      console.error("Erro ao salvar:", error);
+      toast({ title: "Erro", description: error.message || "Falha ao processar.", variant: "destructive" });
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
-
-      {/* --- COMPONENTE OCULTO DE IMPRESSÃO --- */}
-      <div className="hidden">
-        <div ref={printRef}>
-          <PrintableDocument
-            data={{ title, documentNumber, type }}
-            user={user}
-            content={content}
-            recipientsList={recipientsForPrint}
-            settings={printSettings}
-          />
+    <div className="min-h-screen bg-slate-100 pb-20">
+      <div className="sticky top-0 z-50 bg-white border-b shadow-sm px-6 py-3 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
+          <span className="font-semibold text-slate-700">Editor de Ofício</span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
+          <Button onClick={() => handleAction('SEND')} disabled={isCreating || isSending} className="bg-blue-600 hover:bg-blue-700">
+            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> Assinar Digitalmente</>}
+          </Button>
         </div>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Nova Documentação</h1>
-            <p className="text-sm text-muted-foreground">Preencha os dados oficiais.</p>
+      <div className="max-w-[210mm] mx-auto mt-8 bg-white shadow-lg min-h-[297mm] p-[20mm] flex flex-col relative">
+        {/* LOGO (Visualização no Editor) */}
+        <div className="flex justify-center mb-8">
+          <img src="/logo.png" alt="Logo" className="h-24 object-contain" onError={(e) => console.error("Erro ao carregar logo no editor", e)} />
+        </div>
+
+        {/* NUMERAÇÃO */}
+        <div className="flex justify-between items-end mb-8">
+          <div className="flex items-center gap-1 font-bold text-lg uppercase">
+            <span>{type} Nº</span>
+            <div className="flex items-center bg-slate-50 border border-slate-300 rounded px-2">
+              <input className="w-16 bg-transparent border-none text-right focus:ring-0 p-1" value={docNumberPrefix} onChange={e => setDocNumberPrefix(e.target.value)} />
+              <span className="text-slate-500">/{currentYear}</span>
+            </div>
+          </div>
+          <div className="text-right text-sm">Pequizeiro - TO, {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}.</div>
+        </div>
+
+        {/* DESTINATÁRIOS */}
+        <div className="mb-6 p-4 border border-dashed border-slate-300 rounded bg-slate-50/50">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-xs text-blue-600 font-bold uppercase">1. Adicionar Destinatários</label>
+            <Select onValueChange={addRecipient}>
+              <SelectTrigger className="h-8 w-[250px] text-xs bg-white"><SelectValue placeholder="Selecione para adicionar à lista..." /></SelectTrigger>
+              <SelectContent>
+                {recipientsList.map((u: any) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {getRecipientName(u)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4 min-h-[24px]">
+            {selectedRecipientIds.length === 0 && <span className="text-xs text-slate-400 italic">Ninguém selecionado.</span>}
+            {selectedRecipientIds.map(id => {
+              const u = recipientsList.find((r: any) => r.id === id);
+              return (
+                <div key={id} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">
+                  <span>{u ? getRecipientName(u) : "Usuário"}</span>
+                  <button onClick={() => removeRecipient(id)} className="hover:text-red-600"><X className="w-3 h-3" /></button>
+                </div>
+              );
+            })}
+          </div>
+          <label className="text-xs text-blue-600 font-bold uppercase mb-1 block">2. Cabeçalho do Texto (Editável)</label>
+          <Textarea value={customHeader} onChange={e => setCustomHeader(e.target.value)} className="font-bold uppercase border-none bg-transparent p-0 resize-none min-h-[80px] focus-visible:ring-0 text-base" placeholder="À SUA SENHORIA..." />
+        </div>
+
+        {/* ASSUNTO */}
+        <div className="mb-6 flex gap-2 items-center border-b pb-1">
+          <span className="font-bold uppercase">ASSUNTO:</span>
+          <Input value={title} onChange={e => setTitle(e.target.value)} className="font-bold uppercase border-none px-0 h-auto focus-visible:ring-0" placeholder="DIGITE O ASSUNTO..." />
+        </div>
+
+        {/* EDITOR */}
+        <div className="flex-1 mb-8">
+          <RichTextEditor content={editorContent} onChange={setEditorContent} disabled={isCreating || isSending} />
+        </div>
+
+        {/* ANEXOS */}
+        <div className="mb-8 border-t pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-bold text-slate-600 flex items-center gap-2"><Paperclip className="w-4 h-4" /> Documentos Anexos</label>
+            <div className="relative">
+              <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isUploading} />
+              <Button variant="outline" size="sm" disabled={isUploading}>
+                {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UploadCloud className="w-4 h-4 mr-2" />}
+                {isUploading ? "Enviando..." : "Anexar Arquivo"}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {attachments.map((att, idx) => (
+              <div key={idx} className="flex items-center justify-between text-sm bg-slate-50 p-2 rounded border">
+                <span className="truncate max-w-[300px]">{att.fileName}</span>
+                <button onClick={() => removeAttachment(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X className="w-4 h-4" /></button>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setShowSettings(!showSettings)}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurações
-          </Button>
-          <Button variant="secondary" onClick={() => handlePrint()}>
-            <Printer className="mr-2 h-4 w-4" />
-            Visualizar / Imprimir
-          </Button>
 
-          <Button variant="outline" onClick={() => handleSave(true)} disabled={isLoading}>
-            <Save className="mr-2 h-4 w-4" />
-            Salvar como Rascunho
-          </Button>
-
-          <Button onClick={() => handleSave(false)} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-            <Send className="mr-2 h-4 w-4" />
-            Salvar e Protocolar
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Settings Area */}
-          {showSettings && (
-            <Card className="bg-slate-50 border-slate-200">
-              <CardHeader><CardTitle className="text-base">Configurações do Documento</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Fonte do Documento</Label>
-                    <Select value={fontFamily} onValueChange={setFontFamily}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='"Times New Roman", Times, serif'>Times New Roman</SelectItem>
-                        <SelectItem value="Arial, Helvetica, sans-serif">Arial</SelectItem>
-                        <SelectItem value='"Bookman Old Style", Georgia, serif'>Bookman Old Style</SelectItem>
-                        <SelectItem value="Georgia, serif">Georgia</SelectItem>
-                        <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Órgão / Prefeitura</Label>
-                    <Input value={headerMunicipality} onChange={e => setHeaderMunicipality(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Departamento</Label>
-                    <Input value={headerDepartment} onChange={e => setHeaderDepartment(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Email do Cabeçalho</Label>
-                    <Input value={headerEmail} onChange={e => setHeaderEmail(e.target.value)} />
-                  </div>
-                  <div className="col-span-2 space-y-2">
-                    <Label>Endereço Completo</Label>
-                    <Input value={headerAddress} onChange={e => setHeaderAddress(e.target.value)} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              {/* Linha 1 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select value={type} onValueChange={setType}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MEMORANDO">Memorando</SelectItem>
-                      <SelectItem value="OFICIO">Ofício</SelectItem>
-                      <SelectItem value="DECRETO">Decreto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label htmlFor="docNumber">Número Oficial</Label>
-                  <Input
-                    id="docNumber"
-                    placeholder="Ex: MEMORANDO Nº 01/2026"
-                    value={documentNumber}
-                    onChange={(e) => setDocumentNumber(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Linha 2 */}
-              <div className="space-y-2">
-                <Label htmlFor="title">Assunto (Ementa)</Label>
-                <Input
-                  id="title"
-                  placeholder="Ex: PRESTAÇÃO DE CONTAS DO CONVÊNIO..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-
-              {/* Editor */}
-              <div className="space-y-2">
-                <Label>Conteúdo</Label>
-                <RichTextEditor content={content} onChange={setContent} />
-              </div>
-
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <h3 className="font-semibold">Destinatário (PARA)</h3>
-
-              <div className="space-y-2">
-                <Label>Selecionar Usuário</Label>
-                {/* Campo de Busca Opcional */}
-                <Input
-                  placeholder="Buscar destinatário..."
-                  value={recipientSearch}
-                  onChange={(e) => setRecipientSearch(e.target.value)}
-                  className="mb-2"
-                />
-                <Select value={selectedRecipientId} onValueChange={setSelectedRecipientId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {recipientsList?.length === 0 ? (
-                      <SelectItem value="empty" disabled>Nenhum destinatário encontrado</SelectItem>
-                    ) : (
-                      recipientsList?.map((u: any) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.name || u.username || u.email}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground p-1">Mostrando apenas usuários com permissão de Comunicação.</p>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Prioridade</Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Baixa</SelectItem>
-                    <SelectItem value="MEDIUM">Normal</SelectItem>
-                    <SelectItem value="HIGH">Alta</SelectItem>
-                    <SelectItem value="URGENT">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+        {/* RODAPÉ (Visualização) */}
+        <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
+          <div className="w-64 border-t border-black mb-2"></div>
+          <p className="font-bold uppercase">ADMIN USER</p>
+          <p className="text-sm">Cargo Administrativo</p>
+          <p className="text-xs text-slate-400 mt-2">Assinado Digitalmente via SIMP</p>
         </div>
       </div>
     </div>

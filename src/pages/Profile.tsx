@@ -35,12 +35,13 @@ type ProfileUser = {
   firstName?: string;
   lastName?: string;
   avatar?: string;
+  jobTitle?: string;
 };
 
 export default function Profile() {
   // Ajuste: useQuery retorna 'refetch', não 'mutate'
   const { data: meData, refetch: refreshMe } = useMe();
-  
+
   // Cast forçado para garantir acesso aos campos
   const user = meData?.user as ProfileUser | undefined;
 
@@ -50,6 +51,7 @@ export default function Profile() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
 
   // --- PASSWORD FORM STATES ---
@@ -68,6 +70,7 @@ export default function Profile() {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setUsername(user.username || "");
+      setJobTitle(user.jobTitle || "");
     }
   }, [user]);
 
@@ -85,7 +88,7 @@ export default function Profile() {
       setProfileLoading(true);
       await apiRequest("/api/v1/auth/profile", {
         method: "PUT",
-        body: JSON.stringify({ firstName, lastName, username }),
+        body: JSON.stringify({ firstName, lastName, username, jobTitle }),
       });
       toast({ title: "Perfil atualizado", description: "Suas informações foram salvas." });
       refreshMe(); // Atualiza o contexto global
@@ -186,8 +189,8 @@ export default function Profile() {
                     <AvatarFallback className="bg-[#0A5BC4] text-white text-xl">{initials}</AvatarFallback>
                   </Avatar>
                   <div>
-                     <Button type="button" variant="outline" size="sm" disabled>Alterar Avatar</Button>
-                     <p className="text-xs text-slate-400 mt-2">Apenas JPG ou PNG. Máx 2MB.</p>
+                    <Button type="button" variant="outline" size="sm" disabled>Alterar Avatar</Button>
+                    <p className="text-xs text-slate-400 mt-2">Apenas JPG ou PNG. Máx 2MB.</p>
                   </div>
                 </div>
 
@@ -205,6 +208,17 @@ export default function Profile() {
                 <div className="space-y-2">
                   <Label>Nome de Usuário</Label>
                   <Input value={username} onChange={e => setUsername(e.target.value)} disabled={profileLoading} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Cargo / Função</Label>
+                  <Input
+                    value={jobTitle}
+                    onChange={e => setJobTitle(e.target.value)}
+                    disabled={profileLoading}
+                    placeholder="Ex: Prefeito, Secretário, Gerente..."
+                  />
+                  <p className="text-xs text-slate-400">Este cargo aparecerá na assinatura dos seus documentos.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -235,32 +249,32 @@ export default function Profile() {
               <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
                 <div className="space-y-2">
                   <Label>Senha Atual</Label>
-                  <Input 
-                    type="password" 
-                    value={currentPassword} 
-                    onChange={e => setCurrentPassword(e.target.value)} 
+                  <Input
+                    type="password"
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
                     placeholder="••••••••"
                   />
                 </div>
-                
+
                 <Separator className="my-2" />
 
                 <div className="space-y-2">
                   <Label>Nova Senha</Label>
-                  <Input 
-                    type="password" 
-                    value={newPassword} 
-                    onChange={e => setNewPassword(e.target.value)} 
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
                     placeholder="••••••••"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Confirmar Nova Senha</Label>
-                  <Input 
-                    type="password" 
-                    value={confirmPassword} 
-                    onChange={e => setConfirmPassword(e.target.value)} 
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                   />
                 </div>
@@ -295,7 +309,7 @@ export default function Profile() {
                 {sessions.length === 0 && !sessionsLoading && (
                   <div className="text-center py-6 text-slate-500">Nenhuma informação de sessão disponível.</div>
                 )}
-                
+
                 {sessions.map(session => (
                   <div key={session.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50">
                     <div className="flex items-center gap-4">
@@ -316,9 +330,9 @@ export default function Profile() {
                     </div>
 
                     {!session.isCurrent && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50 mt-2 sm:mt-0"
                         onClick={() => revokeSession(session.id)}
                       >

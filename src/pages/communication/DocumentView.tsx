@@ -1,264 +1,239 @@
 import { useParams, useNavigate } from "react-router-dom";
 import {
     ArrowLeft,
-    Printer,
-    Clock,
     FileSignature,
-    CheckCircle2,
-    Hash,
-    FileText,
+    Clock,
     Send,
-    AlertCircle
+    FileText,
+    Paperclip,
+    Download,
+    Eye,
+    ShieldCheck,
+    Loader2,
+    AlertCircle,
+    PenTool
 } from "lucide-react";
-import { useReactToPrint } from "react-to-print";
-import { useRef } from "react";
-
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { communicationApi } from "@/lib/services/communication";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-import { useDocument } from "@/hooks/useCommunication";
-import { useMe } from "@/hooks/useMe";
+import { useDocument, useSignDocument } from "@/hooks/useCommunication";
 import { LegalReceiptModal } from "@/components/documents/LegalReceiptModal";
-import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { PrintableDocument } from "@/components/documents/PrintableDocument";
+import { DocumentHistoryPage } from "@/components/documents/DocumentHistoryPage";
 
 export default function DocumentView() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const printRef = useRef<HTMLDivElement>(null);
-    const [showReceipt, setShowReceipt] = useState(false);
+    const { toast } = useToast();
+    const { user } = useAuth();
 
     const { data: document, isLoading, isError } = useDocument(id || "");
-    const { data: user } = useMe();
+    const signMutation = useSignDocument();
 
-    const handlePrint = useReactToPrint({
-        contentRef: printRef,
-        documentTitle: document?.documentNumber || "Documento",
-    });
+    const [showReceipt, setShowReceipt] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-    if (isLoading) {
-        return (
-            <div className="p-8 space-y-4">
-                <Skeleton className="h-8 w-1/3" />
-                <Skeleton className="h-[500px] w-full" />
-            </div>
-        );
-    }
-
-    if (isError || !document) {
-        return (
-            <div className="p-8">
-                <div className="flex items-center gap-2 p-4 text-red-800 bg-red-50 rounded-lg border border-red-200">
-                    <AlertCircle className="h-4 w-4" />
-                    <div>
-                        <h5 className="font-medium">Erro</h5>
-                        <p className="text-sm">Não foi possível carregar o documento.</p>
-                    </div>
-                </div>
-                <Button variant="outline" className="mt-4" onClick={() => navigate("/communication")}>
-                    Voltar
-                </Button>
-            </div>
-        );
-    }
-
-    const isAutoSigned = document.signatures?.some(
-        (sig) => sig.userId === user?.user?.id && sig.signatureType === "AUTO"
+    // Identifica o PDF Oficial
+    const officialPdf = document?.attachments?.find((att: any) =>
+        att.fileType === 'application/pdf' && (att.fileName.startsWith('OFICIO_') || att.fileName.startsWith('DOC_'))
     );
 
-    const steps = [
-        { status: "DRAFT", label: "Criado", icon: FileText, date: document.createdAt },
-        { status: "SENT", label: "Enviado", icon: Send, date: document.sentAt },
-        { status: "READ", label: "Lido", icon: CheckCircle2, date: null }, // TODO: Add readAt
-        { status: "SIGNED", label: "Assinado", icon: FileSignature, date: document.signatures?.[0]?.signedAt },
-    ];
+    // Carrega prévia segura via Backend
+    useEffect(() => {
+        const loadPdfPreview = async () => {
+            if (officialPdf && document?.id) {
+                try {
+                    const blobUrl = await communicationApi.getAttachmentPreviewUrl(document.id, officialPdf.id);
+                    setPreviewUrl(blobUrl);
+                } catch (error) {
+                    console.error("Erro ao carregar prévia", error);
+                }
+            }
+        };
+        loadPdfPreview();
+        return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }
+    }, [officialPdf, document?.id]); // Re-run when officialPdf changes (e.g. after signing)
 
+    const handleDownload = async (attachment: any) => {
+        if (!document) return;
+        try {
+            setDownloadingId(attachment.id);
+            await communicationApi.downloadAttachment(document.id, attachment.id, attachment.fileName);
+            toast({ title: "Sucesso", description: "Download iniciado." });
+        } catch (error) {
+            toast({ title: "Erro", description: "Falha ao baixar.", variant: "destructive" });
+        } finally {
+            setDownloadingId(null);
+        }
+    };
 
+    const handleSign = async () => {
+        if (!document) return;
+        signMutation.mutate(document.id);
+    };
+
+    if (isLoading) return <div className="p-8"><Skeleton className="h-96 w-full" /></div>;
+
+    if (isError || !document) return (
+        <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+            <div className="p-4 bg-red-50 text-red-800 rounded-full">
+                <AlertCircle className="h-8 w-8" />
+            </div>
+            <h2 className="text-xl font-semibold">Documento não encontrado</h2>
+            <Button variant="outline" onClick={() => navigate("/communication")}>
+                Voltar para Lista
+            </Button>
+        </div>
+    );
+
+    // Verifica Permissão de Assinatura
+    const recipientRecord = document.recipients?.find(r => r.userId === user?.id);
+    const canSign = (document.createdBy === user?.id) || (recipientRecord?.role === 'TO');
+    // Nota: O backend valida `canSign` e `isCreator`. Aqui simplificamos a UX.
+    const alreadySigned = document.signatures?.some(s => s.userId === user?.id);
+    const needsSignature = canSign && !alreadySigned && document.status !== 'DRAFT';
+
+    // Timeline Dinâmica (Audit Trail ou Fallback)
+    const timelineEvents = document.auditTrail || [
+        { event: "CREATED", label: "Criado", icon: FileText, date: document.createdAt, description: "Documento criado" },
+        { event: "SENT", label: "Protocolado", icon: Send, date: document.sentAt, description: "Enviado oficialmente" },
+        { event: "READ", label: "Lido", icon: Eye, date: document.recipients?.[0]?.readAt, description: "Visualizado pelo destinatário" },
+        { event: "SIGNED", label: "Assinado", icon: FileSignature, date: document.signatures?.[0]?.signedAt, description: "Assinado digitalmente" },
+    ].filter(e => e.date);
 
     return (
-        <div className="max-w-5xl mx-auto p-6 space-y-8">
-
-            {/* Header e Ações */}
-            <div className="flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto p-6 space-y-6 h-[calc(100vh-4rem)] flex flex-col">
+            <div className="flex items-center justify-between bg-white p-4 rounded-lg border shadow-sm shrink-0">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            {document.documentNumber || document.title}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline">{document.documentType}</Badge>
-                            <span className="text-sm text-muted-foreground">
-                                Criado em {new Date(document.createdAt).toLocaleDateString('pt-BR')}
-                            </span>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-xl font-bold text-slate-900">{document.documentNumber || document.title}</h1>
+                            <Badge variant={document.status === 'SENT' ? 'default' : 'secondary'}>{document.status === 'SENT' ? 'OFICIAL' : 'RASCUNHO'}</Badge>
+                            {needsSignature && <Badge variant="destructive" className="animate-pulse">Assinatura Pendente</Badge>}
                         </div>
+                        <p className="text-sm text-muted-foreground">{document.documentType} • {document.protocolNumber}</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {document.verification?.valid && (
-                        <Button variant="secondary" onClick={() => setShowReceipt(true)}>
-                            <FileSignature className="mr-2 h-4 w-4" />
-                            Ver Comprovante
+                    {needsSignature && (
+                        <Button onClick={handleSign} disabled={signMutation.isPending} className="bg-green-700 hover:bg-green-800 text-white">
+                            {signMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PenTool className="mr-2 h-4 w-4" />}
+                            Assinar Digitalmente
                         </Button>
                     )}
-                    <Button variant="outline" onClick={() => handlePrint()}>
-                        <Printer className="mr-2 h-4 w-4" />
-                        Imprimir
-                    </Button>
+                    {document.verification?.valid && (
+                        <Button variant="outline" onClick={() => setShowReceipt(true)} className="text-blue-700 border-blue-200"><ShieldCheck className="mr-2 h-4 w-4" /> Comprovante</Button>
+                    )}
+                    {officialPdf && (
+                        <Button onClick={() => handleDownload(officialPdf)} className="bg-slate-800"><Download className="mr-2 h-4 w-4" /> Baixar PDF</Button>
+                    )}
                 </div>
             </div>
 
-            {/* Alerta de Auto-Assinatura */}
-            {isAutoSigned && (
-                <div className="flex items-center gap-2 p-4 text-blue-800 bg-blue-50 rounded-lg border border-blue-200">
-                    <FileSignature className="h-4 w-4" />
-                    <div>
-                        <h5 className="font-medium">Documento Assinado Automaticamente</h5>
-                        <p className="text-sm">
-                            Este documento foi assinado digitalmente por você no momento do envio.
-                        </p>
-                    </div>
-                </div>
-            )}
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+                <div className="flex-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner overflow-y-auto max-h-[calc(100vh-12rem)] p-4 md:p-8 flex flex-col items-center gap-8">
+                    {officialPdf && previewUrl ? (
+                        <iframe src={`${previewUrl}#toolbar=0&view=FitH`} className="w-full h-[80vh] bg-slate-200 shadow-lg rounded" title="PDF Preview" />
+                    ) : (
+                        <>
+                            <PrintableDocument
+                                data={{
+                                    title: document.title,
+                                    documentNumber: document.documentNumber,
+                                    protocolNumber: document.protocolNumber,
+                                    type: document.documentType,
+                                    documentType: document.documentType,
+                                    subject: document.title
+                                }}
+                                user={user}
+                                content={document.content}
+                                fullDocumentData={document}
+                                recipientsList={document.recipients?.map(r => ({
+                                    ...r,
+                                    name: r.user ? `${r.user.firstName} ${r.user.lastName}` : "Destinatário"
+                                })) || []}
+                            />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                {/* Conteúdo do Documento */}
-                <div className="lg:col-span-2 space-y-6">
-                    <Card>
-                        <CardContent className="p-8 min-h-[500px]">
-                            {/* Área de Impressão (Simplificada para visualização) */}
-                            <div ref={printRef} className="print:p-8">
-                                <div className="text-center mb-8 hidden print:block">
-                                    <h2 className="font-bold text-xl uppercase">Prefeitura Municipal de Pequizeiro</h2>
-                                    <h3 className="font-bold text-lg">Gabinete do Prefeito</h3>
-                                </div>
-
-                                <div className="text-center mb-8">
-                                    <h1 className="font-bold text-2xl uppercase border-b-2 border-black inline-block pb-1 px-4">
-                                        {document.documentNumber || `${document.documentType} (SEM NÚMERO)`}
-                                    </h1>
-                                </div>
-
-                                <div className="space-y-4 mb-8">
-                                    <div className="flex">
-                                        <span className="font-bold w-24">ASSUNTO:</span>
-                                        <span className="uppercase flex-1 font-bold">{document.title}</span>
-                                    </div>
-                                </div>
-
-                                <div
-                                    className="text-justify leading-relaxed text-lg"
-                                    dangerouslySetInnerHTML={{ __html: document.content }}
-                                />
-
-                                {/* Assinaturas no Documento */}
-                                {document.signatures && document.signatures.length > 0 && (
-                                    <div className="mt-16 pt-8 border-t border-gray-200 print:border-black">
-                                        <h4 className="font-bold mb-4 uppercase text-sm text-gray-500 print:text-black">Assinaturas Digitais</h4>
-                                        <div className="space-y-4">
-                                            {document.signatures.map((sig) => (
-                                                <div key={sig.id} className="flex items-center gap-3">
-                                                    <CheckCircle2 className="h-5 w-5 text-green-600 print:hidden" />
-                                                    <div>
-                                                        <p className="font-bold uppercase">{sig.userName}</p>
-                                                        <p className="text-xs text-muted-foreground print:text-black">
-                                                            Assinado em {new Date(sig.signedAt).toLocaleString('pt-BR')} via SIMP
-                                                            {sig.signatureType === 'AUTO' && ' (Auto-Assinado)'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Hash no Rodapé */}
-                                {document.originalHash && (
-                                    <div className="mt-8 pt-4 border-t border-dashed text-xs text-gray-400 font-mono text-center print:text-black">
-                                        HASH ORIGINAL: {document.originalHash}
-                                    </div>
-                                )}
+                            <div className="w-full max-w-[210mm] print:break-before-page">
+                                <DocumentHistoryPage document={document} />
                             </div>
-                        </CardContent>
-                    </Card>
+                        </>
+                    )}
                 </div>
 
-                {/* Sidebar: Timeline e Metadados */}
-                <div className="space-y-6">
-
-                    {/* Timeline */}
+                <div className="w-full lg:w-96 space-y-6 overflow-auto pr-1">
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                Linha do Tempo
-                            </CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Clock className="h-4 w-4" /> Rastreamento</CardTitle></CardHeader>
                         <CardContent>
-                            <div className="relative pl-4 border-l-2 border-muted space-y-6">
-                                {steps.map((step) => {
-                                    const isCompleted = step.date;
-
-                                    return (
-                                        <div key={step.status} className="relative">
-                                            <span className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 ${isCompleted ? 'bg-blue-600 border-blue-600' : 'bg-background border-muted'
-                                                }`} />
-                                            <div className="text-sm font-medium">{step.label}</div>
-                                            {step.date && (
-                                                <div className="text-xs text-muted-foreground">
-                                                    {new Date(step.date).toLocaleString('pt-BR')}
-                                                </div>
-                                            )}
+                            <div className="relative pl-4 border-l-2 border-slate-100 space-y-6 ml-1 py-1">
+                                {timelineEvents.map((step: any, idx: number) => (
+                                    <div key={idx} className="relative">
+                                        <span className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 bg-blue-500 border-blue-500`} />
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-medium">{step.description || step.event}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {step.timestamp ? new Date(step.timestamp).toLocaleString() : (step.date ? new Date(step.date).toLocaleString() : 'Pendente')}
+                                                {step.user && ` • ${step.user.firstName} ${step.user.lastName}`}
+                                            </span>
                                         </div>
-                                    )
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Metadados Técnicos */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Hash className="h-4 w-4" />
-                                Metadados
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground block">ID do Documento</span>
-                                <code className="text-xs bg-muted p-1 rounded">{document.id}</code>
-                            </div>
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground block">Hash Original</span>
-                                <code className="text-xs bg-muted p-1 rounded break-all">
-                                    {document.originalHash || "Ainda não gerado"}
-                                </code>
-                            </div>
-                            <div className="flex items-center gap-2 pt-2">
-                                <img src="/placeholder-qr.png" alt="QR Code" className="h-16 w-16 bg-slate-100 rounded" />
-                                <div className="text-xs text-muted-foreground">
-                                    Escaneie para validar a autenticidade deste documento.
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {document.attachments && document.attachments.length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Paperclip className="h-4 w-4" /> Anexos</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                                {document.attachments.map((att: any) => (
+                                    <div key={att.id} className="flex items-center justify-between p-2 rounded border bg-slate-50">
+                                        <div className="flex items-center gap-2 truncate">
+                                            <Paperclip className="h-4 w-4 text-blue-500" />
+                                            <span className="text-sm truncate max-w-[150px]" title={att.fileName}>{att.fileName}</span>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDownload(att)}>
+                                            {downloadingId === att.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
 
+                    {document.signatures && document.signatures.length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><ShieldCheck className="h-4 w-4" /> Assinaturas Digitais</CardTitle></CardHeader>
+                            <CardContent className="space-y-2">
+                                {document.signatures.map((sig: any) => (
+                                    <div key={sig.id} className="flex flex-col gap-1 text-xs bg-green-50 text-green-700 p-3 rounded border border-green-200">
+                                        <div className="flex items-center gap-2 font-bold">
+                                            <ShieldCheck className="h-3 w-3" />
+                                            {sig.user?.firstName} {sig.user?.lastName}
+                                        </div>
+                                        <div className="pl-5 text-[10px] opacity-75">
+                                            Em: {new Date(sig.signedAt).toLocaleString()}
+                                        </div>
+                                        <div className="pl-5 text-[10px] opacity-75 font-mono">
+                                            Hash: {sig.sealData?.hash || "---"}
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </div>
 
-            {showReceipt && (
-                <LegalReceiptModal
-                    document={document}
-                    onClose={() => setShowReceipt(false)}
-                />
-            )}
+            {showReceipt && <LegalReceiptModal document={document} onClose={() => setShowReceipt(false)} />}
         </div>
     );
 }

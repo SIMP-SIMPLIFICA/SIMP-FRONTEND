@@ -66,3 +66,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  @page {
+    margin: 0;
+    size: auto;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Ocultar elementos indesejados */
+  header, footer, .no-print {
+    display: none !important;
+  }
+  html, body {
+    height: 100%;
+    overflow: visible !important;
+  }
+}

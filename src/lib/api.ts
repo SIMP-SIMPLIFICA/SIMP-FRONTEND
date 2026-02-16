@@ -7,7 +7,7 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-type ApiOptions = RequestInit & { noAuth?: boolean };
+type ApiOptions = RequestInit & { noAuth?: boolean; responseType?: 'json' | 'text' | 'blob' };
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -52,7 +52,9 @@ export async function apiRequest<T = unknown>(
   const contentType = res.headers.get("content-type") || "";
   let data: any;
 
-  if (contentType.includes("application/json")) {
+  if (options.responseType === 'blob') {
+    data = await res.blob();
+  } else if (contentType.includes("application/json")) {
     data = await res.json().catch(() => ({}));
   } else {
     data = await res.text();
@@ -60,7 +62,7 @@ export async function apiRequest<T = unknown>(
 
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {
     console.warn(`⚠️ [API] 401 detectado em ${path}. Tentando refresh...`);
-    
+
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -110,30 +112,30 @@ export async function apiRequest<T = unknown>(
 
 // --- ADAPTER PARA SERVIÇOS ---
 export const api = {
-  get: <T>(path: string, options?: ApiOptions) => 
+  get: <T>(path: string, options?: ApiOptions) =>
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
-    
-  post: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "POST", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
-    }).then(data => ({ data })),
-    
-  put: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "PUT", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
+
+  post: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "POST",
+      body: body instanceof FormData ? body : JSON.stringify(body)
     }).then(data => ({ data })),
 
-  patch: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "PATCH", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
+  put: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "PUT",
+      body: body instanceof FormData ? body : JSON.stringify(body)
     }).then(data => ({ data })),
-    
-  delete: <T>(path: string, options?: ApiOptions) => 
+
+  patch: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "PATCH",
+      body: body instanceof FormData ? body : JSON.stringify(body)
+    }).then(data => ({ data })),
+
+  delete: <T>(path: string, options?: ApiOptions) =>
     apiRequest<T>(path, { ...options, method: "DELETE" }).then(data => ({ data })),
 };

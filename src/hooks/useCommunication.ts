@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { communicationApi, type CreateDocumentDTO } from "@/lib/api/communication"; // Nota: 'type' import explícito
+import { communicationApi, type CreateDocumentDTO } from "@/lib/services/communication"; // Nota: 'type' import explícito
 import { useToast } from "@/hooks/use-toast";
 
 // Hook para listar rascunhos
@@ -83,6 +83,34 @@ export function useSendDocument() {
       toast({
         title: "Erro ao Protocolar",
         description: "Não foi possível enviar o documento. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Hook para ASSINAR DIGITALMENTE
+export function useSignDocument() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => communicationApi.sign(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["communication"] });
+
+      toast({
+        title: "Assinado com Sucesso!",
+        description: `Assinatura registrada. Hash: ${data.signatureHash}`,
+        variant: "default", // ou "success"
+      });
+    },
+    onError: (error: any) => {
+      console.error(error);
+      const msg = error.response?.data?.message || "Erro desconhecido";
+      toast({
+        title: "Erro ao Assinar",
+        description: msg,
         variant: "destructive",
       });
     },

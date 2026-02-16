@@ -7,6 +7,7 @@ export type MeResponse = {
     id: string;
     email: string;
     username?: string;
+    jobTitle?: string;
     roles?: Array<{ role?: { permissions?: string[]; name?: string; displayName?: string } }>;
   };
 };

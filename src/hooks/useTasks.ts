@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { taskService } from "@/lib/api/tasks";
-import { 
-  type CreateTaskDTO, 
-  type UpdateTaskDTO, 
-  type Task, 
-  type TaskDetails 
+import { taskService } from "@/lib/services/tasks";
+import {
+  type CreateTaskDTO,
+  type UpdateTaskDTO,
+  type Task,
+  type TaskDetails
 } from "@/types/task";
 
 // --- LISTAGEM E CRIAÇÃO (KANBAN) ---
@@ -49,7 +49,7 @@ export function useDeleteTask(workspaceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (taskId: string) => taskService.delete(taskId), 
+    mutationFn: (taskId: string) => taskService.delete(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", workspaceId] });
     },
@@ -77,7 +77,7 @@ export function useChecklistOperations(taskId: string) {
   });
 
   const toggle = useMutation({
-    mutationFn: ({ itemId, isDone }: { itemId: string; isDone: boolean }) => 
+    mutationFn: ({ itemId, isDone }: { itemId: string; isDone: boolean }) =>
       taskService.updateChecklistItem(itemId, isDone),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task", taskId] }),
   });

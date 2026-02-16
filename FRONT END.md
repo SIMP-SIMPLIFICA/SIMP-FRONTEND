@@ -1,6 +1,6 @@
 # File Tree: SIMP-FRONTEND
 
-**Generated:** 2/1/2026, 10:41:32 PM
+**Generated:** 2/7/2026, 4:43:50 PM
 **Root Path:** `d:\PROJECTS\SIMP-FRONTEND`
 
 ```
@@ -10,6 +10,11 @@
 │   ├── assets
 │   │   └── react.svg
 │   ├── components
+│   │   ├── documents
+│   │   │   ├── DocumentHistory.tsx
+│   │   │   ├── LegalReceiptModal.tsx
+│   │   │   ├── PrintableDocument.tsx
+│   │   │   └── SignatureSeal.tsx
 │   │   ├── layout
 │   │   │   ├── AppLayout.tsx
 │   │   │   ├── AuthGate.tsx
@@ -21,6 +26,7 @@
 │   │   │   ├── RoleDetailsDialog.tsx
 │   │   │   └── RolesTable.tsx
 │   │   ├── ui
+│   │   │   ├── RichTextEditor.tsx
 │   │   │   ├── avatar.tsx
 │   │   │   ├── badge.tsx
 │   │   │   ├── button.tsx
@@ -52,11 +58,15 @@
 │   ├── hooks
 │   │   ├── use-toast.ts
 │   │   ├── useAuth.ts
+│   │   ├── useCommunication.ts
 │   │   ├── useMe.ts
+│   │   ├── useRecipients.ts
 │   │   ├── useTasks.ts
+│   │   ├── useUsers.ts
 │   │   └── useWorkspaces.ts
 │   ├── lib
 │   │   ├── api
+│   │   │   ├── communication.ts
 │   │   │   ├── tasks.ts
 │   │   │   └── workspaces.ts
 │   │   ├── api.ts
@@ -64,6 +74,13 @@
 │   │   ├── permissions.ts
 │   │   └── utils.ts
 │   ├── pages
+│   │   ├── communication
+│   │   │   ├── CreateDocument.tsx
+│   │   │   ├── Dashboard.tsx
+│   │   │   └── DocumentView.tsx
+│   │   ├── public
+│   │   │   └── validate
+│   │   │       └── PublicValidator.tsx
 │   │   ├── workspaces
 │   │   │   ├── WorkspaceDetailPage.tsx
 │   │   │   └── WorkspacesPage.tsx
@@ -88,8 +105,6 @@
 ├── README.md
 ├── components.json
 ├── eslint.config.js
-├── estruturaFRONT END.txt
-├── filelist_frontend.txt
 ├── index.html
 ├── package-lock.json
 ├── package.json
