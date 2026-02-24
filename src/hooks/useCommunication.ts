@@ -60,6 +60,23 @@ export function useCreateDocument() {
   });
 }
 
+// Hook para ATUALIZAR (Salvar Rascunho existente)
+export function useUpdateDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateDocumentDTO> }) =>
+      communicationApi.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["communication", "drafts"] });
+      queryClient.invalidateQueries({ queryKey: ["communication", "document", variables.id] });
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar o rascunho", error);
+    },
+  });
+}
+
 // Hook para PROTOCOLAR (Enviar)
 export function useSendDocument() {
   const queryClient = useQueryClient();
@@ -111,6 +128,31 @@ export function useSignDocument() {
       toast({
         title: "Erro ao Assinar",
         description: msg,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+// Hook para EXCLUIR RASCUNHO
+export function useDeleteDocument() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (id: string) => communicationApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["communication", "drafts"] });
+      toast({
+        title: "Rascunho excluído",
+        description: "O documento foi removido permanentemente.",
+      });
+    },
+    onError: (error) => {
+      console.error("Erro ao deletar:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível apagar o rascunho.",
         variant: "destructive",
       });
     },

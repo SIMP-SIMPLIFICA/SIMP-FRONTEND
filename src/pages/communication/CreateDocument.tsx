@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Save, Send, X, Paperclip, UploadCloud, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Send, X, Paperclip, UploadCloud, Loader2, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-import { useCreateDocument, useSendDocument, useDocument } from "@/hooks/useCommunication";
+import { useCreateDocument, useSendDocument, useDocument, useUpdateDocument } from "@/hooks/useCommunication";
 import { useRecipients } from "@/hooks/useRecipients";
+import { useAuth } from "@/hooks/useAuth";
 import type { CreateDocumentDTO, DocumentType, Priority } from "@/lib/services/communication";
 import { uploadApi } from "@/lib/services/communication";
 
@@ -44,22 +45,30 @@ const convertImageToBase64 = (url: string): Promise<string> => {
 
 export default function CreateDocument() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const editId = searchParams.get("id");
   const { toast } = useToast();
 
   const { mutateAsync: createDocument, isPending: isCreating } = useCreateDocument();
+  const { mutateAsync: updateDocument, isPending: isUpdating } = useUpdateDocument();
   const { mutateAsync: sendDocument, isPending: isSending } = useSendDocument();
   const { data: existingDoc } = useDocument(editId || "");
 
   const { data: recipientsData } = useRecipients();
   const recipientsList = recipientsData || [];
+  const { user } = useAuth();
+
+  // AUTO-SAVE STATES
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"IDLE" | "SAVING" | "SAVED">("IDLE");
 
   // STATES
   const [title, setTitle] = useState("");
   const [type, setType] = useState<DocumentType>("OFICIO");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
-  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
+  // STATE ALTERADO: Agora armazena objetos { userId }
+  const [selectedRecipients, setSelectedRecipients] = useState<{ userId: string }[]>([]);
 
   // Layout
   const currentYear = new Date().getFullYear();
@@ -71,6 +80,8 @@ export default function CreateDocument() {
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // ... (Layout handlers omitted)
+
   // --- HELPER PARA NOMES ---
   const getRecipientName = (u: any) => {
     const target = u.user || u;
@@ -80,9 +91,9 @@ export default function CreateDocument() {
 
   // Carregar dados na edição
   useEffect(() => {
-    if (existingDoc && editId) {
+    if (existingDoc && editId && !isInitialized) {
       setTitle(existingDoc.title);
-      // Tenta recuperar o número editado
+      // ... (existing number logic remains)
       if (existingDoc.documentNumber) {
         const parts = existingDoc.documentNumber.split('/');
         setDocNumberPrefix(parts[0] || "001");
@@ -97,21 +108,30 @@ export default function CreateDocument() {
         setEditorContent(existingDoc.content || "");
       }
 
-      if (existingDoc.recipients) setSelectedRecipientIds(existingDoc.recipients.map((r: any) => r.userId));
+      if (existingDoc.recipients) {
+        const filteredRecipients = existingDoc.recipients.filter((r: any) => r.userId !== user?.id);
+        setSelectedRecipients(filteredRecipients.map((r: any) => ({
+          userId: r.userId
+        })));
+      }
 
       if (existingDoc.attachments) {
         setAttachments(existingDoc.attachments);
       }
+      setIsInitialized(true);
     }
-  }, [existingDoc, editId]);
+  }, [existingDoc, editId, isInitialized, user?.id]);
 
   // --- HANDLERS ---
   const addRecipient = (userId: string) => {
-    if (!userId || selectedRecipientIds.includes(userId)) return;
-    const newIds = [...selectedRecipientIds, userId];
-    setSelectedRecipientIds(newIds);
+    if (!userId || selectedRecipients.some(r => r.userId === userId)) return;
 
-    if (newIds.length === 1 && !customHeader && recipientsList) {
+    const newRecipient = { userId };
+    const newRecipients = [...selectedRecipients, newRecipient];
+    setSelectedRecipients(newRecipients);
+    setIsDirty(true);
+
+    if (newRecipients.length === 1 && !customHeader && recipientsList) {
       const userObj = recipientsList.find((u: any) => u.id === userId);
       if (userObj) {
         const name = getRecipientName(userObj).toUpperCase();
@@ -120,7 +140,12 @@ export default function CreateDocument() {
     }
   };
 
-  const removeRecipient = (userId: string) => setSelectedRecipientIds(ids => ids.filter(id => id !== userId));
+  const removeRecipient = (userId: string) => {
+    setSelectedRecipients(prev => prev.filter(r => r.userId !== userId));
+    setIsDirty(true);
+  };
+
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -130,6 +155,7 @@ export default function CreateDocument() {
     try {
       const uploaded = await uploadApi.uploadFile(file);
       setAttachments(prev => [...prev, uploaded]);
+      setIsDirty(true);
       toast({ title: "Anexo adicionado", description: file.name });
     } catch (error) {
       toast({ title: "Erro no upload", description: "Não foi possível enviar o arquivo.", variant: "destructive" });
@@ -141,12 +167,10 @@ export default function CreateDocument() {
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+    setIsDirty(true);
   };
 
-  const handleAction = async (action: 'DRAFT' | 'SEND') => {
-    if (!title) return toast({ title: "Erro", description: "Assunto obrigatório.", variant: "destructive" });
-
-    // Preparação dos dados para envio
+  const buildPayload = async (): Promise<CreateDocumentDTO> => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(editorContent, 'text/html');
     const paragraphsArray = Array.from(doc.body.querySelectorAll('p, h1, h2, li'))
@@ -156,24 +180,18 @@ export default function CreateDocument() {
     if (paragraphsArray.length === 0 && editorContent.trim()) paragraphsArray.push({ id: crypto.randomUUID(), texto: doc.body.textContent || "" });
 
     // 1. Tenta converter a logo para Base64
-    console.log("Gerando Base64 da logo...");
     const logoBase64 = await convertImageToBase64("/logo.png");
-    if (!logoBase64) {
-      console.warn("Atenção: Logo retornou vazia. Verifique se 'public/logo.png' existe.");
-    } else {
-      console.log("Logo gerada com sucesso. Tamanho:", logoBase64.length);
-    }
 
     // 2. Garante que o número do documento seja o editado
     const finalDocNumber = `${docNumberPrefix}/${currentYear}`;
 
-    const payload: CreateDocumentDTO = {
+    return {
       title,
-      content: editorContent,
+      content: editorContent || '<p><br></p>',
       documentType: type,
       priority: priority,
       documentNumber: finalDocNumber, // Envia no campo padrão
-      recipients: selectedRecipientIds.map(id => ({ userId: id, role: "TO" })),
+      recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO" })),
       attachments: attachments,
       metadata: {
         // Envia dados cruciais para o gerador de PDF
@@ -185,21 +203,59 @@ export default function CreateDocument() {
         generated_file: true
       }
     };
+  };
+
+  const handleAutoSave = async () => {
+    if (!title) return; // Ignora silenciosamente se não houver título durante o Auto-Save
+    setSaveStatus("SAVING");
+    try {
+      const payload = await buildPayload();
+      let docId = editId;
+      if (docId) {
+        await updateDocument({ id: docId, data: payload });
+      } else {
+        const newDoc = await createDocument(payload);
+        setSearchParams({ id: newDoc.id }, { replace: true });
+      }
+      setIsDirty(false);
+      setSaveStatus("SAVED");
+      setTimeout(() => setSaveStatus("IDLE"), 2500);
+    } catch (e) {
+      console.error("Auto-save failed", e);
+      setSaveStatus("IDLE");
+    }
+  };
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const timer = setTimeout(() => {
+      handleAutoSave();
+    }, 2500); // 2.5s debounce
+    return () => clearTimeout(timer);
+  }, [isDirty, title, editorContent, customHeader, selectedRecipients, type, docNumberPrefix, attachments]);
+
+  const handleAction = async (action: 'DRAFT' | 'SEND') => {
+    if (!title) return toast({ title: "Erro", description: "Assunto obrigatório.", variant: "destructive" });
 
     try {
+      const payload = await buildPayload();
       let docId = editId;
       if (!docId) {
         const newDoc = await createDocument(payload);
         docId = newDoc.id;
+        setSearchParams({ id: docId }, { replace: true });
+      } else if (isDirty || action === 'DRAFT') {
+        await updateDocument({ id: docId, data: payload });
       }
 
       if (action === 'SEND' && docId) {
-        if (selectedRecipientIds.length === 0) return toast({ title: "Erro", description: "Adicione um destinatário.", variant: "destructive" });
+        if (selectedRecipients.length === 0) return toast({ title: "Erro", description: "Adicione um destinatário.", variant: "destructive" });
         await sendDocument(docId);
         toast({ title: "Sucesso!", description: "Protocolado e Assinado." });
         navigate("/communication");
       } else {
         toast({ title: "Salvo", description: "Rascunho atualizado." });
+        setIsDirty(false);
         navigate("/communication");
       }
     } catch (error: any) {
@@ -214,6 +270,13 @@ export default function CreateDocument() {
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
           <span className="font-semibold text-slate-700">Editor de Ofício</span>
+
+          {/* Visual Feedback de Auto-Save */}
+          <div className="ml-4 flex items-center h-full">
+            {saveStatus === 'SAVING' && <span className="text-xs font-medium text-slate-400 flex items-center animate-pulse"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Salvando...</span>}
+            {saveStatus === 'SAVED' && <span className="text-xs font-medium text-green-500 flex items-center"><CheckCircle2 className="w-3 h-3 mr-1" /> Salvo</span>}
+            {saveStatus === 'IDLE' && isDirty && <span className="text-xs font-medium text-amber-500 italic">Alterações não salvas</span>}
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
@@ -232,9 +295,22 @@ export default function CreateDocument() {
         {/* NUMERAÇÃO */}
         <div className="flex justify-between items-end mb-8">
           <div className="flex items-center gap-1 font-bold text-lg uppercase">
-            <span>{type} Nº</span>
+            <Select value={type} onValueChange={(v: DocumentType) => { setType(v); setIsDirty(true); }}>
+              <SelectTrigger className="w-[180px] border-none font-bold text-lg uppercase shadow-none focus:ring-0 pl-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="OFICIO">OFÍCIO</SelectItem>
+                <SelectItem value="MEMORANDO">MEMORANDO</SelectItem>
+                <SelectItem value="OFICIO_CIRCULAR">CIRCULAR</SelectItem>
+                <SelectItem value="DECRETO">DECRETO</SelectItem>
+                <SelectItem value="PORTARIA">PORTARIA</SelectItem>
+                <SelectItem value="REQUERIMENTO">REQUERIMENTO</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="mx-1">Nº</span>
             <div className="flex items-center bg-slate-50 border border-slate-300 rounded px-2">
-              <input className="w-16 bg-transparent border-none text-right focus:ring-0 p-1" value={docNumberPrefix} onChange={e => setDocNumberPrefix(e.target.value)} />
+              <input className="w-16 bg-transparent border-none text-right focus:ring-0 p-1" value={docNumberPrefix} onChange={e => { setDocNumberPrefix(e.target.value); setIsDirty(true); }} />
               <span className="text-slate-500">/{currentYear}</span>
             </div>
           </div>
@@ -257,30 +333,33 @@ export default function CreateDocument() {
             </Select>
           </div>
           <div className="flex flex-wrap gap-2 mb-4 min-h-[24px]">
-            {selectedRecipientIds.length === 0 && <span className="text-xs text-slate-400 italic">Ninguém selecionado.</span>}
-            {selectedRecipientIds.map(id => {
-              const u = recipientsList.find((r: any) => r.id === id);
+            {selectedRecipients.length === 0 && <span className="text-xs text-slate-400 italic">Ninguém selecionado.</span>}
+            {selectedRecipients.map(recipient => {
+              const u = recipientsList.find((r: any) => r.id === recipient.userId);
               return (
-                <div key={id} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">
-                  <span>{u ? getRecipientName(u) : "Usuário"}</span>
-                  <button onClick={() => removeRecipient(id)} className="hover:text-red-600"><X className="w-3 h-3" /></button>
+                <div key={recipient.userId} className="flex items-center gap-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">
+                  <span className="font-medium">{u ? getRecipientName(u) : "Usuário"}</span>
+
+
+
+                  <button onClick={() => removeRecipient(recipient.userId)} className="hover:text-red-600 ml-1"><X className="w-3 h-3" /></button>
                 </div>
               );
             })}
           </div>
           <label className="text-xs text-blue-600 font-bold uppercase mb-1 block">2. Cabeçalho do Texto (Editável)</label>
-          <Textarea value={customHeader} onChange={e => setCustomHeader(e.target.value)} className="font-bold uppercase border-none bg-transparent p-0 resize-none min-h-[80px] focus-visible:ring-0 text-base" placeholder="À SUA SENHORIA..." />
+          <Textarea value={customHeader} onChange={e => { setCustomHeader(e.target.value); setIsDirty(true); }} className="font-bold uppercase border-none bg-transparent p-0 resize-none min-h-[80px] focus-visible:ring-0 text-base" placeholder="À SUA SENHORIA..." />
         </div>
 
         {/* ASSUNTO */}
         <div className="mb-6 flex gap-2 items-center border-b pb-1">
           <span className="font-bold uppercase">ASSUNTO:</span>
-          <Input value={title} onChange={e => setTitle(e.target.value)} className="font-bold uppercase border-none px-0 h-auto focus-visible:ring-0" placeholder="DIGITE O ASSUNTO..." />
+          <Input value={title} onChange={e => { setTitle(e.target.value); setIsDirty(true); }} className="font-bold uppercase border-none px-0 h-auto focus-visible:ring-0" placeholder="DIGITE O ASSUNTO..." />
         </div>
 
         {/* EDITOR */}
         <div className="flex-1 mb-8">
-          <RichTextEditor content={editorContent} onChange={setEditorContent} disabled={isCreating || isSending} />
+          <RichTextEditor content={editorContent} onChange={c => { setEditorContent(c); setIsDirty(true); }} disabled={isCreating || isSending || saveStatus === 'SAVING'} />
         </div>
 
         {/* ANEXOS */}

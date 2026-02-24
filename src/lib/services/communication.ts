@@ -16,6 +16,7 @@ export interface Recipient {
     role: "TO" | "CC" | "BCC";
     readAt?: string | null;
     signedAt?: string | null;
+    canSign?: boolean;
     user?: {
         id: string;
         firstName: string;
@@ -25,7 +26,7 @@ export interface Recipient {
     };
 }
 
-export type DocumentType = "OFICIO" | "MEMORANDO" | "CIRCULAR";
+export type DocumentType = "OFICIO" | "MEMORANDO" | "OFICIO_CIRCULAR" | "DECRETO" | "PORTARIA" | "REQUERIMENTO";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface CreateDocumentDTO {
@@ -34,7 +35,7 @@ export interface CreateDocumentDTO {
     documentType: DocumentType;
     documentNumber?: string;
     priority: Priority;
-    recipients?: { userId: string; role: "TO" | "CC" | "BCC" }[];
+    recipients?: { userId: string; role: "TO" | "CC" | "BCC"; canSign?: boolean }[];
     attachments?: Omit<Attachment, "id">[];
     metadata?: Record<string, any>;
 }
@@ -142,6 +143,11 @@ export const communicationApi = {
         document.body.appendChild(link);
         link.click();
         link.remove();
+    },
+
+    delete: async (id: string) => {
+        const response = await api.delete(`${BASE_URL}/documents/${id}`);
+        return response.data;
     },
 
     // ADICIONADO: Método que faltava para a prévia

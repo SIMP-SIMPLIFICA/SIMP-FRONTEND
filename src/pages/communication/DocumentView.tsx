@@ -24,8 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDocument, useSignDocument } from "@/hooks/useCommunication";
 import { LegalReceiptModal } from "@/components/documents/LegalReceiptModal";
 import { useAuth } from "@/hooks/useAuth";
-import { PrintableDocument } from "@/components/documents/PrintableDocument";
-import { DocumentHistoryPage } from "@/components/documents/DocumentHistoryPage";
+
 
 export default function DocumentView() {
     const { id } = useParams<{ id: string }>();
@@ -139,33 +138,22 @@ export default function DocumentView() {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-                <div className="flex-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner overflow-y-auto max-h-[calc(100vh-12rem)] p-4 md:p-8 flex flex-col items-center gap-8">
-                    {officialPdf && previewUrl ? (
-                        <iframe src={`${previewUrl}#toolbar=0&view=FitH`} className="w-full h-[80vh] bg-slate-200 shadow-lg rounded" title="PDF Preview" />
+                <div className="flex-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner overflow-hidden flex flex-col">
+                    {previewUrl ? (
+                        <iframe src={`${previewUrl}#toolbar=0&view=FitH`} className="w-full h-full border-none" title="PDF Preview" />
+                    ) : officialPdf ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                            <p className="mt-4 text-slate-500 text-sm">Carregando documento oficial...</p>
+                        </div>
                     ) : (
-                        <>
-                            <PrintableDocument
-                                data={{
-                                    title: document.title,
-                                    documentNumber: document.documentNumber,
-                                    protocolNumber: document.protocolNumber,
-                                    type: document.documentType,
-                                    documentType: document.documentType,
-                                    subject: document.title
-                                }}
-                                user={user}
-                                content={document.content}
-                                fullDocumentData={document}
-                                recipientsList={document.recipients?.map(r => ({
-                                    ...r,
-                                    name: r.user ? `${r.user.firstName} ${r.user.lastName}` : "Destinatário"
-                                })) || []}
-                            />
-
-                            <div className="w-full max-w-[210mm] print:break-before-page">
-                                <DocumentHistoryPage document={document} />
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 text-slate-500">
+                            <FileText className="h-16 w-16 text-slate-300" />
+                            <div>
+                                <h3 className="text-lg font-medium text-slate-700">Documento em Rascunho</h3>
+                                <p className="text-sm">O PDF oficial será gerado ao protocolar/enviar o documento.</p>
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
 

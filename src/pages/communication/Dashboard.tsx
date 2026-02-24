@@ -8,7 +8,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  Eye
+  Eye,
+  Trash2
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { useDrafts, useReceivedDocuments, useSentDocuments } from "@/hooks/useCommunication";
+import { useDrafts, useReceivedDocuments, useSentDocuments, useDeleteDocument } from "@/hooks/useCommunication";
 import type { CommunicationDocument, Recipient } from "@/lib/services/communication";
 
 export default function CommunicationDashboard() {
@@ -41,6 +42,7 @@ export default function CommunicationDashboard() {
   const { data: drafts, isLoading: isDraftsLoading } = useDrafts();
   const { data: received, isLoading: isReceivedLoading } = useReceivedDocuments();
   const { data: sent, isLoading: isSentLoading } = useSentDocuments();
+  const { mutate: deleteDocument } = useDeleteDocument();
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
@@ -50,6 +52,21 @@ export default function CommunicationDashboard() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleNavigate = (doc: CommunicationDocument) => {
+    if (doc.status === 'DRAFT') {
+      navigate(`/communication/create?id=${doc.id}`);
+    } else {
+      navigate(`/communication/document/${doc.id}`);
+    }
+  };
+
+  const handleDeleteDraft = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (confirm("Tem certeza que deseja excluir este rascunho permanentemente?")) {
+      deleteDocument(id);
+    }
   };
 
   // Renderiza visualmente o status de cada destinatário na lista de Enviados
@@ -189,7 +206,7 @@ export default function CommunicationDashboard() {
                     </TableHeader>
                     <TableBody>
                       {received?.map((doc) => (
-                        <TableRow key={doc.id} onClick={() => navigate(`/communication/document/${doc.id}`)} className="cursor-pointer group hover:bg-slate-50 transition-colors">
+                        <TableRow key={doc.id} onClick={() => handleNavigate(doc)} className="cursor-pointer group hover:bg-slate-50 transition-colors">
                           <TableCell className="font-medium">
                             <div className="flex flex-col">
                               <span className="text-slate-900 font-semibold group-hover:text-blue-700 transition-colors">{doc.title}</span>
@@ -253,7 +270,7 @@ export default function CommunicationDashboard() {
                     </TableHeader>
                     <TableBody>
                       {sent?.map((doc) => (
-                        <TableRow key={doc.id} onClick={() => navigate(`/communication/document/${doc.id}`)} className="cursor-pointer group hover:bg-slate-50 transition-colors">
+                        <TableRow key={doc.id} onClick={() => handleNavigate(doc)} className="cursor-pointer group hover:bg-slate-50 transition-colors">
                           <TableCell className="font-medium">
                             <div className="flex flex-col">
                               <span className="text-slate-900 group-hover:text-purple-700 transition-colors">{doc.title}</span>
@@ -305,16 +322,27 @@ export default function CommunicationDashboard() {
                     </TableHeader>
                     <TableBody>
                       {drafts?.map((doc) => (
-                        <TableRow key={doc.id} onClick={() => navigate(`/communication/create?id=${doc.id}`)} className="cursor-pointer group hover:bg-slate-50">
+                        <TableRow key={doc.id} onClick={() => handleNavigate(doc)} className="cursor-pointer group hover:bg-slate-50">
                           <TableCell className="font-medium text-slate-700 group-hover:text-slate-900">
                             {doc.title || "(Sem Título)"}
                           </TableCell>
                           <TableCell className="text-xs text-slate-500">{doc.documentType}</TableCell>
                           <TableCell className="text-sm text-slate-500">{formatDate(doc.updatedAt)}</TableCell>
                           <TableCell>
-                            <Button variant="outline" size="sm" className="h-8 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-600">
-                              Editar
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" className="h-8 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-600">
+                                Editar
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => handleDeleteDraft(e, doc.id)}
+                                title="Excluir Rascunho"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
