@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, ArrowDownRight, DollarSign, Clock, FileText, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, DollarSign, Clock, FileText, ChevronRight, Loader2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-import { mockEntries } from "./mock/entries";
+import { useFinanceEntries } from "@/hooks/useFinance";
+import { useParams } from "react-router-dom";
 import type { FinanceEntry } from "./types";
 
 // --- HELPERS ---
@@ -25,11 +26,14 @@ function formatDateShort(iso: string): string {
 
 // --- MAIN COMPONENT ---
 export default function FinanceiroOverview() {
+  const { workspaceId } = useParams();
+  const { data: entriesData, isLoading } = useFinanceEntries(workspaceId, { limit: 1000 });
+  const entries = entriesData || [];
 
   // Computed Metrics
   const { totalIncome, totalExpense, balance, pendingCount } = useMemo(() => {
     let inc = 0, exp = 0, pend = 0;
-    mockEntries.forEach(e => {
+    entries.forEach((e: FinanceEntry) => {
       if (e.type === "INCOME") inc += e.amountCents;
       if (e.type === "EXPENSE") exp += e.amountCents;
       if (e.attachmentsStatus === "pending") pend += 1;
@@ -40,20 +44,20 @@ export default function FinanceiroOverview() {
       balance: inc - exp,
       pendingCount: pend,
     };
-  }, []);
+  }, [entries]);
 
   // Recent Transactions (top 5)
   const recentTransactions = useMemo(() => {
-    return [...mockEntries]
-      .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
+    return [...entries]
+      .sort((a: FinanceEntry, b: FinanceEntry) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
       .slice(0, 5);
-  }, []);
+  }, [entries]);
 
   // Compute Chart Data (Expenses by Category)
   const expenseChartData = useMemo(() => {
-    const expenses = mockEntries.filter(e => e.type === "EXPENSE");
+    const expenses = entries.filter((e: FinanceEntry) => e.type === "EXPENSE");
     const map = new Map<string, number>();
-    expenses.forEach(e => {
+    expenses.forEach((e: FinanceEntry) => {
       const current = map.get(e.categoryName) || 0;
       map.set(e.categoryName, current + e.amountCents);
     });
@@ -69,7 +73,16 @@ export default function FinanceiroOverview() {
       ...d,
       heightPercentage: Math.max((d.amountCents / maxAmount) * 100, 5) // Floor at 5% so bar is visible
     }));
-  }, []);
+  }, [entries]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12 text-slate-500">
+        <Loader2 className="h-6 w-6 animate-spin mr-3" />
+        Carregando painel financeiro...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -116,7 +129,7 @@ export default function FinanceiroOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900">{formatCurrency(totalIncome)}</div>
-            <p className="text-xs text-slate-500 mt-1">Todas as entradas mockadas</p>
+            <p className="text-xs text-slate-500 mt-1">Todas as entradas computadas</p>
           </CardContent>
         </Card>
 
@@ -129,7 +142,7 @@ export default function FinanceiroOverview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900">{formatCurrency(totalExpense)}</div>
-            <p className="text-xs text-slate-500 mt-1">Todas as saídas mockadas</p>
+            <p className="text-xs text-slate-500 mt-1">Todas as saídas computadas</p>
           </CardContent>
         </Card>
 
@@ -163,7 +176,7 @@ export default function FinanceiroOverview() {
               <div className="flex items-center justify-center flex-1 h-[250px] text-slate-400">Sem dados de despesa.</div>
             ) : (
               <div className="flex items-end justify-between gap-2 sm:gap-4 h-[250px] w-full px-2 sm:px-6">
-                {expenseChartData.map((d, i) => (
+                {expenseChartData.map((d) => (
                   <div key={d.category} className="group flex flex-col items-center justify-end w-full h-full">
                     {/* Tooltip native fallback */}
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-2 bg-slate-800 text-white text-xs px-2 py-1 rounded-md text-center pointer-events-none whitespace-nowrap">

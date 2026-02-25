@@ -5,7 +5,10 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import { mockEntries } from "./mock/entries";
+import { useFinanceEntries } from "@/hooks/useFinance";
+import { useParams } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import type { FinanceEntry } from "./types";
 
 const forecastData = [
     { name: 'Nov', receitas: 150000000, despesas: 230000000 },
@@ -18,13 +21,17 @@ const forecastData = [
 ];
 
 export default function Inteligencia() {
+    const { workspaceId } = useParams();
+    const { data: entriesData, isLoading } = useFinanceEntries(workspaceId, { limit: 1000 });
+    const entries = entriesData || [];
+
     // --- COMPUTE INSIGHTS ---
     const { topCategoryName, topCategoryValue, isPositiveBalance } = useMemo(() => {
         let income = 0;
         let expense = 0;
         const catMap = new Map<string, number>();
 
-        mockEntries.forEach(e => {
+        entries.forEach((e: FinanceEntry) => {
             if (e.type === "INCOME") {
                 income += e.amountCents;
             } else {
@@ -46,11 +53,11 @@ export default function Inteligencia() {
         return {
             topCategoryName: topName,
             topCategoryValue: topVal,
-            isPositiveBalance: income > expense
+            isPositiveBalance: income >= expense
         };
-    }, []);
+    }, [entries]);
 
-    const totalExpense = mockEntries.filter(e => e.type === "EXPENSE").reduce((acc, curr) => acc + curr.amountCents, 1);
+    const totalExpense = entries.filter((e: FinanceEntry) => e.type === "EXPENSE").reduce((acc: number, curr: FinanceEntry) => acc + curr.amountCents, 1);
     const topCategoryPercentage = Math.round((topCategoryValue / totalExpense) * 100);
 
     function formatValue(c: number) {
@@ -79,6 +86,15 @@ export default function Inteligencia() {
     };
 
     // --- RENDER ---
+    if (isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center p-12 text-slate-500">
+                <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                Analisando fluxo de caixa...
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 h-full flex flex-col">
             {/* HEADER */}

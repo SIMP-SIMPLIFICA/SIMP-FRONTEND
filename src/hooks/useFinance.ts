@@ -94,3 +94,46 @@ export function useCreateFinanceCategory(workspaceId: string | undefined) {
         },
     });
 }
+
+// Hooks para Anexos (Cloudflare R2)
+export function useFinanceAttachments(entryId: string | undefined) {
+    return useQuery({
+        queryKey: ["financeAttachments", entryId],
+        queryFn: () => {
+            if (!entryId) throw new Error("Entry ID is required");
+            return financeService.getAttachments(entryId);
+        },
+        enabled: !!entryId,
+    });
+}
+
+export function useUploadAttachment(entryId: string | undefined) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (file: File) => {
+            if (!entryId) throw new Error("Entry ID is required");
+            return financeService.uploadAttachment(entryId, file);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["financeAttachments", entryId] });
+            // Invalida a lista de lançamentos para atualizar o ícone/status de anexo na tabela
+            queryClient.invalidateQueries({ queryKey: ["financeEntries"] });
+        },
+    });
+}
+
+export function useDeleteAttachment(entryId: string | undefined) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (attachmentId: string) => {
+            if (!entryId) throw new Error("Entry ID is required");
+            return financeService.deleteAttachment(entryId, attachmentId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["financeAttachments", entryId] });
+            queryClient.invalidateQueries({ queryKey: ["financeEntries"] });
+        },
+    });
+}

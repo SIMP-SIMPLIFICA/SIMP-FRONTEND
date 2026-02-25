@@ -9,6 +9,17 @@ export interface FinanceCategory {
     description?: string | null;
 }
 
+export interface FinanceAttachment {
+    id: string;
+    entryId: string;
+    fileName: string;
+    fileKey: string;
+    fileSize: number;
+    contentType: string;
+    url?: string; // Pre-signed URL vinda do backend
+    createdAt: string;
+}
+
 export const financeService = {
     // Lançamentos
     getEntries: async (workspaceId: string, params?: { startDate?: string; endDate?: string; type?: string; categoryId?: string }) => {
@@ -52,6 +63,25 @@ export const financeService = {
             ...data,
             workspaceId
         });
+        return response.data;
+    },
+
+    // Anexos (R2)
+    getAttachments: async (entryId: string) => {
+        const response = await api.get<FinanceAttachment[]>(`/finance/entries/${entryId}/attachments`);
+        return response.data;
+    },
+
+    uploadAttachment: async (entryId: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await api.post<FinanceAttachment>(`/finance/entries/${entryId}/attachments`, formData);
+        return response.data;
+    },
+
+    deleteAttachment: async (entryId: string, attachmentId: string) => {
+        const response = await api.delete<void>(`/finance/entries/${entryId}/attachments/${attachmentId}`);
         return response.data;
     }
 };

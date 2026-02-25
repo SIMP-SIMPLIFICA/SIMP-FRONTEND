@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useParams, Link } from "react-router-dom";
-import { useFinanceEntries, useDeleteFinanceEntry, useFinanceCategories } from "@/hooks/useFinance";
+import { useFinanceEntries, useDeleteFinanceEntry, useFinanceCategories, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { format } from "date-fns";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,11 @@ export default function Lancamentos() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingEntry, setDeletingEntry] = useState<FinanceEntry | null>(null);
 
+  const [viewingAttachmentsId, setViewingAttachmentsId] = useState<string | null>(null);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+  const { data: attachments, isLoading: isLoadingAttachments } = useFinanceAttachments(viewingAttachmentsId || "");
+  const { mutate: deleteAttachment } = useDeleteAttachment(viewingAttachmentsId || "");
+
   // Computed
   const filtered = useMemo(() => {
     let result = entries;
@@ -138,6 +144,29 @@ export default function Lancamentos() {
       onError: () => {
         toast({ title: "Erro", description: "Falha ao excluir o lançamento.", variant: "destructive" });
       }
+    });
+  }
+
+  function handleOpenAttachments(e: FinanceEntry) {
+    setViewingAttachmentsId(e.id);
+  }
+
+  function handleCloseAttachments() {
+    setViewingAttachmentsId(null);
+  }
+
+  function handleDeleteAttachment(attId: string) {
+    setDeletingAttachmentId(attId);
+  }
+
+  function confirmDeleteAttachment() {
+    if (!deletingAttachmentId) return;
+    deleteAttachment(deletingAttachmentId, {
+      onSuccess: () => {
+        toast({ title: "Sucesso", description: "Anexo removido do sistema." });
+        setDeletingAttachmentId(null);
+      },
+      onError: () => toast({ title: "Erro", description: "Falha ao remover anexo.", variant: "destructive" })
     });
   }
 
@@ -271,7 +300,11 @@ export default function Lancamentos() {
                       </TableCell>
                       <TableCell className="text-center">
                         {e.attachmentsStatus === "pending" && <Badge variant="secondary" className="bg-orange-100 text-orange-800 hover:bg-orange-200">Pendente</Badge>}
-                        {e.attachmentsStatus === "ok" && <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600"><FileText className="h-4 w-4 mr-1" /> Ver</Button>}
+                        {e.attachmentsStatus === "ok" && (
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600" onClick={() => handleOpenAttachments(e)}>
+                            <FileText className="h-4 w-4 mr-1" /> Ver
+                          </Button>
+                        )}
                         {e.attachmentsStatus === "none" && <span className="text-slate-400">—</span>}
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${e.type === 'INCOME' ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -320,6 +353,73 @@ export default function Lancamentos() {
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={confirmDelete}>
               Sim, Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingAttachmentsId} onOpenChange={(open) => !open && handleCloseAttachments()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anexos do Lançamento</DialogTitle>
+            <DialogDescription>
+              Gerencie os comprovantes ou notas fiscais anexadas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {isLoadingAttachments ? (
+              <div className="text-center text-sm text-slate-500 py-4">Carregando anexos da nuvem...</div>
+            ) : !attachments || attachments.length === 0 ? (
+              <div className="text-center text-sm text-slate-500 py-4">Nenhum anexo encontrado.</div>
+            ) : (
+              <ul className="space-y-3">
+                {attachments.map(att => {
+                  const isImage = att.contentType?.startsWith('image/');
+                  return (
+                    <li key={att.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        {isImage ? (
+                          <ImageIcon className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                        )}
+                        <div className="flex flex-col truncate">
+                          <a href={att.url} target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-700 hover:underline hover:text-blue-600 truncate">
+                            {att.fileName}
+                          </a>
+                          <span className="text-xs text-slate-400">{(att.fileSize / 1024).toFixed(1)} KB • {format(new Date(att.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                        </div>
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0" onClick={() => handleDeleteAttachment(att.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <Button variant="secondary" onClick={handleCloseAttachments}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingAttachmentId} onOpenChange={(open) => !open && setDeletingAttachmentId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">Remover Anexo?</DialogTitle>
+            <DialogDescription className="text-center">
+              Tem certeza que deseja remover este anexo? O arquivo será definitivamente excluído da nuvem.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="outline" onClick={() => setDeletingAttachmentId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDeleteAttachment}>
+              Sim, Remover
             </Button>
           </DialogFooter>
         </DialogContent>
