@@ -26,7 +26,7 @@ export interface Recipient {
     };
 }
 
-export type DocumentType = "OFICIO" | "MEMORANDO" | "OFICIO_CIRCULAR" | "DECRETO" | "PORTARIA" | "REQUERIMENTO";
+export type DocumentType = "OFICIO" | "MEMORANDO" | "OFICIO_CIRCULAR" | "DECRETO" | "PORTARIA" | "REQUERIMENTO" | "MENSAGEM";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface CreateDocumentDTO {
@@ -89,7 +89,24 @@ export interface CommunicationDocument {
     }[];
 }
 
+export interface CommunicationFilters {
+    type?: string;
+    startDate?: string;
+    endDate?: string;
+    personId?: string;
+}
+
 const BASE_URL = "/api/v1/communication";
+
+const buildQueryString = (params?: Record<string, any>) => {
+    if (!params) return "";
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value) query.append(key, value.toString());
+    });
+    const str = query.toString();
+    return str ? `?${str}` : "";
+};
 
 // --- API METHODS ---
 
@@ -99,18 +116,18 @@ export const communicationApi = {
         return response.data;
     },
 
-    listDrafts: async () => {
-        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/drafts`);
+    listDrafts: async (params?: CommunicationFilters) => {
+        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/drafts${buildQueryString(params)}`);
         return response.data;
     },
 
-    listReceived: async () => {
-        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/received`);
+    listReceived: async (params?: CommunicationFilters) => {
+        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/received${buildQueryString(params)}`);
         return response.data;
     },
 
-    listSent: async () => {
-        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/sent`);
+    listSent: async (params?: CommunicationFilters) => {
+        const response = await api.get<CommunicationDocument[]>(`${BASE_URL}/sent${buildQueryString(params)}`);
         return response.data;
     },
 

@@ -11,7 +11,8 @@ import {
     ShieldCheck,
     Loader2,
     AlertCircle,
-    PenTool
+    PenTool,
+    Reply
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -122,6 +123,16 @@ export default function DocumentView() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    {document.documentType === 'MENSAGEM' && (
+                        <Button
+                            variant="outline"
+                            className="bg-white hover:bg-slate-50 border-slate-300 text-slate-700"
+                            onClick={() => navigate(`/communication/create?mode=message&replyTo=${document.id}`)}
+                        >
+                            <Reply className="mr-2 h-4 w-4 text-blue-500" />
+                            Responder
+                        </Button>
+                    )}
                     {needsSignature && (
                         <Button onClick={handleSign} disabled={signMutation.isPending} className="bg-green-700 hover:bg-green-800 text-white">
                             {signMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PenTool className="mr-2 h-4 w-4" />}
@@ -139,7 +150,74 @@ export default function DocumentView() {
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
                 <div className="flex-1 bg-slate-100 rounded-xl border border-slate-200 shadow-inner overflow-hidden flex flex-col">
-                    {previewUrl ? (
+                    {document.documentType === 'MENSAGEM' ? (
+                        <div className="flex-1 h-full flex flex-col bg-white overflow-hidden">
+                            {/* Email Header */}
+                            <div className="border-b border-slate-200 p-6 space-y-4 bg-slate-50/50 flex-shrink-0">
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-slate-900">{document.title}</h2>
+                                    {document.metadata?.replyToId && (
+                                        <button
+                                            onClick={() => navigate(`/communication/document/${document.metadata?.replyToId}`)}
+                                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1 flex items-center gap-1"
+                                        >
+                                            <Reply className="w-3 h-3" />
+                                            Em resposta a: {document.metadata?.replyToTitle || 'Mensagem anterior'}
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="space-y-2 text-sm text-slate-600">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-12 font-medium text-slate-500">De:</span>
+                                        <Badge variant="outline" className="bg-white text-sm py-1">{document.creator?.firstName} {document.creator?.lastName}</Badge>
+                                        <span className="text-xs text-slate-400 ml-auto bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
+                                            {document.sentAt ? new Date(document.sentAt).toLocaleString('pt-BR') : new Date(document.createdAt).toLocaleString('pt-BR')}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <span className="w-12 font-medium text-slate-500 pt-1">Para:</span>
+                                        <div className="flex flex-wrap gap-1">
+                                            {document.recipients?.filter((r: any) => r.userId !== document.createdBy).map((r: any) => (
+                                                <Badge key={r.id} variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
+                                                    {r.user?.firstName} {r.user?.lastName}
+                                                </Badge>
+                                            ))}
+                                            {(!document.recipients || document.recipients.filter((r: any) => r.userId !== document.createdBy).length === 0) && (
+                                                <span className="text-slate-400 italic text-sm py-1">Sem destinatários</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Email Body */}
+                            <div className="p-8 overflow-auto flex-1 bg-white">
+                                <div className="prose prose-slate max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: document.content }} />
+                            </div>
+
+                            {/* Email Attachments */}
+                            {document.attachments && document.attachments.length > 0 && (
+                                <div className="border-t border-slate-200 p-6 bg-slate-50 flex-shrink-0">
+                                    <h4 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                                        <Paperclip className="h-4 w-4" /> Anexos ({document.attachments.length})
+                                    </h4>
+                                    <div className="flex flex-wrap gap-3">
+                                        {document.attachments.map((att: any) => (
+                                            <Button
+                                                key={att.id}
+                                                variant="outline"
+                                                className="bg-white flex items-center justify-between shadow-sm min-w-[220px] hover:border-blue-300 hover:text-blue-700 transition-colors"
+                                                onClick={() => handleDownload(att)}
+                                            >
+                                                <span className="truncate max-w-[150px]" title={att.fileName}>{att.fileName}</span>
+                                                {downloadingId === att.id ? <Loader2 className="h-4 w-4 animate-spin shrink-0 ml-2" /> : <Download className="h-4 w-4 shrink-0 ml-2 text-slate-400" />}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : previewUrl ? (
                         <iframe src={`${previewUrl}#toolbar=0&view=FitH`} className="w-full h-full border-none" title="PDF Preview" />
                     ) : officialPdf ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8">

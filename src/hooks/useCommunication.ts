@@ -1,28 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { communicationApi, type CreateDocumentDTO } from "@/lib/services/communication"; // Nota: 'type' import explícito
+import { communicationApi, type CreateDocumentDTO, type CommunicationFilters } from "@/lib/services/communication"; // Nota: 'type' import explícito
 import { useToast } from "@/hooks/use-toast";
 
 // Hook para listar rascunhos
-export function useDrafts() {
+export function useDrafts(filters?: CommunicationFilters) {
   return useQuery({
-    queryKey: ["communication", "drafts"],
-    queryFn: communicationApi.listDrafts,
+    queryKey: ["communication", "drafts", filters],
+    queryFn: () => communicationApi.listDrafts(filters),
   });
 }
 
 // Hook para listar recebidos
-export function useReceivedDocuments() {
+export function useReceivedDocuments(filters?: CommunicationFilters) {
   return useQuery({
-    queryKey: ["communication", "received"],
-    queryFn: communicationApi.listReceived,
+    queryKey: ["communication", "received", filters],
+    queryFn: () => communicationApi.listReceived(filters),
   });
 }
 
 // Hook para listar enviados
-export function useSentDocuments() {
+export function useSentDocuments(filters?: CommunicationFilters) {
   return useQuery({
-    queryKey: ["communication", "sent"],
-    queryFn: communicationApi.listSent,
+    queryKey: ["communication", "sent", filters],
+    queryFn: () => communicationApi.listSent(filters),
   });
 }
 

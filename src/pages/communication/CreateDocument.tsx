@@ -54,6 +54,12 @@ export default function CreateDocument() {
   const { mutateAsync: sendDocument, isPending: isSending } = useSendDocument();
   const { data: existingDoc } = useDocument(editId || "");
 
+  // Reply Logic
+  const replyToId = searchParams.get("replyTo");
+  const { data: replyToDoc } = useDocument(replyToId || "");
+
+  const isMessageMode = searchParams.get("mode") === "message" || existingDoc?.documentType === "MENSAGEM";
+
   const { data: recipientsData } = useRecipients();
   const recipientsList = recipientsData || [];
   const { user } = useAuth();
@@ -122,6 +128,37 @@ export default function CreateDocument() {
     }
   }, [existingDoc, editId, isInitialized, user?.id]);
 
+  // Carregar dados na resposta (Reply)
+  useEffect(() => {
+    if (replyToDoc && replyToId && !isInitialized && !existingDoc) {
+      setTitle(`RE: ${replyToDoc.title}`);
+
+      // Auto-preenche o remetente original como destinatário
+      if (replyToDoc.createdBy && replyToDoc.createdBy !== user?.id) {
+        setSelectedRecipients([{ userId: replyToDoc.createdBy }]);
+      }
+
+      // Constrói o histórico da citação (blockquote)
+      const senderName = replyToDoc.creator?.firstName
+        ? `${replyToDoc.creator.firstName} ${replyToDoc.creator.lastName}`
+        : 'Remetente';
+      const sendDate = replyToDoc.sentAt || replyToDoc.createdAt;
+      const formattedDate = new Date(sendDate).toLocaleString('pt-BR');
+
+      const quoteHtml = `
+        <p><br></p>
+        <p><br></p>
+        <blockquote style="border-left: 3px solid #cbd5e1; padding-left: 1rem; color: #475569; margin-left: 0; background-color: #f8fafc; padding: 1rem; border-radius: 0 0.5rem 0.5rem 0;">
+          <strong>Em ${formattedDate}, ${senderName} escreveu <a href="/communication/document/${replyToDoc.id}" target="_blank">no documento original</a>:</strong><br><br>
+          ${replyToDoc.content}
+        </blockquote>
+      `;
+      setEditorContent(quoteHtml);
+      setIsInitialized(true);
+      setIsDirty(true);
+    }
+  }, [replyToDoc, replyToId, isInitialized, existingDoc, user?.id]);
+
   // --- HANDLERS ---
   const addRecipient = (userId: string) => {
     if (!userId || selectedRecipients.some(r => r.userId === userId)) return;
@@ -188,7 +225,7 @@ export default function CreateDocument() {
     return {
       title,
       content: editorContent || '<p><br></p>',
-      documentType: type,
+      documentType: isMessageMode ? "MENSAGEM" as any : type,
       priority: priority,
       documentNumber: finalDocNumber, // Envia no campo padrão
       recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO" })),
@@ -200,7 +237,8 @@ export default function CreateDocument() {
         logoBase64: logoBase64, // Logo embutida
         useCustomLayout: true, // Flag para avisar o backend (se implementado)
         manualDocumentNumber: finalDocNumber, // Redundância para garantir
-        generated_file: true
+        generated_file: true,
+        ...(replyToId && replyToDoc ? { replyToId: replyToDoc.id, replyToTitle: replyToDoc.title } : {})
       }
     };
   };
@@ -215,7 +253,8 @@ export default function CreateDocument() {
         await updateDocument({ id: docId, data: payload });
       } else {
         const newDoc = await createDocument(payload);
-        setSearchParams({ id: newDoc.id }, { replace: true });
+        searchParams.set("id", newDoc.id);
+        setSearchParams(searchParams, { replace: true });
       }
       setIsDirty(false);
       setSaveStatus("SAVED");
@@ -243,7 +282,8 @@ export default function CreateDocument() {
       if (!docId) {
         const newDoc = await createDocument(payload);
         docId = newDoc.id;
-        setSearchParams({ id: docId }, { replace: true });
+        searchParams.set("id", docId);
+        setSearchParams(searchParams, { replace: true });
       } else if (isDirty || action === 'DRAFT') {
         await updateDocument({ id: docId, data: payload });
       }
@@ -281,41 +321,45 @@ export default function CreateDocument() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
           <Button onClick={() => handleAction('SEND')} disabled={isCreating || isSending} className="bg-blue-600 hover:bg-blue-700">
-            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> Assinar Digitalmente</>}
+            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> {isMessageMode ? "Enviar Mensagem" : "Assinar Digitalmente"}</>}
           </Button>
         </div>
       </div>
 
       <div className="max-w-[210mm] mx-auto mt-8 bg-white shadow-lg min-h-[297mm] p-[20mm] flex flex-col relative">
         {/* LOGO (Visualização no Editor) */}
-        <div className="flex justify-center mb-8">
-          <img src="/logo.png" alt="Logo" className="h-24 object-contain" onError={(e) => console.error("Erro ao carregar logo no editor", e)} />
-        </div>
+        {!isMessageMode && (
+          <div className="flex justify-center mb-8">
+            <img src="/logo.png" alt="Logo" className="h-24 object-contain" onError={(e) => console.error("Erro ao carregar logo no editor", e)} />
+          </div>
+        )}
 
         {/* NUMERAÇÃO */}
-        <div className="flex justify-between items-end mb-8">
-          <div className="flex items-center gap-1 font-bold text-lg uppercase">
-            <Select value={type} onValueChange={(v: DocumentType) => { setType(v); setIsDirty(true); }}>
-              <SelectTrigger className="w-[180px] border-none font-bold text-lg uppercase shadow-none focus:ring-0 pl-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="OFICIO">OFÍCIO</SelectItem>
-                <SelectItem value="MEMORANDO">MEMORANDO</SelectItem>
-                <SelectItem value="OFICIO_CIRCULAR">CIRCULAR</SelectItem>
-                <SelectItem value="DECRETO">DECRETO</SelectItem>
-                <SelectItem value="PORTARIA">PORTARIA</SelectItem>
-                <SelectItem value="REQUERIMENTO">REQUERIMENTO</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="mx-1">Nº</span>
-            <div className="flex items-center bg-slate-50 border border-slate-300 rounded px-2">
-              <input className="w-16 bg-transparent border-none text-right focus:ring-0 p-1" value={docNumberPrefix} onChange={e => { setDocNumberPrefix(e.target.value); setIsDirty(true); }} />
-              <span className="text-slate-500">/{currentYear}</span>
+        {!isMessageMode && (
+          <div className="flex justify-between items-end mb-8">
+            <div className="flex items-center gap-1 font-bold text-lg uppercase">
+              <Select value={type} onValueChange={(v: DocumentType) => { setType(v); setIsDirty(true); }}>
+                <SelectTrigger className="w-[180px] border-none font-bold text-lg uppercase shadow-none focus:ring-0 pl-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OFICIO">OFÍCIO</SelectItem>
+                  <SelectItem value="MEMORANDO">MEMORANDO</SelectItem>
+                  <SelectItem value="OFICIO_CIRCULAR">CIRCULAR</SelectItem>
+                  <SelectItem value="DECRETO">DECRETO</SelectItem>
+                  <SelectItem value="PORTARIA">PORTARIA</SelectItem>
+                  <SelectItem value="REQUERIMENTO">REQUERIMENTO</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="mx-1">Nº</span>
+              <div className="flex items-center bg-slate-50 border border-slate-300 rounded px-2">
+                <input className="w-16 bg-transparent border-none text-right focus:ring-0 p-1" value={docNumberPrefix} onChange={e => { setDocNumberPrefix(e.target.value); setIsDirty(true); }} />
+                <span className="text-slate-500">/{currentYear}</span>
+              </div>
             </div>
+            <div className="text-right text-sm">Pequizeiro - TO, {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}.</div>
           </div>
-          <div className="text-right text-sm">Pequizeiro - TO, {new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}.</div>
-        </div>
+        )}
 
         {/* DESTINATÁRIOS */}
         <div className="mb-6 p-4 border border-dashed border-slate-300 rounded bg-slate-50/50">
@@ -347,8 +391,12 @@ export default function CreateDocument() {
               );
             })}
           </div>
-          <label className="text-xs text-blue-600 font-bold uppercase mb-1 block">2. Cabeçalho do Texto (Editável)</label>
-          <Textarea value={customHeader} onChange={e => { setCustomHeader(e.target.value); setIsDirty(true); }} className="font-bold uppercase border-none bg-transparent p-0 resize-none min-h-[80px] focus-visible:ring-0 text-base" placeholder="À SUA SENHORIA..." />
+          {!isMessageMode && (
+            <>
+              <label className="text-xs text-blue-600 font-bold uppercase mb-1 block">2. Cabeçalho do Texto (Editável)</label>
+              <Textarea value={customHeader} onChange={e => { setCustomHeader(e.target.value); setIsDirty(true); }} className="font-bold uppercase border-none bg-transparent p-0 resize-none min-h-[80px] focus-visible:ring-0 text-base" placeholder="À SUA SENHORIA..." />
+            </>
+          )}
         </div>
 
         {/* ASSUNTO */}
@@ -385,12 +433,14 @@ export default function CreateDocument() {
         </div>
 
         {/* RODAPÉ (Visualização) */}
-        <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
-          <div className="w-64 border-t border-black mb-2"></div>
-          <p className="font-bold uppercase">ADMIN USER</p>
-          <p className="text-sm">Cargo Administrativo</p>
-          <p className="text-xs text-slate-400 mt-2">Assinado Digitalmente via SIMP</p>
-        </div>
+        {!isMessageMode && (
+          <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
+            <div className="w-64 border-t border-black mb-2"></div>
+            <p className="font-bold uppercase">ADMIN USER</p>
+            <p className="text-sm">Cargo Administrativo</p>
+            <p className="text-xs text-slate-400 mt-2">Assinado Digitalmente via SIMP</p>
+          </div>
+        )}
       </div>
     </div>
   );
