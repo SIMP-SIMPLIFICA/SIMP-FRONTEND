@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useParams, Link } from "react-router-dom";
 import { useFinanceEntries, useDeleteFinanceEntry, useFinanceCategories, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { format } from "date-fns";
 
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +102,15 @@ export default function Lancamentos() {
     // Sort descending by date
     return result.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
   }, [entries, query, filterType, filterCategory]);
+
+  const { filteredIncome, filteredExpense, filteredBalance } = useMemo(() => {
+    let inc = 0, exp = 0;
+    filtered.forEach(e => {
+      if (e.type === "INCOME") inc += e.amountCents;
+      if (e.type === "EXPENSE") exp += e.amountCents;
+    });
+    return { filteredIncome: inc, filteredExpense: exp, filteredBalance: inc - exp };
+  }, [filtered]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -255,6 +264,59 @@ export default function Lancamentos() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* FILTER SUMMARY CARDS (dynamic totals based on the active table) */}
+      {(filterType !== "ALL" || filterCategory !== "ALL" || query.trim() !== "") && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+          {(filterType === "ALL" || filterType === "INCOME") && (
+            <Card className="rounded-3xl border-emerald-100 bg-emerald-50/30 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-emerald-800">Total Receitas</CardTitle>
+                <div className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center">
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">{formatCurrency(filteredIncome)}</div>
+                <p className="text-xs text-emerald-600/70 mt-1">Soma das receitas na pesquisa atual</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {(filterType === "ALL" || filterType === "EXPENSE") && (
+            <Card className="rounded-3xl border-rose-100 bg-rose-50/30 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-rose-800">Total Despesas</CardTitle>
+                <div className="h-8 w-8 rounded-full bg-rose-100 grid place-items-center">
+                  <TrendingDown className="h-4 w-4 text-rose-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-rose-600">{formatCurrency(filteredExpense)}</div>
+                <p className="text-xs text-rose-600/70 mt-1">Soma das despesas na pesquisa atual</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {filterType === "ALL" && (
+            <Card className="rounded-3xl border-indigo-100 bg-indigo-50/30 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-indigo-800">Saldo do Filtro</CardTitle>
+                <div className="h-8 w-8 rounded-full bg-indigo-100 grid place-items-center">
+                  <Scale className="h-4 w-4 text-indigo-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${filteredBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {filteredBalance >= 0 ? "+" : "-"} {formatCurrency(Math.abs(filteredBalance))}
+                </div>
+                <p className="text-xs text-indigo-600/70 mt-1">Balanço líquido da pesquisa atual</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* TABLE */}
       <Card className="rounded-3xl border-slate-200 shadow-sm">
