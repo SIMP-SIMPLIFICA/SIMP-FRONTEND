@@ -28,6 +28,7 @@ type NavItem = {
   to: string;
   icon: React.ReactNode;
   anyOf?: string[];
+  isBeta?: boolean;
 };
 
 type NavGroup = {
@@ -84,7 +85,7 @@ export default function Sidebar() {
           { label: "Visão Geral", to: "/financeiro" },
           { label: "Lançamentos", to: "/financeiro/lancamentos" },
           { label: "Relatórios", to: "/financeiro/relatorios" },
-          { label: "Inteligência", to: "/financeiro/inteligencia" },
+          { label: "Inteligência", to: "/financeiro/inteligencia", isBeta: true },
         ],
       },
       {
@@ -219,8 +220,13 @@ export default function Sidebar() {
                       </div>
                       {it.children.map(child => (
                         <DropdownMenuItem key={child.to} asChild className="focus:bg-white/10 focus:text-white cursor-pointer rounded-xl">
-                          <NavLink to={child.to} className="w-full">
-                            {child.label}
+                          <NavLink to={child.to} className="w-full flex items-center justify-between">
+                            <span>{child.label}</span>
+                            {child.isBeta && (
+                              <span className="ml-2 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-white">
+                                Beta
+                              </span>
+                            )}
                           </NavLink>
                         </DropdownMenuItem>
                       ))}
@@ -253,7 +259,7 @@ export default function Sidebar() {
                           end={child.to === "/" || child.to === "/financeiro" || child.to === "/configuracoes"}
                           className={({ isActive }) =>
                             classNames(
-                              "block rounded-xl px-3 py-2 text-[14px] transition",
+                              "flex items-center justify-between rounded-xl px-3 py-2 text-[14px] transition",
                               "hover:bg-white/10",
                               isActive
                                 ? "bg-white/12 text-white font-medium"
@@ -262,6 +268,11 @@ export default function Sidebar() {
                           }
                         >
                           {child.label}
+                          {child.isBeta && (
+                            <span className="ml-2 rounded-md bg-white/20 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-white shrink-0">
+                              Beta
+                            </span>
+                          )}
                         </NavLink>
                       </li>
                     ))}
