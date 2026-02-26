@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Sparkles, Brain, TrendingUp, AlertCircle } from "lucide-react";
+import { Sparkles, Brain, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,17 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { useFinanceEntries } from "@/hooks/useFinance";
 import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { format, subMonths, startOfMonth, isSameMonth, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import type { FinanceEntry } from "./types";
-
-const forecastData = [
-    { name: 'Nov', receitas: 150000000, despesas: 230000000 },
-    { name: 'Dez', receitas: 110000000, despesas: 210000000 },
-    { name: 'Jan', receitas: 140000000, despesas: 220000000 },
-    { name: 'Fev (Atual)', receitas: 100000000, despesas: 200000000 },
-    { name: 'Mar (Proj)', receitas: 60000000, despesas: 230000000 },
-    { name: 'Abr (Proj)', receitas: 70000000, despesas: 240000000 },
-    { name: 'Mai (Proj)', receitas: 50000000, despesas: 250000000 },
-];
 
 export default function Inteligencia() {
     const { workspaceId } = useParams();
@@ -26,39 +18,128 @@ export default function Inteligencia() {
     const entries = entriesData || [];
 
     // --- COMPUTE INSIGHTS ---
-    const { topCategoryName, topCategoryValue, isPositiveBalance } = useMemo(() => {
-        let income = 0;
-        let expense = 0;
-        const catMap = new Map<string, number>();
+    const {
+        forecastData,
+        topCategoryName,
+        topCategoryValue,
+        topCategoryMOM,
+        currentMonthIncome,
+        currentMonthExpense,
+    } = useMemo(() => {
+        if (!entries || entries.length === 0) {
+            return {
+                forecastData: [], topCategoryName: "N/A", topCategoryValue: 0, topCategoryMOM: 0, currentMonthIncome: 0, currentMonthExpense: 0
+            };
+        }
+
+        const now = new Date();
+        const currentMonthStart = startOfMonth(now);
+        const lastMonthStart = startOfMonth(subMonths(now, 1));
+
+        // 1. Group by month (last 6 months + current)
+        const histData = new Map<string, { name: string; receitas: number; despesas: number; date: Date }>();
+        for (let i = 5; i >= 0; i--) {
+            const d = subMonths(now, i);
+            const key = format(d, "yyyy-MM");
+            histData.set(key, {
+                name: format(d, "MMM", { locale: ptBR }),
+                receitas: 0,
+                despesas: 0,
+                date: d
+            });
+        }
+
+        // 2. Aggregate entries
+        let currentMonthInc = 0;
+        let currentMonthExp = 0;
+        const currentMonthCatMap = new Map<string, number>();
+        const lastMonthCatMap = new Map<string, number>();
 
         entries.forEach((e: FinanceEntry) => {
-            if (e.type === "INCOME") {
-                income += e.amountCents;
-            } else {
-                expense += e.amountCents;
-                catMap.set(e.categoryName, (catMap.get(e.categoryName) || 0) + e.amountCents);
+            const entryDate = parseISO(e.occurredAt);
+            const key = format(entryDate, "yyyy-MM");
+
+            if (histData.has(key)) {
+                const monthNode = histData.get(key)!;
+                if (e.type === "INCOME") monthNode.receitas += e.amountCents;
+                else monthNode.despesas += e.amountCents;
+            }
+
+            if (isSameMonth(entryDate, currentMonthStart)) {
+                if (e.type === "INCOME") currentMonthInc += e.amountCents;
+                else {
+                    currentMonthExp += e.amountCents;
+                    currentMonthCatMap.set(e.categoryName, (currentMonthCatMap.get(e.categoryName) || 0) + e.amountCents);
+                }
+            }
+
+            if (isSameMonth(entryDate, lastMonthStart)) {
+                if (e.type === "EXPENSE") {
+                    lastMonthCatMap.set(e.categoryName, (lastMonthCatMap.get(e.categoryName) || 0) + e.amountCents);
+                }
             }
         });
 
-        // Find highest expense
+        // 3. Find Top Category in Current Month
         let topName = "N/A";
         let topVal = 0;
-        catMap.forEach((v, k) => {
-            if (v > topVal) {
-                topVal = v;
-                topName = k;
+        currentMonthCatMap.forEach((val, cat) => {
+            if (val > topVal) {
+                topVal = val;
+                topName = cat;
             }
         });
 
+        // Calculate MOM for Top Category
+        let topMOM = 0;
+        if (topName !== "N/A") {
+            const lastMonthVal = lastMonthCatMap.get(topName) || 0;
+            if (lastMonthVal === 0) {
+                topMOM = 100;
+            } else {
+                topMOM = ((topVal - lastMonthVal) / lastMonthVal) * 100;
+            }
+        }
+
+        // 4. Build Forecast Data (Average of historical active months)
+        let sumInc = 0; let sumExp = 0; let count = 0;
+        const finalChartData = Array.from(histData.values()).map(d => {
+            sumInc += d.receitas;
+            sumExp += d.despesas;
+            if (d.receitas > 0 || d.despesas > 0) count++;
+            return {
+                name: isSameMonth(d.date, now) ? `${d.name} (Atual)` : d.name,
+                receitas: d.receitas,
+                despesas: d.despesas,
+                isProj: false
+            };
+        });
+
+        const avgInc = count > 0 ? sumInc / count : 0;
+        const avgExp = count > 0 ? sumExp / count : 0;
+
+        for (let i = 1; i <= 3; i++) {
+            const projDate = subMonths(now, -i);
+            finalChartData.push({
+                name: `${format(projDate, "MMM", { locale: ptBR })} (Proj)`,
+                receitas: Math.round(avgInc),
+                despesas: Math.round(avgExp),
+                isProj: true
+            });
+        }
+
         return {
+            forecastData: finalChartData,
             topCategoryName: topName,
             topCategoryValue: topVal,
-            isPositiveBalance: income >= expense
+            topCategoryMOM: topMOM,
+            currentMonthIncome: currentMonthInc,
+            currentMonthExpense: currentMonthExp,
         };
     }, [entries]);
 
-    const totalExpense = entries.filter((e: FinanceEntry) => e.type === "EXPENSE").reduce((acc: number, curr: FinanceEntry) => acc + curr.amountCents, 1);
-    const topCategoryPercentage = Math.round((topCategoryValue / totalExpense) * 100);
+    const isPositiveBalance = currentMonthIncome >= currentMonthExpense;
+    const commitmentPercentage = currentMonthIncome > 0 ? Math.round((currentMonthExpense / currentMonthIncome) * 100) : 100;
 
     function formatValue(c: number) {
         return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(c / 100);
@@ -127,7 +208,7 @@ export default function Inteligencia() {
                     <CardContent>
                         <p className="text-slate-800 font-medium mb-1">Cuidado com <span className="text-orange-600 font-bold">{topCategoryName}</span></p>
                         <p className="text-sm text-slate-600">
-                            Esta categoria consumiu <strong className="text-slate-900">{formatValue(topCategoryValue)}</strong> do caixa, representando cerca de <strong className="text-orange-600">{topCategoryPercentage}%</strong> das despesas no período. É recomendada uma revisão dos contratos atuais.
+                            Esta categoria já consumiu <strong className="text-slate-900">{formatValue(topCategoryValue)}</strong> deste mês. Isso representa {topCategoryMOM === 0 ? "o mesmo valor gasto no" : `um ${topCategoryMOM > 0 ? "aumento" : "declínio"} de`} <strong className="text-orange-600">{Math.abs(Math.round(topCategoryMOM))}%</strong> em relação ao mês anterior (MOM).
                         </p>
                     </CardContent>
                 </Card>
@@ -139,24 +220,24 @@ export default function Inteligencia() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
                             {isPositiveBalance
-                                ? <><TrendingUp className="h-4 w-4 text-emerald-500" /> Oportunidade Financeira</>
-                                : <><TrendingUp className="h-4 w-4 text-red-500" /> Risco de Déficit</>
+                                ? <><TrendingUp className="h-4 w-4 text-emerald-500" /> Folga Orçamentária</>
+                                : <><TrendingDown className="h-4 w-4 text-red-500" /> Risco de Déficit</>
                             }
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {isPositiveBalance ? (
                             <>
-                                <p className="text-slate-800 font-medium mb-1">Superávit Detectado</p>
+                                <p className="text-slate-800 font-medium mb-1">Comprometimento Saudável</p>
                                 <p className="text-sm text-slate-600">
-                                    As receitas municipais superaram as despesas mapeadas no sistema. Considere reverter o saldo excedente em reservas de contenção ou novas licitações para serviços essenciais.
+                                    Até agora você comprometeu apenas <strong className="text-emerald-600">{commitmentPercentage}%</strong> da receita arrecadada no mês atual ({formatValue(currentMonthIncome)}). O saldo restante confere margem de segurança.
                                 </p>
                             </>
                         ) : (
                             <>
                                 <p className="text-slate-800 font-medium mb-1">Déficit Mapeado</p>
                                 <p className="text-sm text-slate-600">
-                                    O volume das despesas está atualmente ultrapassando as receitas mapeadas. É recomendada a suspensão imediata de repasses na categoria <strong>{topCategoryName}</strong> para readequação orçamentária.
+                                    Atenção: Suas despesas ultrapassaram as receitas. Você gastou o equivalente a <strong className="text-red-600">{commitmentPercentage}%</strong> de toda a arrecadação mensal ({formatValue(currentMonthIncome)}).
                                 </p>
                             </>
                         )}
@@ -223,7 +304,11 @@ export default function Inteligencia() {
                                         axisLine={false}
                                         tickLine={false}
                                         tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        tickFormatter={(val) => `R$ ${(val / 100000000).toFixed(1)}M`}
+                                        tickFormatter={(val) => {
+                                            if (val >= 100000000) return `R$ ${(val / 100000000).toFixed(1)}M`;
+                                            if (val >= 100000) return `R$ ${(val / 100000).toFixed(1)}k`;
+                                            return `R$ ${(val / 100).toFixed(0)}`;
+                                        }}
                                         dx={-10}
                                     />
                                     <Tooltip content={<CustomTooltip />} />
