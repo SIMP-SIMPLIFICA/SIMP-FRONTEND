@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { exportToPDF, exportToExcel } from "@/utils/export";
 import { useParams, Link } from "react-router-dom";
-import { useFinanceEntries, useDeleteFinanceEntry, useFinanceCategories, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { useFinanceEntries, useDeleteFinanceEntry, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { format } from "date-fns";
 
@@ -56,14 +58,14 @@ export default function Lancamentos() {
 
   const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
   const { mutate: deleteEntry } = useDeleteFinanceEntry(resolvedWorkspaceId);
-  const { data: categories = [] } = useFinanceCategories(resolvedWorkspaceId);
 
   const entries = entriesData || [];
 
   // Search & Filters
   const [query, setQuery] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | EntryType>("ALL");
-  const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterCategory, setFilterCategory] = useState<string[]>([]);
+  const [openCategory, setOpenCategory] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -97,8 +99,8 @@ export default function Lancamentos() {
       result = result.filter(e => e.type === filterType);
     }
 
-    if (filterCategory !== "ALL") {
-      result = result.filter(e => e.categoryName === filterCategory);
+    if (filterCategory.length > 0) {
+      result = result.filter(e => filterCategory.includes(e.categoryName));
     }
 
     // Sort descending by date
@@ -113,6 +115,12 @@ export default function Lancamentos() {
     });
     return { filteredIncome: inc, filteredExpense: exp, filteredBalance: inc - exp };
   }, [filtered]);
+
+  // Categories derived from actual data
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(entries.map(e => e.categoryName || "Geral")))
+      .sort((a, b) => a.localeCompare(b));
+  }, [entries]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -274,21 +282,64 @@ export default function Lancamentos() {
           </SelectContent>
         </Select>
 
-        <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px] h-9">
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">Todas as Categorias</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={openCategory} onOpenChange={setOpenCategory}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={openCategory}
+              className="h-9 justify-between font-normal min-w-[200px]"
+            >
+              {filterCategory.length === 0
+                ? "Categorias (Todas)"
+                : `${filterCategory.length} selecionada(s)`}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[220px] p-0">
+            <Command>
+              <CommandInput placeholder="Buscar categoria..." />
+              <CommandList>
+                <CommandEmpty>Nenhuma categoria.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => {
+                      setFilterCategory([]);
+                      setPage(1);
+                    }}
+                  >
+                    <div className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary ${filterCategory.length === 0 ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"}`}>
+                      <Check className="h-4 w-4" />
+                    </div>
+                    Todas as Categorias
+                  </CommandItem>
+                  {availableCategories.map((catName) => (
+                    <CommandItem
+                      key={catName}
+                      value={catName}
+                      onSelect={() => {
+                        setFilterCategory(prev =>
+                          prev.includes(catName)
+                            ? prev.filter(item => item !== catName)
+                            : [...prev, catName]
+                        );
+                        setPage(1);
+                      }}
+                    >
+                      <div className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary ${filterCategory.includes(catName) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"}`}>
+                        <Check className="h-4 w-4" />
+                      </div>
+                      {catName}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* FILTER SUMMARY CARDS (dynamic totals based on the active table) */}
-      {(filterType !== "ALL" || filterCategory !== "ALL" || query.trim() !== "") && (
+      {(filterType !== "ALL" || filterCategory.length > 0 || query.trim() !== "") && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 
           {(filterType === "ALL" || filterType === "INCOME") && (
