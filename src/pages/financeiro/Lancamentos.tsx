@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { exportToPDF, exportToExcel } from "@/utils/export";
 import { useParams, Link } from "react-router-dom";
 import { useFinanceEntries, useDeleteFinanceEntry, useFinanceCategories, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
@@ -51,6 +52,7 @@ export default function Lancamentos() {
   const { workspaceId } = useParams();
   const { data: workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces();
   const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+  const activeWorkspaceName = workspaces?.find((w: any) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
 
   const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
   const { mutate: deleteEntry } = useDeleteFinanceEntry(resolvedWorkspaceId);
@@ -228,10 +230,30 @@ export default function Lancamentos() {
               className="h-11 rounded-2xl pl-10"
             />
           </div>
-          <Button className="h-11 rounded-2xl gap-2 bg-[#0A5BC4] hover:bg-[#094FA8]" onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4" />
-            Novo Lançamento
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+              onClick={() => exportToPDF(filtered, activeWorkspaceName, { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
+              disabled={filtered.length === 0}
+            >
+              <FileText className="h-4 w-4" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
+              onClick={() => exportToExcel(filtered, activeWorkspaceName, { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
+              disabled={filtered.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Excel
+            </Button>
+            <Button className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 bg-[#0A5BC4] hover:bg-[#094FA8]" onClick={handleOpenCreate}>
+              <Plus className="h-4 w-4" />
+              Novo Lançamento
+            </Button>
+          </div>
         </div>
       </div>
 

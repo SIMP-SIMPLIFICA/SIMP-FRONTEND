@@ -5,19 +5,17 @@ import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-    TableFooter,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check } from "lucide-react";
 
 import type { EntryType } from "./types";
-import { mockEntries } from "./mock/entries";
+import { useFinanceEntries } from "@/hooks/useFinance";
+import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { useParams } from "react-router-dom";
+import { exportAggregatedToExcel } from "@/utils/export";
 
 // --- HELPERS ---
 function formatCurrency(cents: number): string {
@@ -27,42 +25,63 @@ function formatCurrency(cents: number): string {
     }).format(cents / 100);
 }
 
-// Generate unique months from mock data for the select
-const availableMonths = Array.from(
-    new Set(
-        mockEntries.map((e) => {
-            const d = new Date(e.occurredAt);
-            return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-        })
-    )
-).sort((a, b) => b.localeCompare(a)); // Newest first
-
 // --- MAIN COMPONENT ---
 export default function Relatorios() {
+    const { workspaceId } = useParams();
+    const { data: workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces();
+    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+    const activeWorkspaceName = workspaces?.find((w: { id: string; name: string }) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
+
+    const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
+    const entries = entriesData || [];
+
+    const availableMonths = useMemo(() => {
+        return Array.from(
+            new Set(
+                entries.map((e) => {
+                    const d = new Date(e.occurredAt);
+                    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+                })
+            )
+        ).sort((a, b) => b.localeCompare(a)); // Newest first
+    }, [entries]);
+
+    const availableCategories = useMemo(() => {
+        return Array.from(
+            new Set(entries.map((e) => e.categoryName || "Geral"))
+        ).sort((a, b) => a.localeCompare(b));
+    }, [entries]);
+
     // Filters State
-    const [filterMonth, setFilterMonth] = useState<string>(availableMonths[0] || "ALL");
+    const [filterMonth, setFilterMonth] = useState<string>("ALL");
     const [filterType, setFilterType] = useState<"ALL" | EntryType>("ALL");
-    const [filterCategory, setFilterCategory] = useState<string>("ALL");
+    const [filterCategory, setFilterCategory] = useState<string[]>([]);
+    const [openCategory, setOpenCategory] = useState(false);
 
     function handleExport() {
+        if (aggregatedData.length === 0) {
+            toast({ title: "Atenção", description: "Não há dados para exportar.", variant: "destructive" });
+            return;
+        }
+        exportAggregatedToExcel(aggregatedData, activeWorkspaceName, filterMonth);
         toast({
-            title: "Exportação Iniciada",
-            description: "O relatório detalhado está sendo gerado e o download iniciará em breve.",
+            title: "Exportação Concluída",
+            description: "O relatório consolidado foi salvo no seu computador.",
         });
     }
 
     // Process & Aggregate Data
     const aggregatedData = useMemo(() => {
         // 1. Filter raw data
-        let filtered = mockEntries;
+        let filtered = entries;
         if (filterMonth !== "ALL") {
             filtered = filtered.filter(e => e.occurredAt.startsWith(filterMonth));
         }
         if (filterType !== "ALL") {
             filtered = filtered.filter(e => e.type === filterType);
         }
-        if (filterCategory !== "ALL") {
-            filtered = filtered.filter(e => e.categoryName === filterCategory);
+        if (filterCategory.length > 0) {
+            filtered = filtered.filter(e => filterCategory.includes(e.categoryName));
         }
 
         // 2. Reduce by Category & Type
@@ -88,7 +107,7 @@ export default function Relatorios() {
 
         // 3. Convert back to array and sort by value desc
         return Array.from(groups.values()).sort((a, b) => b.totalCents - a.totalCents);
-    }, [filterMonth, filterType, filterCategory]);
+    }, [entries, filterMonth, filterType, filterCategory]);
 
     // Compute footer balance
     const aggregatedBalance = useMemo(() => {
@@ -102,6 +121,10 @@ export default function Relatorios() {
     }, [aggregatedData]);
 
     // --- RENDER ---
+    if (isLoadingWorkspaces || isLoadingEntries) {
+        return <div className="p-8 text-center text-slate-500">Carregando relatórios...</div>;
+    }
+
     return (
         <div className="space-y-6">
             {/* HEADER */}
@@ -150,23 +173,56 @@ export default function Relatorios() {
                     </SelectContent>
                 </Select>
 
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                    <SelectTrigger className="w-[180px] h-9">
-                        <SelectValue placeholder="Categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ALL">Todas as Categorias</SelectItem>
-                        <SelectItem value="Serviços">Serviços</SelectItem>
-                        <SelectItem value="Fornecedores">Fornecedores</SelectItem>
-                        <SelectItem value="Utilidades">Utilidades</SelectItem>
-                        <SelectItem value="Vendas">Vendas</SelectItem>
-                        <SelectItem value="Despesas Administrativas">Despesas Admin</SelectItem>
-                        <SelectItem value="TI">TI</SelectItem>
-                        <SelectItem value="Projetos">Projetos</SelectItem>
-                        <SelectItem value="Manutenção">Manutenção</SelectItem>
-                        <SelectItem value="Outros">Outros</SelectItem>
-                    </SelectContent>
-                </Select>
+                <Popover open={openCategory} onOpenChange={setOpenCategory}>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openCategory}
+                            className="h-9 justify-between font-normal min-w-[180px]"
+                        >
+                            {filterCategory.length === 0
+                                ? "Categorias (Todas)"
+                                : `${filterCategory.length} selecionada(s)`}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0">
+                        <Command>
+                            <CommandInput placeholder="Buscar categoria..." />
+                            <CommandList>
+                                <CommandEmpty>Nenhuma categoria.</CommandEmpty>
+                                <CommandGroup>
+                                    <CommandItem
+                                        onSelect={() => setFilterCategory([])}
+                                    >
+                                        <div className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary ${filterCategory.length === 0 ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"}`}>
+                                            <Check className="h-4 w-4" />
+                                        </div>
+                                        Todas as Categorias
+                                    </CommandItem>
+                                    {availableCategories.map((c) => (
+                                        <CommandItem
+                                            key={c}
+                                            value={c}
+                                            onSelect={() => {
+                                                setFilterCategory(prev =>
+                                                    prev.includes(c)
+                                                        ? prev.filter(item => item !== c)
+                                                        : [...prev, c]
+                                                );
+                                            }}
+                                        >
+                                            <div className={`mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary ${filterCategory.includes(c) ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"}`}>
+                                                <Check className="h-4 w-4" />
+                                            </div>
+                                            {c}
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
             </div>
 
             {/* REPORT TABLE */}
