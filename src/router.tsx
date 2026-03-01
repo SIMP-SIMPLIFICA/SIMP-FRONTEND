@@ -24,6 +24,8 @@ import CreateDocument from "@/pages/communication/CreateDocument";
 import DocumentView from "@/pages/communication/DocumentView";
 import Settings from "@/pages/Settings";
 
+import VirtualProcessesPage from "@/pages/virtual-processes/VirtualProcessesPage";
+
 export const router = createBrowserRouter([
   {
     path: "/login",
@@ -72,6 +74,12 @@ export const router = createBrowserRouter([
               { path: "/communication/sent", element: <Placeholder title="Enviados" /> },
               { path: "/communication/pending", element: <Placeholder title="Pendentes" /> },
               { path: "/communication/signed", element: <Placeholder title="Assinados" /> },
+
+              {
+                element: <PermissionGate anyOf={["processes:read", "processes:write", "processes:manage", "processes:download"]} />,
+                children: [{ path: "/processos-virtuais", element: <VirtualProcessesPage /> }],
+              },
+
               { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
               { path: "/configuracoes", element: <Settings /> },
 

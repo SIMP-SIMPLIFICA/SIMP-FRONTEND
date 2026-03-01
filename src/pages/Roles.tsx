@@ -82,7 +82,8 @@ const FALLBACK_CATALOG: CatalogData = {
     { name: "financial", displayName: "Módulo Financeiro", permissions: ["finance:read", "finance:write", "finance:approve", "finance:export"] },
     { name: "system", displayName: "Configurações do Sistema", permissions: ["system:admin", "settings:read", "settings:write", "audit:read", "audit:export"] },
     { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] },
-    { name: "communication", displayName: "Comunicação e Protocolo", permissions: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"] }
+    { name: "communication", displayName: "Comunicação e Protocolo", permissions: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"] },
+    { name: "processes", displayName: "Processos Virtuais", permissions: ["processes:read", "processes:write", "processes:manage", "processes:download"] }
   ],
   permissions: [
     // Users
@@ -117,6 +118,11 @@ const FALLBACK_CATALOG: CatalogData = {
     { key: "documents:manage", description: "Gerenciar documentos", category: "communication" },
     { key: "documents:sign", description: "Assinar documentos", category: "communication" },
     { key: "documents:send", description: "Enviar/Protocolar", category: "communication" },
+    // Virtual Processes
+    { key: "processes:read", description: "Visualizar lista e metadados", category: "processes" },
+    { key: "processes:write", description: "Autuar e anexar documentos", category: "processes" },
+    { key: "processes:manage", description: "Reabrir e gerenciar processos", category: "processes" },
+    { key: "processes:download", description: "Baixar anexos", category: "processes" },
     // Profile
     { key: "profile:read", description: "Ver próprio perfil", category: "other" },
     { key: "profile:write", description: "Editar próprio perfil", category: "other" },

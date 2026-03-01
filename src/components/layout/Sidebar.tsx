@@ -12,6 +12,7 @@ import {
   LogOut,
   User,
   FileText, // Ícone para Comunicação
+  FolderArchive,
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -63,6 +64,12 @@ export default function Sidebar() {
         label: "Comunicação",
         to: "/communication",
         icon: <FileText className="h-5 w-5" />,
+      },
+      {
+        label: "Processos Virtuais",
+        to: "/processos-virtuais",
+        icon: <FolderArchive className="h-5 w-5" />,
+        anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
       },
       {
         label: "Workspaces",
@@ -142,7 +149,7 @@ export default function Sidebar() {
             <li key={it.to}>
               <NavLink
                 to={it.to}
-                className={({ isActive }) =>
+                className={() =>
                   classNames(
                     "flex items-center gap-3 rounded-2xl px-4 py-3 transition",
                     "hover:bg-white/10",
