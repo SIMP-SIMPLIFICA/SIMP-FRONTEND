@@ -116,7 +116,7 @@ export default function DocumentView() {
                     <div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold text-slate-900">{document.documentNumber || document.title}</h1>
-                            <Badge variant={document.status === 'SENT' ? 'default' : 'secondary'}>{document.status === 'SENT' ? 'OFICIAL' : 'RASCUNHO'}</Badge>
+                            <Badge variant={document.status === 'SENT' ? 'primary' : 'secondary'}>{document.status === 'SENT' ? 'OFICIAL' : 'RASCUNHO'}</Badge>
                             {needsSignature && <Badge className="bg-danger-50 text-danger-700 animate-pulse border-danger-200">Assinatura Pendente</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground">{document.documentType} • {document.protocolNumber}</p>

@@ -287,7 +287,7 @@ export default function CommunicationDashboard() {
                                 {doc.documentType === 'MENSAGEM' ? (
                                   <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                                 ) : (
-                                  <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
+                                  <Badge variant="primary" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                                 )}
                                 <span className="text-xs text-slate-500 font-mono">
                                   {doc.documentType !== 'MENSAGEM' ? `${doc.documentType} • ` : ''}{doc.documentNumber || "S/N"}
@@ -358,7 +358,7 @@ export default function CommunicationDashboard() {
                                 {doc.documentType === 'MENSAGEM' ? (
                                   <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                                 ) : (
-                                  <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
+                                  <Badge variant="primary" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                                 )}
                                 {doc.documentType !== 'MENSAGEM' && <span className="text-xs text-slate-400">{doc.documentType}</span>}
                               </div>
@@ -416,7 +416,7 @@ export default function CommunicationDashboard() {
                               {doc.documentType === 'MENSAGEM' ? (
                                 <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                               ) : (
-                                <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
+                                <Badge variant="primary" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                               )}
                             </div>
                           </TableCell>
