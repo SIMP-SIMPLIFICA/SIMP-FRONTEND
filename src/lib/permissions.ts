@@ -2,7 +2,7 @@ import type { MeResponse } from "@/hooks/useMe";
 
 export function getPermissions(me?: MeResponse | undefined): Set<string> {
   const list =
-    me?.user?.roles?.flatMap((r) => r.role.permissions ?? []) ?? [];
+    me?.user?.roles?.flatMap((r) => r?.role?.permissions ?? []) ?? [];
   return new Set(list);
 }
 

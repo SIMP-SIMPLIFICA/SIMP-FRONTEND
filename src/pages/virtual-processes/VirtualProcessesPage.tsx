@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export default function VirtualProcessesPage() {
   const { toast } = useToast();
@@ -250,7 +251,7 @@ export default function VirtualProcessesPage() {
                     </TableCell>
                     <TableCell className="text-slate-600 border-b border-slate-100">{proc.secretaria}</TableCell>
                     <TableCell className="text-slate-600 border-b border-slate-100">
-                      <Badge variant="outline" className="text-slate-600 font-medium">
+                      <Badge variant="secondary" className="text-slate-600 font-medium">
                         {proc.category || "Outros"}
                       </Badge>
                     </TableCell>
@@ -389,7 +390,7 @@ export default function VirtualProcessesPage() {
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+              <Button type="button" variant="secondary" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
               <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={createMutation.isPending || !newProcess.secretaria || !newProcess.source || !newProcess.category}>
                 {createMutation.isPending ? "Autuando..." : "Autuar Processo"}
               </Button>
@@ -411,14 +412,14 @@ export default function VirtualProcessesPage() {
               <div className="bg-white border-b border-slate-200 p-8 pt-10 relative">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-semibold tracking-wider text-slate-500 uppercase mb-1">Processo Digital</p>
+                    <p className="text-[13px] font-semibold tracking-wider text-slate-500 uppercase mb-2">Processo Digital</p>
                     <div className="flex items-center gap-4">
-                      <SheetTitle className="text-3xl font-bold font-mono tracking-tight text-slate-900">
+                      <SheetTitle className="text-2xl font-bold font-mono tracking-tight text-slate-900">
                         {details.process.processNumber}
                       </SheetTitle>
 
                       <Button
-                        variant="destructive"
+                        variant="danger"
                         size="sm"
                         className="shadow-sm"
                         disabled={Date.now() - new Date(details.process.createdAt).getTime() > 86400000 || deleteMutation.isPending}
@@ -434,22 +435,22 @@ export default function VirtualProcessesPage() {
                       </Button>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 mt-4">
-                      <Badge variant="secondary" className={getStatusColor(details.process.status) + " px-3 py-1"}>
+                      <Badge variant="secondary" className={getStatusColor(details.process.status) + " px-2.5 py-0.5 text-xs font-semibold"}>
                         {details.process.status}
                       </Badge>
-                      <Badge variant="outline" className="text-slate-600 px-3 py-1 border-slate-300">
+                      <Badge variant="secondary" className="text-slate-600 px-2.5 py-0.5 border-slate-300 text-xs font-semibold bg-white shadow-sm">
                         {details.process.secretaria}
                       </Badge>
-                      <Badge variant="outline" className={getSourceColor(details.process.source) + " px-3 py-1 border-transparent"}>
+                      <Badge variant="secondary" className={getSourceColor(details.process.source) + " px-2.5 py-0.5 border-transparent text-xs font-semibold"}>
                         {details.process.source}
                       </Badge>
-                      <Badge variant="outline" className="text-slate-500 font-medium px-3 py-1 border-slate-300">
+                      <Badge variant="secondary" className="text-slate-500 px-2.5 py-0.5 border-slate-200 text-xs font-semibold bg-slate-50">
                         {details.process.category || "Outros"}
                       </Badge>
                     </div>
                   </div>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     className="shadow-sm border-slate-300"
                     onClick={() => toggleStatusMutation.mutate(details.process.id)}
                     disabled={toggleStatusMutation.isPending}
@@ -465,38 +466,40 @@ export default function VirtualProcessesPage() {
 
               <div className="flex-1 p-8 grid grid-cols-[1fr_380px] gap-8">
                 <div className="flex flex-col gap-8">
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                      <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                        <UploadCloud className="h-5 w-5 text-blue-600" />
+                  <Card className="rounded-xl border border-slate-200 overflow-hidden">
+                    <CardHeader className="p-4 border-b border-slate-100 bg-slate-50/50 pb-4">
+                      <CardTitle className="text-[15px] font-semibold text-slate-900 flex items-center gap-2">
+                        <UploadCloud className="h-4 w-4 text-blue-600" />
                         Anexar Documento
-                      </h3>
-                    </div>
-                    <form onSubmit={handleUpload} className="p-5 space-y-4">
-                      <Select required value={uploadTag} onValueChange={setUploadTag}>
-                        <SelectTrigger className="bg-slate-50"><SelectValue placeholder="Selecione a categoria..." /></SelectTrigger>
-                        <SelectContent>
-                          {[
-                            'Homologação', 'Adjudicação', 'Manifesto Ambiental',
-                            'Empenho', 'Liquidação', 'Comprovantes', 'Rendimentos',
-                            'Extrato', 'Contrato', 'Parecer Jurídico', 'Medições',
-                            'Notas Fiscais', 'Outros'
-                          ].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      <form onSubmit={handleUpload} className="space-y-4">
+                        <Select required value={uploadTag} onValueChange={setUploadTag}>
+                          <SelectTrigger className="bg-slate-50 h-10"><SelectValue placeholder="Selecione a categoria..." /></SelectTrigger>
+                          <SelectContent>
+                            {[
+                              'Homologação', 'Adjudicação', 'Manifesto Ambiental',
+                              'Empenho', 'Liquidação', 'Comprovantes', 'Rendimentos',
+                              'Extrato', 'Contrato', 'Parecer Jurídico', 'Medições',
+                              'Notas Fiscais', 'Outros'
+                            ].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
 
-                      <div className="flex items-center gap-3">
-                        <Input type="file" ref={fileInputRef} className="flex-1 cursor-pointer bg-slate-50" required />
-                        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white" disabled={!uploadTag || uploadMutation.isPending}>
-                          {uploadMutation.isPending ? "Enviando..." : "Enviar"}
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
+                        <div className="flex items-center gap-3">
+                          <Input type="file" ref={fileInputRef} className="flex-1 cursor-pointer bg-slate-50 h-10" required />
+                          <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-10 px-5" disabled={!uploadTag || uploadMutation.isPending}>
+                            {uploadMutation.isPending ? "Enviando..." : "Enviar"}
+                          </Button>
+                        </div>
+                      </form>
+                    </CardContent>
+                  </Card>
 
                   <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2 px-1">
-                      <FolderArchive className="h-5 w-5 text-slate-500" />
+                    <h3 className="text-[15px] font-semibold text-slate-900 mb-4 flex items-center gap-2 px-1">
+                      <FolderArchive className="h-4 w-4 text-slate-500" />
                       Acervo do Processo
                       <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-800 border-none">
                         {details.process.documents?.length || 0} arquivos
@@ -504,10 +507,10 @@ export default function VirtualProcessesPage() {
                     </h3>
                     <div className="space-y-3">
                       {(details?.process?.documents || []).map((doc: VirtualProcessDocument) => (
-                        <div key={doc.id} className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between group hover:border-blue-200 transition-colors">
+                        <div key={doc.id} className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-sm flex items-start justify-between hover:border-blue-300 transition-colors">
                           <div className="flex-1 min-w-0 pr-4">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-medium">
+                            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                              <Badge variant="secondary" className="bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold text-[10px] uppercase tracking-wider py-0 px-1.5 rounded">
                                 {doc.tag}
                               </Badge>
                               <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
@@ -522,7 +525,7 @@ export default function VirtualProcessesPage() {
                               Por: <span className="font-medium text-slate-700">{doc.uploader.firstName} {doc.uploader.lastName}</span>
                             </p>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => handleDownload(doc.id)} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0">
+                          <Button variant="ghost" size="sm" onClick={() => handleDownload(doc.id)} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0">
                             <Download className="h-5 w-5" />
                           </Button>
                         </div>
@@ -539,66 +542,74 @@ export default function VirtualProcessesPage() {
                 </div>
 
                 <div className="flex flex-col gap-6">
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Assunto Principal</h3>
-                    <p className="text-slate-800 leading-relaxed text-sm font-medium">
-                      {details.process.subject}
-                    </p>
+                  <Card className="rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="p-5 border-b border-slate-100 bg-slate-50/50">
+                      <CardTitle className="text-xs font-bold uppercase tracking-widest text-slate-500">Assunto Principal</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      <p className="text-slate-800 leading-relaxed text-[15px] font-medium">
+                        {details.process.subject}
+                      </p>
 
-                    {(details.process.sourceDetail || details.process.bankAccount || details.process.agency || details.process.bankName) && (
-                      <div className="mt-6 pt-5 border-t border-slate-100 space-y-4">
-                        {details.process.sourceDetail && (
-                          <div>
-                            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Detalhes da Origem</h3>
-                            <p className="text-slate-700 text-sm">{details.process.sourceDetail}</p>
-                          </div>
-                        )}
-                        {(details.process.bankName || details.process.agency || details.process.bankAccount) && (
-                          <div>
-                            <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Dados Bancários</h3>
-                            <div className="text-slate-700 text-sm font-mono bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">
-                              {details.process.bankName && <span className="mr-3">Banco: {details.process.bankName}</span>}
-                              {details.process.agency && <span className="mr-3">Agência: {details.process.agency}</span>}
-                              {details.process.bankAccount && <span>Conta: {details.process.bankAccount}</span>}
+                      {(details.process.sourceDetail || details.process.bankAccount || details.process.agency || details.process.bankName) && (
+                        <div className="mt-5 pt-5 border-t border-slate-100 space-y-4">
+                          {details.process.sourceDetail && (
+                            <div>
+                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Detalhes da Origem</h3>
+                              <p className="text-slate-700 text-[13px]">{details.process.sourceDetail}</p>
+                            </div>
+                          )}
+                          {(details.process.bankName || details.process.agency || details.process.bankAccount) && (
+                            <div>
+                              <h3 className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Dados Bancários</h3>
+                              <div className="text-slate-700 text-[13px] font-mono bg-slate-50 px-2 py-1.5 rounded inline-block border border-slate-100">
+                                {details.process.bankName && <span className="mr-3">Banco: {details.process.bankName}</span>}
+                                {details.process.agency && <span className="mr-3">Ag: {details.process.agency}</span>}
+                                {details.process.bankAccount && <span>Cc: {details.process.bankAccount}</span>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="flex-1 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <CardHeader className="p-5 border-b border-slate-100 bg-slate-50/50">
+                      <CardTitle className="text-[15px] font-semibold text-slate-900 flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-blue-600" />
+                        Trilha de Auditoria
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                      <div className="relative pl-[18px] border-l-2 border-slate-100 space-y-6 pb-2">
+                        {(details?.auditLog || []).map((log: AuditLog) => (
+                          <div key={log.id} className="relative">
+                            <span className="absolute -left-[23px] top-1 h-2.5 w-2.5 rounded-full bg-blue-100 border-2 border-white shadow-sm ring-1 ring-slate-200 flex items-center justify-center">
+                              <span className="h-1 w-1 bg-blue-500 rounded-full"></span>
+                            </span>
+                            <div className="text-xs leading-relaxed">
+                              <span className="font-semibold text-slate-900">
+                                {log.user.firstName} {log.user.lastName}
+                              </span>
+                              <span className="text-slate-600 mx-1.5">{log.action}</span>
+                            </div>
+                            <div className="text-[10px] font-medium text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                              {new Date(log.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                              {log.metadata?.tag && (
+                                <Badge variant="secondary" className="text-[9px] py-0 px-1 bg-slate-50 border-slate-200 text-slate-500">
+                                  {log.metadata.tag}
+                                </Badge>
+                              )}
                             </div>
                           </div>
+                        ))}
+                        {!(details?.auditLog || []).length && (
+                          <p className="text-sm text-slate-400 font-medium pb-2">Ainda não há eventos.</p>
                         )}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-900 mb-6 flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-blue-600" />
-                      Trilha de Auditoria
-                    </h3>
-                    <div className="relative pl-[18px] border-l-2 border-slate-100 space-y-7 pb-2">
-                      {(details?.auditLog || []).map((log: AuditLog) => (
-                        <div key={log.id} className="relative">
-                          <span className="absolute -left-[27px] top-1 h-4 w-4 rounded-full bg-blue-50 border-4 border-white shadow-sm ring-1 ring-slate-200 flex items-center justify-center">
-                            <span className="h-1.5 w-1.5 bg-blue-400 rounded-full"></span>
-                          </span>
-                          <div className="text-[13px] leading-relaxed">
-                            <span className="font-semibold text-slate-900">
-                              {log.user.firstName} {log.user.lastName}
-                            </span>
-                            <span className="text-slate-600 mx-1.5">{log.action}</span>
-                          </div>
-                          <div className="text-[11px] font-medium text-slate-400 mt-1.5 flex flex-wrap items-center gap-2">
-                            {new Date(log.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                            {log.metadata?.tag && (
-                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-slate-50 border-slate-200 text-slate-500">
-                                {log.metadata.tag}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {!(details?.auditLog || []).length && (
-                        <p className="text-sm text-slate-400 font-medium pb-4">Ainda não há eventos.</p>
-                      )}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </div>

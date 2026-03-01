@@ -1,22 +1,47 @@
-import * as React from "react"
+import React from 'react';
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-import { cn } from "@/lib/utils"
+export function cn(...inputs: (string | undefined | null | false)[]) {
+  return twMerge(clsx(inputs));
+}
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
-    return (
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(({
+  label,
+  error,
+  className,
+  id,
+  ...props
+}, ref) => {
+  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <div className="w-full">
+      {label && (
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
+          {label}
+        </label>
+      )}
       <input
-        type={type}
+        id={inputId}
+        ref={ref}
         className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          'block w-full rounded border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm h-11 px-4',
+          error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500',
           className
         )}
-        ref={ref}
         {...props}
       />
-    )
-  }
-)
-Input.displayName = "Input"
+      {error && (
+        <p className="mt-1 text-sm text-danger-500">{error}</p>
+      )}
+    </div>
+  );
+});
 
-export { Input }
+Input.displayName = "Input";

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Power, Eye, RefreshCw, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
+import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -17,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -70,10 +69,7 @@ type UsersResponse = {
   pagination: ApiPagination;
 };
 
-type PatchUserStatusBody = {
-  isActive: boolean;
-  reason?: string;
-};
+
 
 type ApiUserSession = {
   id: string;
@@ -231,7 +227,7 @@ export default function Users() {
       );
 
       setResetOpen(false);
-      
+
       if (res.newPassword) {
         // Se o backend retorna a senha (comum em admins resets)
         navigator.clipboard.writeText(res.newPassword);
@@ -354,13 +350,13 @@ export default function Users() {
         <CardContent className="p-5">
           {/* Pagination Top */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-             <div className="text-sm text-slate-500">
-                Página {pagination?.page || 1} de {pagination?.totalPages || 1} • Total: {pagination?.total || 0}
-             </div>
-             <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination?.hasPrev}>Anterior</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination?.hasNext}>Próxima</Button>
-             </div>
+            <div className="text-sm text-slate-500">
+              Página {pagination?.page || 1} de {pagination?.totalPages || 1} • Total: {pagination?.total || 0}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination?.hasPrev}>Anterior</Button>
+              <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination?.hasNext}>Próxima</Button>
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-slate-200">
@@ -390,25 +386,25 @@ export default function Users() {
                         <div className="text-xs text-slate-400">{formatDate(u.createdAt)}</div>
                       </TableCell>
                       <TableCell className="text-center">
-                         <StatusBadge active={u.isActive} />
+                        <StatusBadge active={u.isActive} />
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                           <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500" title="Detalhes" onClick={() => openDetails(u)}>
-                              <Eye className="h-4 w-4" />
-                           </Button>
-                           <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" title="Editar" onClick={() => openEdit(u)}>
-                              <Pencil className="h-4 w-4" />
-                           </Button>
-                           <Button size="icon" variant="ghost" className="h-8 w-8 text-amber-600" title="Status" onClick={() => openStatus(u)}>
-                              <Power className="h-4 w-4" />
-                           </Button>
-                           <Button size="icon" variant="ghost" className="h-8 w-8 text-orange-600" title="Resetar Senha" onClick={() => openReset(u)}>
-                              <KeyRound className="h-4 w-4" />
-                           </Button>
-                           <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" title="Excluir" onClick={() => openDelete(u)}>
-                              <Trash2 className="h-4 w-4" />
-                           </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 text-slate-500" title="Detalhes" onClick={() => openDetails(u)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 text-blue-600" title="Editar" onClick={() => openEdit(u)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 text-amber-600" title="Status" onClick={() => openStatus(u)}>
+                            <Power className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 text-orange-600" title="Resetar Senha" onClick={() => openReset(u)}>
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Excluir" onClick={() => openDelete(u)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -423,121 +419,121 @@ export default function Users() {
       {/* --- DIALOGS --- */}
 
       {/* Create / Edit Form */}
-      <UserFormDialog 
-        open={formOpen} 
-        onOpenChange={setFormOpen} 
-        user={editingUser} 
-        onSuccess={() => void fetchUsers(page)} 
+      <UserFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        user={editingUser}
+        onSuccess={() => void fetchUsers(page)}
       />
 
       {/* Delete Confirmation */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-         <DialogContent>
-            <DialogHeader>
-               <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
-                  <AlertTriangle className="h-6 w-6 text-red-600" />
-               </div>
-               <DialogTitle className="text-center">Excluir Usuário?</DialogTitle>
-               <DialogDescription className="text-center">
-                  Tem certeza que deseja remover <strong>{deleteUser?.username}</strong>? Essa ação não pode ser desfeita.
-               </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="sm:justify-center gap-2">
-               <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
-               <Button variant="destructive" onClick={() => void confirmDelete()} disabled={deleteSubmitting}>
-                  {deleteSubmitting ? "Excluindo..." : "Sim, Excluir"}
-               </Button>
-            </DialogFooter>
-         </DialogContent>
+        <DialogContent>
+          <DialogHeader>
+            <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-red-100">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">Excluir Usuário?</DialogTitle>
+            <DialogDescription className="text-center">
+              Tem certeza que deseja remover <strong>{deleteUser?.username}</strong>? Essa ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancelar</Button>
+            <Button variant="danger" onClick={() => void confirmDelete()} disabled={deleteSubmitting}>
+              {deleteSubmitting ? "Excluindo..." : "Sim, Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Reset Password Confirmation */}
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-         <DialogContent>
-            <DialogHeader>
-               <DialogTitle>Forçar Reset de Senha</DialogTitle>
-               <DialogDescription>
-                  Isso irá gerar uma nova senha aleatória para <strong>{resetUser?.username}</strong> e invalidar a atual.
-               </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-               <Button variant="outline" onClick={() => setResetOpen(false)}>Cancelar</Button>
-               <Button onClick={() => void confirmReset()} disabled={resetSubmitting}>
-                  {resetSubmitting ? "Processando..." : "Gerar Nova Senha"}
-               </Button>
-            </DialogFooter>
-         </DialogContent>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Forçar Reset de Senha</DialogTitle>
+            <DialogDescription>
+              Isso irá gerar uma nova senha aleatória para <strong>{resetUser?.username}</strong> e invalidar a atual.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void confirmReset()} disabled={resetSubmitting}>
+              {resetSubmitting ? "Processando..." : "Gerar Nova Senha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Status Change */}
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-         <DialogContent>
-            <DialogHeader>
-               <DialogTitle>{statusUser?.isActive ? "Desativar" : "Ativar"} Usuário</DialogTitle>
-               <DialogDescription>Motivo da alteração de status para {statusUser?.username}.</DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-               <Textarea 
-                  placeholder="Ex: Solicitação do RH..." 
-                  value={statusReason} 
-                  onChange={e => setStatusReason(e.target.value)} 
-               />
-            </div>
-            <DialogFooter>
-               <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Cancelar</Button>
-               <Button onClick={() => void confirmStatusChange()} disabled={statusSubmitting}>Confirmar</Button>
-            </DialogFooter>
-         </DialogContent>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{statusUser?.isActive ? "Desativar" : "Ativar"} Usuário</DialogTitle>
+            <DialogDescription>Motivo da alteração de status para {statusUser?.username}.</DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Textarea
+              placeholder="Ex: Solicitação do RH..."
+              value={statusReason}
+              onChange={e => setStatusReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setStatusDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void confirmStatusChange()} disabled={statusSubmitting}>Confirmar</Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Details View (Session Management) */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
-            <DialogHeader>
-               <DialogTitle>Detalhes: {detailsUser?.username}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl border bg-slate-50">
-                     <div className="text-xs text-slate-500">ID Interno</div>
-                     <div className="font-mono text-sm">{detailsUser?.id}</div>
-                  </div>
-                  <div className="p-4 rounded-xl border bg-slate-50">
-                     <div className="text-xs text-slate-500">Roles</div>
-                     <div className="flex flex-wrap gap-1 mt-1">
-                        {detailsUser?.roles.map(r => (
-                           <Badge key={r.role.id} variant="secondary" className="text-[10px]">{r.role.displayName}</Badge>
-                        ))}
-                     </div>
-                  </div>
-               </div>
-
-               <Separator />
-
-               <div>
-                  <div className="flex items-center justify-between mb-4">
-                     <h3 className="font-semibold text-slate-900">Sessões Ativas</h3>
-                     <Button size="sm" variant="destructive" onClick={() => detailsUser && void terminateAllSessions(detailsUser.id)} disabled={terminateAllLoading}>
-                        Encerrar Todas
-                     </Button>
-                  </div>
-                  <div className="space-y-2">
-                     {sessionsLoading ? <div className="text-center py-4 text-slate-500">Carregando...</div> : 
-                      sessions.length === 0 ? <div className="text-center py-4 text-slate-500">Nenhuma sessão ativa.</div> :
-                      sessions.map(s => (
-                         <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div>
-                               <div className="font-medium text-sm">{s.deviceName || "Dispositivo desconhecido"}</div>
-                               <div className="text-xs text-slate-500">{s.ipAddress} • {formatDate(s.lastUsedAt)}</div>
-                            </div>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Derrubar"><XCircle className="h-4 w-4" /></Button>
-                         </div>
-                      ))
-                     }
-                  </div>
-               </div>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detalhes: {detailsUser?.username}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl border bg-slate-50">
+                <div className="text-xs text-slate-500">ID Interno</div>
+                <div className="font-mono text-sm">{detailsUser?.id}</div>
+              </div>
+              <div className="p-4 rounded-xl border bg-slate-50">
+                <div className="text-xs text-slate-500">Roles</div>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {detailsUser?.roles.map(r => (
+                    <Badge key={r.role.id} variant="secondary" className="text-[10px]">{r.role.displayName}</Badge>
+                  ))}
+                </div>
+              </div>
             </div>
-         </DialogContent>
+
+            <Separator />
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">Sessões Ativas</h3>
+                <Button size="sm" variant="danger" onClick={() => detailsUser && void terminateAllSessions(detailsUser.id)} disabled={terminateAllLoading}>
+                  Encerrar Todas
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {sessionsLoading ? <div className="text-center py-4 text-slate-500">Carregando...</div> :
+                  sessions.length === 0 ? <div className="text-center py-4 text-slate-500">Nenhuma sessão ativa.</div> :
+                    sessions.map(s => (
+                      <div key={s.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium text-sm">{s.deviceName || "Dispositivo desconhecido"}</div>
+                          <div className="text-xs text-slate-500">{s.ipAddress} • {formatDate(s.lastUsedAt)}</div>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Derrubar"><XCircle className="h-4 w-4" /></Button>
+                      </div>
+                    ))
+                }
+              </div>
+            </div>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );

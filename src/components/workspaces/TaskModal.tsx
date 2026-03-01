@@ -168,13 +168,13 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                             <div className="flex gap-2">
                                 {/* Concluir */}
                                 {canEdit && task.status !== 'DONE' && (
-                                    <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleStatusChange('DONE')}>
+                                    <Button variant="secondary" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleStatusChange('DONE')}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Concluir
                                     </Button>
                                 )}
                                 {/* Excluir (Só Admin/Owner) */}
                                 {canDeleteTask && (
-                                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
+                                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
                                         <Trash2 className="w-4 h-4" />
                                     </Button>
                                 )}
@@ -300,7 +300,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                                         </div>
                                                         {/* AQUI ESTAVA O PROBLEMA: Botão de remover precisa de canEdit */}
                                                         {canEdit && (
-                                                            <Button variant="ghost" size="icon" onClick={() => removeAttachment.mutate(file.id)}>
+                                                            <Button variant="ghost" size="sm" onClick={() => removeAttachment.mutate(file.id)}>
                                                                 <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
                                                             </Button>
                                                         )}

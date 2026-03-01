@@ -84,7 +84,7 @@ export default function WorkspacesPage() {
                 />
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
+                <Button type="button" variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button>
                 <Button type="submit" disabled={isPending}>
                   {isPending ? "Criando..." : "Criar Workspace"}
                 </Button>
@@ -102,7 +102,7 @@ export default function WorkspacesPage() {
         {workspaces?.length === 0 && (
             <div className="col-span-full text-center py-12 border-2 border-dashed rounded-lg">
                 <p className="text-muted-foreground">Você ainda não tem workspaces.</p>
-                <Button variant="link" onClick={() => setIsOpen(true)}>Crie o primeiro agora</Button>
+                <Button variant="ghost" onClick={() => setIsOpen(true)}>Crie o primeiro agora</Button>
             </div>
         )}
       </div>

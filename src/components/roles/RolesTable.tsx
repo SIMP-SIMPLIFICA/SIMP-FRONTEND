@@ -111,7 +111,7 @@ export function RolesTable(props: {
                   <div className="flex justify-center gap-2">
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       className="rounded-2xl"
                       onClick={() => onOpenDetails(r)}
                       disabled={loading}
@@ -122,7 +122,7 @@ export function RolesTable(props: {
 
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       className="rounded-2xl"
                       onClick={() => onDuplicate(r)}
                       disabled={loading}
@@ -133,7 +133,7 @@ export function RolesTable(props: {
 
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       className="rounded-2xl"
                       onClick={() => onEdit(r)}
                       disabled={loading || r.isSystem}
@@ -144,7 +144,7 @@ export function RolesTable(props: {
 
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
                       onClick={() => onDelete(r)}
                       disabled={loading || r.isSystem}

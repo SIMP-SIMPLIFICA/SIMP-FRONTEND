@@ -125,7 +125,7 @@ export default function WorkspaceDetailPage() {
         <div className="flex items-center gap-2">
           <Layout className="h-5 w-5 text-gray-500" />
           <h1 className="text-xl font-bold">{workspace.name}</h1>
-          <Badge variant="outline" className="ml-2">{workspace.members?.length} Membros</Badge>
+          <Badge variant="secondary" className="ml-2">{workspace.members?.length} Membros</Badge>
           {myRole && <Badge className="ml-2 bg-blue-100 text-blue-800 hover:bg-blue-100">{myRole}</Badge>}
         </div>
 
@@ -133,8 +133,8 @@ export default function WorkspaceDetailPage() {
           {/* Botão de Excluir Workspace (SÓ OWNER) */}
           {canDeleteWorkspace && (
             <Button
-              variant="destructive"
-              size="icon"
+              variant="danger"
+              size="sm"
               onClick={handleDeleteWorkspace}
               title="Excluir Workspace"
               disabled={deleteWorkspace.isPending}
@@ -147,7 +147,7 @@ export default function WorkspaceDetailPage() {
           {canManageMembers && (
             <Dialog open={isMembersOpen} onOpenChange={setIsMembersOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   <Users className="w-4 h-4 mr-2" /> Membros
                 </Button>
               </DialogTrigger>
@@ -203,7 +203,7 @@ export default function WorkspaceDetailPage() {
                           {member.role !== 'OWNER' && member.user.id !== user?.id && (
                             <Button
                               variant="ghost"
-                              size="icon"
+                              size="sm"
                               className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
                                 if (confirm("Remover este membro?")) {

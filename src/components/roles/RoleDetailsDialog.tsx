@@ -138,7 +138,7 @@ export function RoleDetailsDialog(props: {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
         </DialogFooter>

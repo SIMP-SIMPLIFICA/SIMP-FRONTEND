@@ -87,7 +87,7 @@ export default function ForgotPassword() {
               Enviamos um link de recuperação para <strong>{email}</strong>.
             </p>
             <Button
-              variant="outline"
+              variant="secondary"
               className="mt-6 h-11 w-full rounded-2xl"
               onClick={() => setSuccess(false)}
             >

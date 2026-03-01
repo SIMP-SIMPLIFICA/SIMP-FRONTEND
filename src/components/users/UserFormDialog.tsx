@@ -352,7 +352,7 @@ export function UserFormDialog({
           </>
 
           <DialogFooter className="gap-2 sm:gap-0 mt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancelar
             </Button>
             <Button type="submit" disabled={submitting} className="bg-[#0A5BC4] hover:bg-[#094FA8]">

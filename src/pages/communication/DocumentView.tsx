@@ -87,7 +87,7 @@ export default function DocumentView() {
                 <AlertCircle className="h-8 w-8" />
             </div>
             <h2 className="text-xl font-semibold">Documento não encontrado</h2>
-            <Button variant="outline" onClick={() => navigate("/communication")}>
+            <Button variant="secondary" onClick={() => navigate("/communication")}>
                 Voltar para Lista
             </Button>
         </div>
@@ -112,12 +112,12 @@ export default function DocumentView() {
         <div className="max-w-[1600px] mx-auto p-6 space-y-6 h-[calc(100vh-4rem)] flex flex-col">
             <div className="flex items-center justify-between bg-white p-4 rounded-lg border shadow-sm shrink-0">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
                     <div>
                         <div className="flex items-center gap-3">
                             <h1 className="text-xl font-bold text-slate-900">{document.documentNumber || document.title}</h1>
                             <Badge variant={document.status === 'SENT' ? 'default' : 'secondary'}>{document.status === 'SENT' ? 'OFICIAL' : 'RASCUNHO'}</Badge>
-                            {needsSignature && <Badge variant="destructive" className="animate-pulse">Assinatura Pendente</Badge>}
+                            {needsSignature && <Badge className="bg-danger-50 text-danger-700 animate-pulse border-danger-200">Assinatura Pendente</Badge>}
                         </div>
                         <p className="text-sm text-muted-foreground">{document.documentType} • {document.protocolNumber}</p>
                     </div>
@@ -125,7 +125,7 @@ export default function DocumentView() {
                 <div className="flex gap-2">
                     {document.documentType === 'MENSAGEM' && (
                         <Button
-                            variant="outline"
+                            variant="secondary"
                             className="bg-white hover:bg-slate-50 border-slate-300 text-slate-700"
                             onClick={() => navigate(`/communication/create?mode=message&replyTo=${document.id}`)}
                         >
@@ -140,7 +140,7 @@ export default function DocumentView() {
                         </Button>
                     )}
                     {document.verification?.valid && (
-                        <Button variant="outline" onClick={() => setShowReceipt(true)} className="text-blue-700 border-blue-200"><ShieldCheck className="mr-2 h-4 w-4" /> Comprovante</Button>
+                        <Button variant="secondary" onClick={() => setShowReceipt(true)} className="text-blue-700 border-blue-200"><ShieldCheck className="mr-2 h-4 w-4" /> Comprovante</Button>
                     )}
                     {officialPdf && (
                         <Button onClick={() => handleDownload(officialPdf)} className="bg-slate-800"><Download className="mr-2 h-4 w-4" /> Baixar PDF</Button>
@@ -169,7 +169,7 @@ export default function DocumentView() {
                                 <div className="space-y-2 text-sm text-slate-600">
                                     <div className="flex items-center gap-2">
                                         <span className="w-12 font-medium text-slate-500">De:</span>
-                                        <Badge variant="outline" className="bg-white text-sm py-1">{document.creator?.firstName} {document.creator?.lastName}</Badge>
+                                        <Badge variant="secondary" className="bg-white text-sm py-1">{document.creator?.firstName} {document.creator?.lastName}</Badge>
                                         <span className="text-xs text-slate-400 ml-auto bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
                                             {document.sentAt ? new Date(document.sentAt).toLocaleString('pt-BR') : new Date(document.createdAt).toLocaleString('pt-BR')}
                                         </span>
@@ -205,7 +205,7 @@ export default function DocumentView() {
                                         {document.attachments.map((att: any) => (
                                             <Button
                                                 key={att.id}
-                                                variant="outline"
+                                                variant="secondary"
                                                 className="bg-white flex items-center justify-between shadow-sm min-w-[220px] hover:border-blue-300 hover:text-blue-700 transition-colors"
                                                 onClick={() => handleDownload(att)}
                                             >
@@ -266,7 +266,7 @@ export default function DocumentView() {
                                             <Paperclip className="h-4 w-4 text-blue-500" />
                                             <span className="text-sm truncate max-w-[150px]" title={att.fileName}>{att.fileName}</span>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDownload(att)}>
+                                        <Button variant="ghost" size="sm" className="h-6 w-6" onClick={() => handleDownload(att)}>
                                             {downloadingId === att.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
                                         </Button>
                                     </div>

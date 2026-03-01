@@ -26,7 +26,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     >
       <CardHeader className="p-3 pb-0 space-y-0">
         <div className="flex justify-between items-start">
-          <Badge variant="outline" className={cn("text-[10px] px-1 py-0 border-0", priorityColors[task.priority])}>
+          <Badge variant="secondary" className={cn("text-[10px] px-1 py-0 border-0", priorityColors[task.priority])}>
             {task.priority}
           </Badge>
           <span className="text-xs text-muted-foreground font-mono">#{task.code}</span>

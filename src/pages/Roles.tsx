@@ -529,8 +529,8 @@ export default function Roles() {
             <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
               <div>Página {pagination.page} de {pagination.totalPages}</div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>Anterior</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>Próxima</Button>
+                <Button variant="secondary" size="sm" onClick={() => setPage(p => p - 1)} disabled={!pagination.hasPrev}>Anterior</Button>
+                <Button variant="secondary" size="sm" onClick={() => setPage(p => p + 1)} disabled={!pagination.hasNext}>Próxima</Button>
               </div>
             </div>
           )}
@@ -596,7 +596,7 @@ export default function Roles() {
                       placeholder="Filtrar..."
                       className="h-8 w-[180px] bg-white"
                     />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => void fetchCatalog()} disabled={catalogLoading}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8" onClick={() => void fetchCatalog()} disabled={catalogLoading}>
                       <RefreshCw className={`h-4 w-4 ${catalogLoading ? "animate-spin" : ""}`} />
                     </Button>
                   </div>
@@ -658,7 +658,7 @@ export default function Roles() {
           </div>
 
           <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-white">
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancelar</Button>
             <Button onClick={() => void submitUpsertRole()} disabled={createSubmitting} className="min-w-[140px] bg-[#0A5BC4] hover:bg-[#094FA8]">
               {createSubmitting ? "Salvando..." : upsertMode === "create" ? "Criar Role" : "Salvar Alterações"}
             </Button>
@@ -680,7 +680,7 @@ export default function Roles() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDupOpen(false)}>Cancelar</Button>
+            <Button variant="secondary" onClick={() => setDupOpen(false)}>Cancelar</Button>
             <Button onClick={() => void submitDuplicate()} disabled={dupSubmitting}>Confirmar Cópia</Button>
           </DialogFooter>
         </DialogContent>
@@ -696,8 +696,8 @@ export default function Roles() {
             <DialogDescription className="text-center">Ação irreversível para <span className="font-medium text-slate-900">{delTarget?.displayName}</span>.</DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center gap-2">
-            <Button variant="outline" onClick={() => setDelOpen(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={() => void submitDelete()} disabled={delSubmitting}>Excluir Definitivamente</Button>
+            <Button variant="secondary" onClick={() => setDelOpen(false)}>Cancelar</Button>
+            <Button variant="danger" onClick={() => void submitDelete()} disabled={delSubmitting}>Excluir Definitivamente</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

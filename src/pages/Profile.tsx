@@ -189,7 +189,7 @@ export default function Profile() {
                     <AvatarFallback className="bg-[#0A5BC4] text-white text-xl">{initials}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <Button type="button" variant="outline" size="sm" disabled>Alterar Avatar</Button>
+                    <Button type="button" variant="secondary" size="sm" disabled>Alterar Avatar</Button>
                     <p className="text-xs text-slate-400 mt-2">Apenas JPG ou PNG. Máx 2MB.</p>
                   </div>
                 </div>
@@ -299,7 +299,7 @@ export default function Profile() {
                   <CardTitle>Dispositivos Conectados</CardTitle>
                   <CardDescription>Gerencie onde sua conta está logada.</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => void fetchSessions()} disabled={sessionsLoading}>
+                <Button variant="secondary" size="sm" onClick={() => void fetchSessions()} disabled={sessionsLoading}>
                   <RefreshCw className={`h-4 w-4 ${sessionsLoading ? "animate-spin" : ""}`} />
                 </Button>
               </div>
@@ -345,7 +345,7 @@ export default function Profile() {
 
               {sessions.length > 1 && (
                 <div className="mt-6 pt-6 border-t border-slate-100">
-                  <Button variant="destructive" onClick={() => void revokeAllOthers()} className="w-full sm:w-auto">
+                  <Button variant="danger" onClick={() => void revokeAllOthers()} className="w-full sm:w-auto">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair de todos os outros dispositivos
                   </Button>

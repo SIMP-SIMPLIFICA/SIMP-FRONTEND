@@ -11,9 +11,9 @@ interface LegalReceiptModalProps {
 }
 
 export const LegalReceiptModal = ({ document, onClose }: LegalReceiptModalProps) => {
-    if (!document || !document.verification || !document.verification.valid) return null;
+    if (!document || !document.verification) return null;
 
-    const { protocol, hash, url, timestamp } = document.verification;
+    const { protocol, hash, url, timestamp } = document.verification as any;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -24,7 +24,7 @@ export const LegalReceiptModal = ({ document, onClose }: LegalReceiptModalProps)
                     <h3 className="text-lg font-semibold text-slate-800">
                         Comprovante de Protocolo Digital
                     </h3>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                    <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8">
                         <X className="h-4 w-4" />
                     </Button>
                 </div>

@@ -90,7 +90,7 @@ export default function CommunicationDashboard() {
     const validRecipients = doc.recipients?.filter(r => r.userId !== doc.createdBy) || [];
 
     if (validRecipients.length === 0) {
-      return <Badge variant="outline" className="text-slate-500">Sem Destinatário</Badge>;
+      return <Badge variant="secondary" className="text-slate-500">Sem Destinatário</Badge>;
     }
 
     // Se todos assinaram, mostra um badge único verde
@@ -153,7 +153,7 @@ export default function CommunicationDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <Link to="/communication/create?mode=message">
-            <Button variant="outline" className="gap-2 text-slate-700 hover:text-blue-800 hover:bg-slate-50 rounded-sm rounded-md h-10 border-slate-300">
+            <Button variant="secondary" className="gap-2 text-slate-700 hover:text-blue-800 hover:bg-slate-50 rounded-sm rounded-md h-10 border-slate-300">
               <Mail className="h-4 w-4" />
               Mensagem Interna
             </Button>
@@ -237,7 +237,7 @@ export default function CommunicationDashboard() {
           />
         </div>
         <Button
-          variant="outline"
+          variant="secondary"
           className="bg-white hover:bg-slate-100 text-slate-700 border-slate-300 rounded-sm h-10 px-6 font-medium"
           onClick={() => {
             setFilterType("ALL");
@@ -285,7 +285,7 @@ export default function CommunicationDashboard() {
                               <span className="text-slate-900 font-semibold group-hover:text-blue-700 transition-colors">{doc.title}</span>
                               <div className="flex items-center gap-2 mt-1">
                                 {doc.documentType === 'MENSAGEM' ? (
-                                  <Badge variant="outline" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
+                                  <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                                 ) : (
                                   <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                                 )}
@@ -310,11 +310,11 @@ export default function CommunicationDashboard() {
                             ) : doc.userStatus === 'READ' ? (
                               <Badge className="bg-blue-100 text-blue-800 border-blue-200 rounded-sm px-2"><Eye className="w-3.5 h-3.5 mr-1" /> Lido</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-yellow-800 border-yellow-400 bg-yellow-50 rounded-sm px-2">Pendente</Badge>
+                              <Badge variant="secondary" className="text-yellow-800 border-yellow-400 bg-yellow-50 rounded-sm px-2">Pendente</Badge>
                             )}
                           </TableCell>
                           <TableCell className="py-4">
-                            <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-blue-500">
+                            <Button variant="ghost" size="sm" className="text-slate-300 group-hover:text-blue-500">
                               <ArrowRight className="w-4 h-4" />
                             </Button>
                           </TableCell>
@@ -356,7 +356,7 @@ export default function CommunicationDashboard() {
                               <span className="text-slate-900 font-semibold group-hover:text-purple-700 transition-colors">{doc.title}</span>
                               <div className="flex items-center gap-2 mt-1">
                                 {doc.documentType === 'MENSAGEM' ? (
-                                  <Badge variant="outline" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
+                                  <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-xs"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                                 ) : (
                                   <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-xs"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                                 )}
@@ -374,7 +374,7 @@ export default function CommunicationDashboard() {
                             {renderRecipientStatus(doc)}
                           </TableCell>
                           <TableCell className="py-4">
-                            <Button variant="ghost" size="icon" className="text-slate-300 group-hover:text-purple-500">
+                            <Button variant="ghost" size="sm" className="text-slate-300 group-hover:text-purple-500">
                               <ArrowRight className="w-4 h-4" />
                             </Button>
                           </TableCell>
@@ -414,7 +414,7 @@ export default function CommunicationDashboard() {
                             {doc.title || "(Sem Título)"}
                             <div className="flex items-center gap-2 mt-1.5">
                               {doc.documentType === 'MENSAGEM' ? (
-                                <Badge variant="outline" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
+                                <Badge variant="secondary" className="bg-white text-slate-800 border-slate-300 font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><Mail className="w-3 h-3 mr-1" /> Mensagem</Badge>
                               ) : (
                                 <Badge variant="default" className="bg-blue-800 text-white hover:bg-blue-900 border-none font-semibold px-2 rounded-sm text-[10px] h-5 py-0 flex items-center"><FileText className="w-3 h-3 mr-1" /> Documentação Formal</Badge>
                               )}
@@ -424,7 +424,7 @@ export default function CommunicationDashboard() {
                           <TableCell className="text-sm text-slate-500 font-medium py-4">{formatDate(doc.updatedAt)}</TableCell>
                           <TableCell className="py-4">
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm" className="h-8 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-600">
+                              <Button variant="secondary" size="sm" className="h-8 border-slate-200 hover:border-slate-300 hover:bg-white text-slate-600">
                                 Editar
                               </Button>
                               <Button

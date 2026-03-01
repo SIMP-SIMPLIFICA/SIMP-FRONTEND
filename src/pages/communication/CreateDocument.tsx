@@ -50,7 +50,7 @@ export default function CreateDocument() {
   const { toast } = useToast();
 
   const { mutateAsync: createDocument, isPending: isCreating } = useCreateDocument();
-  const { mutateAsync: updateDocument, isPending: isUpdating } = useUpdateDocument();
+  const { mutateAsync: updateDocument } = useUpdateDocument();
   const { mutateAsync: sendDocument, isPending: isSending } = useSendDocument();
   const { data: existingDoc } = useDocument(editId || "");
 
@@ -72,7 +72,7 @@ export default function CreateDocument() {
   // STATES
   const [title, setTitle] = useState("");
   const [type, setType] = useState<DocumentType>("OFICIO");
-  const [priority, setPriority] = useState<Priority>("MEDIUM");
+  const [priority] = useState<Priority>("MEDIUM");
   // STATE ALTERADO: Agora armazena objetos { userId }
   const [selectedRecipients, setSelectedRecipients] = useState<{ userId: string }[]>([]);
 
@@ -308,7 +308,7 @@ export default function CreateDocument() {
     <div className="min-h-screen bg-slate-100 pb-20">
       <div className="sticky top-0 z-50 bg-white border-b shadow-sm px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
           <span className="font-semibold text-slate-700">Editor de Ofício</span>
 
           {/* Visual Feedback de Auto-Save */}
@@ -319,7 +319,7 @@ export default function CreateDocument() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
+          <Button variant="secondary" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
           <Button onClick={() => handleAction('SEND')} disabled={isCreating || isSending} className="bg-blue-600 hover:bg-blue-700">
             {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> {isMessageMode ? "Enviar Mensagem" : "Assinar Digitalmente"}</>}
           </Button>
@@ -416,7 +416,7 @@ export default function CreateDocument() {
             <label className="text-sm font-bold text-slate-600 flex items-center gap-2"><Paperclip className="w-4 h-4" /> Documentos Anexos</label>
             <div className="relative">
               <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isUploading} />
-              <Button variant="outline" size="sm" disabled={isUploading}>
+              <Button variant="secondary" size="sm" disabled={isUploading}>
                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UploadCloud className="w-4 h-4 mr-2" />}
                 {isUploading ? "Enviando..." : "Anexar Arquivo"}
               </Button>

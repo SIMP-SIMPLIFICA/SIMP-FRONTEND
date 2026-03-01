@@ -7,7 +7,7 @@ import {
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 
 function Calendar({
   className,
@@ -50,12 +50,12 @@ function Calendar({
           defaultClassNames.nav
         ),
         button_previous: cn(
-          buttonVariants({ variant: buttonVariant }),
+          "inline-flex items-center justify-center font-medium rounded-md sm h-9 w-9 bg-transparent hover:bg-slate-100",
           "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50",
           defaultClassNames.button_previous
         ),
         button_next: cn(
-          buttonVariants({ variant: buttonVariant }),
+          "inline-flex items-center justify-center font-medium rounded-md sm h-9 w-9 bg-transparent hover:bg-slate-100",
           "h-[--cell-size] w-[--cell-size] select-none p-0 aria-disabled:opacity-50",
           defaultClassNames.button_next
         ),
@@ -187,7 +187,7 @@ function CalendarDayButton({
     <Button
       ref={ref}
       variant="ghost"
-      size="icon"
+      size="sm"
       data-day={day.date.toLocaleDateString()}
       data-selected-single={
         modifiers.selected &&

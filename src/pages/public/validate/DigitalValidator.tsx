@@ -62,7 +62,7 @@ export default function DigitalValidator() {
                         <div className="bg-white p-3 rounded border font-mono text-xs text-slate-500 break-all">
                             Hash: {hash}
                         </div>
-                        <Button onClick={() => navigate("/login")} variant="outline" className="w-full">
+                        <Button onClick={() => navigate("/login")} variant="secondary" className="w-full">
                             Voltar ao Início
                         </Button>
                     </CardContent>
@@ -112,7 +112,7 @@ export default function DigitalValidator() {
                             </div>
                             <div>
                                 <p className="font-medium text-slate-900">{result.signer}</p>
-                                <Badge variant="outline" className="text-[10px] h-5">Emissor</Badge>
+                                <Badge variant="secondary" className="text-[10px] h-5">Emissor</Badge>
                             </div>
                         </div>
                     </div>
@@ -141,7 +141,7 @@ export default function DigitalValidator() {
 
                     <div className="pt-6 border-t text-center space-y-2">
                         <p className="text-xs text-slate-400 font-mono break-all">Original Hash: {hash}</p>
-                        <Button variant="link" size="sm" onClick={() => navigate("/login")}>
+                        <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
                             Acessar Sistema
                         </Button>
                     </div>
