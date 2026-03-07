@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAvatarUrl } from "@/lib/utils";
 
 // --- TYPES ---
 type ApiSession = {
@@ -80,6 +81,59 @@ export default function Profile() {
       void fetchSessions();
     }
   }, [activeTab]);
+
+  // --- HANDLERS: AVATAR ---
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  async function handleAvatarClick() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png, image/jpeg";
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        toast({ title: "Arquivo muito grande", description: "O avatar deve ter no máximo 2MB.", variant: "destructive" });
+        return;
+      }
+
+      try {
+        setAvatarLoading(true);
+
+        // 1. Upload the file
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const uploadRes = await apiRequest<{ fileUrl: string }>("/api/v1/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const avatarUrl = uploadRes.fileUrl;
+
+        // 2. Update profile with new avatar URL
+        await apiRequest("/api/v1/auth/profile", {
+          method: "PUT",
+          body: JSON.stringify({
+            firstName,
+            lastName,
+            username,
+            jobTitle,
+            avatar: avatarUrl
+          }),
+        });
+
+        toast({ title: "Avatar atualizado", description: "Sua foto de perfil foi alterada com sucesso." });
+        refreshMe();
+      } catch (err: any) {
+        toast({ title: "Erro no upload", description: err.message || "Não foi possível carregar a imagem.", variant: "destructive" });
+      } finally {
+        setAvatarLoading(false);
+      }
+    };
+    input.click();
+  }
 
   // --- HANDLERS: PROFILE ---
   async function handleUpdateProfile(e: React.FormEvent) {
@@ -184,12 +238,30 @@ export default function Profile() {
             <CardContent>
               <form onSubmit={handleUpdateProfile} className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20 border-2 border-slate-100">
-                    <AvatarImage src={user.avatar} />
-                    <AvatarFallback className="bg-[#0A5BC4] text-white text-xl">{initials}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative group">
+                    <Avatar
+                      key={user.avatar}
+                      className="h-20 w-20 border-2 border-slate-100 transition-opacity group-hover:opacity-80"
+                    >
+                      <AvatarImage src={getAvatarUrl(user.avatar)} />
+                      <AvatarFallback className="bg-[#0A5BC4] text-white text-xl">{initials}</AvatarFallback>
+                    </Avatar>
+                    {avatarLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/60 rounded-full">
+                        <Loader2 className="h-6 w-6 animate-spin text-[#0A5BC4]" />
+                      </div>
+                    )}
+                  </div>
                   <div>
-                    <Button type="button" variant="secondary" size="sm" disabled>Alterar Avatar</Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleAvatarClick}
+                      disabled={avatarLoading}
+                    >
+                      {avatarLoading ? "Carregando..." : "Alterar Avatar"}
+                    </Button>
                     <p className="text-xs text-slate-400 mt-2">Apenas JPG ou PNG. Máx 2MB.</p>
                   </div>
                 </div>

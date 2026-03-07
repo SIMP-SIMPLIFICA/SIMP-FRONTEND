@@ -38,6 +38,7 @@ import {
 import { useDrafts, useReceivedDocuments, useSentDocuments, useDeleteDocument } from "@/hooks/useCommunication";
 import { useAuth } from "@/hooks/useAuth";
 import type { CommunicationDocument, Recipient } from "@/lib/services/communication";
+import { SettingsDialog } from "@/components/communication/SettingsDialog";
 
 export default function CommunicationDashboard() {
   const navigate = useNavigate();
@@ -152,6 +153,7 @@ export default function CommunicationDashboard() {
           <p className="text-slate-600 mt-1 text-sm max-w-lg">Aqui está o resumo das suas comunicações oficiais e mensagens internas.</p>
         </div>
         <div className="flex items-center gap-3">
+          <SettingsDialog />
           <Link to="/communication/create?mode=message">
             <Button variant="secondary" className="gap-2 text-slate-700 hover:text-blue-800 hover:bg-slate-50 rounded-sm rounded-md h-10 border-slate-300">
               <Mail className="h-4 w-4" />

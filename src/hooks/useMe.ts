@@ -8,6 +8,7 @@ export type MeResponse = {
     email: string;
     username?: string;
     jobTitle?: string;
+    avatar?: string;
     roles?: Array<{ role?: { permissions?: string[]; name?: string; displayName?: string } }>;
   };
 };

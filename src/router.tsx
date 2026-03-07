@@ -22,7 +22,6 @@ import PublicValidator from "@/pages/public/validate/PublicValidator";
 import DigitalValidator from "@/pages/public/validate/DigitalValidator";
 import CreateDocument from "@/pages/communication/CreateDocument";
 import DocumentView from "@/pages/communication/DocumentView";
-import Settings from "@/pages/Settings";
 
 import VirtualProcessesPage from "@/pages/virtual-processes/VirtualProcessesPage";
 
@@ -81,7 +80,6 @@ export const router = createBrowserRouter([
               },
 
               { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
-              { path: "/configuracoes", element: <Settings /> },
 
               { path: "/profile", element: <Profile /> },
 
