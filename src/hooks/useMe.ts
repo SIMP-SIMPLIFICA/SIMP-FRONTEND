@@ -17,7 +17,7 @@ export function useMe(enabled = true) {
   const token = getAccessToken();
 
   return useQuery({
-    queryKey: ["me", token], // 👈 ESSENCIAL: muda quando o token muda
+    queryKey: ["me", token],
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
     enabled: enabled && !!token,
     staleTime: 0,

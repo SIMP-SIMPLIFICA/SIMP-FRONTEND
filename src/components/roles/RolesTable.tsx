@@ -1,4 +1,5 @@
 import { Eye, Pencil, Trash2, Copy } from "lucide-react";
+import { HasPermission } from "@/components/layout/HasPermission";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -109,49 +110,57 @@ export function RolesTable(props: {
 
                 <TableCell className="text-center">
                   <div className="flex justify-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="rounded-2xl"
-                      onClick={() => onOpenDetails(r)}
-                      disabled={loading}
-                      title="Detalhes"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <HasPermission anyOf={["roles:read", "roles:manage", "roles:write"]}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-2xl"
+                        onClick={() => onOpenDetails(r)}
+                        disabled={loading}
+                        title="Detalhes"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </HasPermission>
 
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="rounded-2xl"
-                      onClick={() => onDuplicate(r)}
-                      disabled={loading}
-                      title="Duplicar Role"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                    <HasPermission anyOf={["roles:write", "roles:manage"]}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-2xl"
+                        onClick={() => onDuplicate(r)}
+                        disabled={loading}
+                        title="Duplicar Role"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </HasPermission>
 
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="rounded-2xl"
-                      onClick={() => onEdit(r)}
-                      disabled={loading || r.isSystem}
-                      title={r.isSystem ? "Roles do sistema não podem ser editadas" : "Editar"}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <HasPermission anyOf={["roles:write", "roles:manage"]}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-2xl"
+                        onClick={() => onEdit(r)}
+                        disabled={loading || r.isSystem}
+                        title={r.isSystem ? "Roles do sistema não podem ser editadas" : "Editar"}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </HasPermission>
 
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                      onClick={() => onDelete(r)}
-                      disabled={loading || r.isSystem}
-                      title={r.isSystem ? "Roles do sistema não podem ser excluídas" : "Excluir"}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <HasPermission anyOf={["roles:delete", "roles:manage"]}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-2xl border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                        onClick={() => onDelete(r)}
+                        disabled={loading || r.isSystem}
+                        title={r.isSystem ? "Roles do sistema não podem ser excluídas" : "Excluir"}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </HasPermission>
                   </div>
                 </TableCell>
               </TableRow>

@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { HasPermission } from "@/components/layout/HasPermission";
 
 
 import { UserFormDialog } from "@/components/users/UserFormDialog";
@@ -338,10 +339,12 @@ export default function Users() {
               className="h-11 rounded-2xl pl-10"
             />
           </div>
-          <Button className="h-11 rounded-2xl gap-2 bg-[#0A5BC4] hover:bg-[#094FA8]" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Novo Usuário
-          </Button>
+          <HasPermission anyOf={["users:write", "users:manage"]}>
+            <Button className="h-11 rounded-2xl gap-2 bg-[#0A5BC4] hover:bg-[#094FA8]" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Novo Usuário
+            </Button>
+          </HasPermission>
         </div>
       </div>
 
@@ -389,22 +392,36 @@ export default function Users() {
                         <StatusBadge active={u.isActive} />
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 text-slate-500" title="Detalhes" onClick={() => openDetails(u)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 text-blue-600" title="Editar" onClick={() => openEdit(u)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 text-amber-600" title="Status" onClick={() => openStatus(u)}>
-                            <Power className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 text-orange-600" title="Resetar Senha" onClick={() => openReset(u)}>
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Excluir" onClick={() => openDelete(u)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div className="flex items-center justify-center gap-2">
+                          <HasPermission anyOf={["users:read", "users:manage", "users:write"]}>
+                            <Button size="sm" variant="secondary" className="rounded-2xl text-slate-500" title="Detalhes" onClick={() => openDetails(u)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </HasPermission>
+
+                          <HasPermission anyOf={["users:write", "users:manage"]}>
+                            <Button size="sm" variant="secondary" className="rounded-2xl text-blue-600" title="Editar" onClick={() => openEdit(u)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </HasPermission>
+
+                          <HasPermission anyOf={["users:write", "users:manage"]}>
+                            <Button size="sm" variant="secondary" className="rounded-2xl text-amber-600" title="Status" onClick={() => openStatus(u)}>
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          </HasPermission>
+
+                          <HasPermission anyOf={["users:manage"]}>
+                            <Button size="sm" variant="secondary" className="rounded-2xl text-orange-600" title="Resetar Senha" onClick={() => openReset(u)}>
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                          </HasPermission>
+
+                          <HasPermission anyOf={["users:delete", "users:manage"]}>
+                            <Button size="sm" variant="secondary" className="rounded-2xl border-red-100 text-red-600 hover:bg-red-50 hover:text-red-700" title="Excluir" onClick={() => openDelete(u)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </HasPermission>
                         </div>
                       </TableCell>
                     </TableRow>

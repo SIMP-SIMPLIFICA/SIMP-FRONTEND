@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FolderArchive, Plus, Search, UploadCloud, Download, CheckCircle, Clock, FolderOpen, File, RefreshCw, Trash2, Edit2 } from "lucide-react";
 
+import { formatAuditAction } from "@/lib/utils/mappers";
 import { virtualProcessApi, type VirtualProcess, type VirtualProcessDocument, type AuditLog } from "@/lib/api/virtual-processes";
 import { useToast } from "@/hooks/use-toast";
 
@@ -819,20 +820,7 @@ export default function VirtualProcessesPage() {
                                   {log.user?.firstName || "Usuário"} {log.user?.lastName || "Sistema"}
                                 </span>
                                 <span className="text-slate-600 mx-1.5">
-                                  {(() => {
-                                    const fileName = log.metadata?.fileName || log.metadata?.file?.name || log.metadata?.documentName;
-
-                                    if (log.action === "ANEXOU_DOCUMENTO") {
-                                      return fileName ? `anexou o documento ${fileName}` : "anexou um documento";
-                                    }
-                                    if (log.action === "REMOVEU_DOCUMENTO") {
-                                      return fileName ? `excluiu o documento ${fileName}` : "excluiu um documento";
-                                    }
-                                    if (log.action === "CRIOU_PROCESSO") return "autuou o processo";
-                                    if (log.action === "STATUS_ALTERADO" || log.action === "ALTEROU_STATUS") return "alterou o status";
-                                    if (log.action.includes("_")) return log.action.replace(/_/g, " ").toLowerCase();
-                                    return log.action;
-                                  })()}
+                                  {formatAuditAction(log.action, log.metadata)}
                                 </span>
                               </div>
                               <div className="text-[11px] font-medium text-slate-400 mt-1 flex flex-wrap items-center gap-2">

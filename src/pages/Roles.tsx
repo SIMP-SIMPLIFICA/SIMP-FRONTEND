@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { HasPermission } from "@/components/layout/HasPermission";
 
 import { RoleDetailsDialog } from "@/components/roles/RoleDetailsDialog";
 import { RolesTable, type RolesTableRole } from "@/components/roles/RolesTable";
@@ -508,10 +509,12 @@ export default function Roles() {
               className="h-11 rounded-2xl pl-10"
             />
           </div>
-          <Button className="h-11 rounded-2xl gap-2" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Nova role
-          </Button>
+          <HasPermission anyOf={["roles:write", "roles:manage"]}>
+            <Button className="h-11 rounded-2xl gap-2" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Nova role
+            </Button>
+          </HasPermission>
         </div>
       </div>
 

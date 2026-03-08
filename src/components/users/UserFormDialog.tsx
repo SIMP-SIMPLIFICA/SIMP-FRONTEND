@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { z } from "zod";
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
@@ -17,6 +18,20 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
+// --- SCHEMAS DE VALIDAÇÃO ---
+const userSchema = z.object({
+  firstName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(50),
+  lastName: z.string().max(50).optional(),
+  email: z.string().email("E-mail inválido").max(100),
+  username: z.string()
+    .min(3, "Usuário deve ter pelo menos 3 caracteres")
+    .max(30)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Use apenas letras, números, _ e -"),
+  password: z.string().min(8, "Senha deve ter pelo menos 8 caracteres").optional(),
+  isActive: z.boolean().default(true),
+  roles: z.array(z.string()).min(1, "Selecione pelo menos um perfil"),
+});
+
 // Tipos necessários
 type UserRoleRef = {
   id: string;
@@ -32,24 +47,6 @@ type ApiUser = {
   lastName: string;
   isActive: boolean;
   roles: { role: UserRoleRef }[];
-};
-
-type CreateUserBody = {
-  email: string;
-  username: string;
-  password?: string;
-  firstName: string;
-  lastName: string;
-  roles?: string[]; // IDs das roles
-  isActive?: boolean;
-};
-
-type UpdateUserBody = {
-  email?: string;
-  username?: string;
-  firstName?: string;
-  lastName?: string;
-  isActive?: boolean;
 };
 
 interface UserFormDialogProps {
@@ -80,7 +77,7 @@ export function UserFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Roles disponíveis para seleção (apenas na criação)
+  // Roles disponíveis para seleção
   const [availableRoles, setAvailableRoles] = useState<UserRoleRef[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
 
@@ -94,12 +91,12 @@ export function UserFormDialog({
         setUsername(user.username || "");
         setEmail(user.email || "");
         setIsActive(user.isActive);
-        setPassword(""); // Não edita senha aqui
+        setPassword("");
 
         // Mapear roles existentes
         const userRoles = new Set(user.roles?.map(r => r.role.id) || []);
         setSelectedRoles(userRoles);
-        void fetchRoles(); // Precisamos carregar as opções disponíveis
+        void fetchRoles();
       } else {
         // Modo Criação
         setFirstName("");
@@ -138,68 +135,60 @@ export function UserFormDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!email || !username || !firstName) {
-      toast({ title: "Campos obrigatórios", description: "Preencha nome, usuário e e-mail.", variant: "destructive" });
-      return;
-    }
+    const formData = {
+      firstName,
+      lastName,
+      username,
+      email,
+      password: isEditing ? undefined : password,
+      isActive,
+      roles: Array.from(selectedRoles),
+    };
 
-    // VALIDAÇÃO DE USERNAME (Corrige o erro do Backend)
-    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
-    if (!usernameRegex.test(username)) {
+    // VALIDAÇÃO COM ZOD
+    const result = userSchema.safeParse(formData);
+
+    if (!result.success) {
+      const firstError = result.error.issues[0];
       toast({
-        title: "Nome de usuário inválido",
-        description: "Use apenas letras, números, underline (_) ou hífen (-). Não use pontos ou espaços.",
-        variant: "destructive"
+        title: "Erro de validação",
+        description: firstError.message,
+        variant: "destructive",
       });
       return;
     }
 
-    if (!isEditing && !password) {
-      toast({ title: "Senha obrigatória", description: "Defina uma senha inicial.", variant: "destructive" });
-      return;
-    }
+    const validatedData = result.data;
 
     try {
       setSubmitting(true);
 
       if (isEditing && user) {
         // --- ATUALIZAR ---
-        const body: UpdateUserBody = {
-          firstName,
-          lastName,
-          username,
-          email,
-          isActive
-        };
-
         // 1. Atualizar dados básicos
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            firstName: validatedData.firstName,
+            lastName: validatedData.lastName,
+            username: validatedData.username,
+            email: validatedData.email,
+            isActive: validatedData.isActive
+          }),
         });
 
         // 2. Atualizar Roles
         await apiRequest(`/api/v1/users/${user.id}/roles`, {
           method: "POST",
-          body: JSON.stringify({ roleIds: Array.from(selectedRoles) })
+          body: JSON.stringify({ roleIds: validatedData.roles })
         });
 
         toast({ title: "Usuário atualizado", description: "Dados alterados com sucesso." });
       } else {
         // --- CRIAR ---
-        const body: CreateUserBody = {
-          firstName,
-          lastName,
-          username,
-          email,
-          password,
-          isActive,
-          roles: Array.from(selectedRoles),
-        };
-
         await apiRequest("/api/v1/users", {
           method: "POST",
-          body: JSON.stringify(body),
+          body: JSON.stringify(validatedData),
         });
 
         toast({ title: "Usuário criado", description: "Novo acesso liberado." });
@@ -270,7 +259,7 @@ export function UserFormDialog({
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="joao_silva" // Placeholder ajustado para o formato correto
+              placeholder="joao_silva"
               disabled={submitting}
             />
             <p className="text-[10px] text-slate-500">
@@ -315,7 +304,7 @@ export function UserFormDialog({
             </Label>
           </div>
 
-          {/* Seleção de Roles (Sempre disponível) */}
+          {/* Seleção de Roles */}
           <>
             <Separator />
             <div className="space-y-3">

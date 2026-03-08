@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarUrl } from "@/lib/utils";
 
-// --- TYPES ---
 type ApiSession = {
   id: string;
   ipAddress: string;
@@ -27,8 +26,6 @@ type SessionResponse = {
   sessions: ApiSession[];
 };
 
-// Definição local para garantir que o TS reconheça os campos, 
-// caso o hook useMe esteja com tipagem incompleta.
 type ProfileUser = {
   id: string;
   email: string;
@@ -40,32 +37,26 @@ type ProfileUser = {
 };
 
 export default function Profile() {
-  // Ajuste: useQuery retorna 'refetch', não 'mutate'
   const { data: meData, refetch: refreshMe } = useMe();
 
-  // Cast forçado para garantir acesso aos campos
   const user = meData?.user as ProfileUser | undefined;
 
   const [activeTab, setActiveTab] = useState("general");
 
-  // --- GENERAL FORM STATES ---
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [username, setUsername] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // --- PASSWORD FORM STATES ---
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passLoading, setPassLoading] = useState(false);
 
-  // --- SESSIONS STATES ---
   const [sessions, setSessions] = useState<ApiSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
 
-  // Load initial data
   useEffect(() => {
     if (user) {
       setFirstName(user.firstName || "");
@@ -75,14 +66,12 @@ export default function Profile() {
     }
   }, [user]);
 
-  // Load sessions when tab changes
   useEffect(() => {
     if (activeTab === "sessions") {
       void fetchSessions();
     }
   }, [activeTab]);
 
-  // --- HANDLERS: AVATAR ---
   const [avatarLoading, setAvatarLoading] = useState(false);
 
   async function handleAvatarClick() {
@@ -101,7 +90,6 @@ export default function Profile() {
       try {
         setAvatarLoading(true);
 
-        // 1. Upload the file
         const formData = new FormData();
         formData.append("file", file);
 
@@ -112,7 +100,6 @@ export default function Profile() {
 
         const avatarUrl = uploadRes.fileUrl;
 
-        // 2. Update profile with new avatar URL
         await apiRequest("/api/v1/auth/profile", {
           method: "PUT",
           body: JSON.stringify({
@@ -135,7 +122,6 @@ export default function Profile() {
     input.click();
   }
 
-  // --- HANDLERS: PROFILE ---
   async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -145,7 +131,7 @@ export default function Profile() {
         body: JSON.stringify({ firstName, lastName, username, jobTitle }),
       });
       toast({ title: "Perfil atualizado", description: "Suas informações foram salvas." });
-      refreshMe(); // Atualiza o contexto global
+      refreshMe();
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -153,7 +139,6 @@ export default function Profile() {
     }
   }
 
-  // --- HANDLERS: PASSWORD ---
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -177,7 +162,6 @@ export default function Profile() {
     }
   }
 
-  // --- HANDLERS: SESSIONS ---
   async function fetchSessions() {
     setSessionsLoading(true);
     try {
@@ -228,7 +212,6 @@ export default function Profile() {
           <TabsTrigger value="sessions">Sessões</TabsTrigger>
         </TabsList>
 
-        {/* --- TAB: GENERAL --- */}
         <TabsContent value="general">
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader>
@@ -310,7 +293,6 @@ export default function Profile() {
           </Card>
         </TabsContent>
 
-        {/* --- TAB: SECURITY --- */}
         <TabsContent value="security">
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader>
@@ -362,7 +344,6 @@ export default function Profile() {
           </Card>
         </TabsContent>
 
-        {/* --- TAB: SESSIONS --- */}
         <TabsContent value="sessions">
           <Card className="rounded-2xl border-slate-200 shadow-sm">
             <CardHeader>

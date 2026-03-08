@@ -7,6 +7,11 @@ import {
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
+// Security Check: Forçar HTTPS em produção
+if (import.meta.env.PROD && API_URL.startsWith("http://") && !API_URL.includes("localhost")) {
+  console.warn("⚠️ SEGURANÇA: O Front-end está tentando se conectar a uma API insegura (HTTP) em ambiente de produção.");
+}
+
 type ApiOptions = RequestInit & { noAuth?: boolean; responseType?: 'json' | 'text' | 'blob' };
 
 let isRefreshing = false;
@@ -33,7 +38,6 @@ export async function apiRequest<T = unknown>(
   const url = `${API_URL}${path}`;
   const headers = new Headers(options.headers);
 
-  // Apenas define JSON se NÃO for FormData (para permitir uploads)
   if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -61,8 +65,6 @@ export async function apiRequest<T = unknown>(
   }
 
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {
-    console.warn(`⚠️ [API] 401 detectado em ${path}. Tentando refresh...`);
-
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -88,7 +90,6 @@ export async function apiRequest<T = unknown>(
           const newRefresh = refreshData.refreshToken || refreshData.tokens?.refreshToken;
 
           if (newAccess) {
-            console.log("✅ [API] Token renovado com sucesso!");
             setAuthTokens(newAccess, newRefresh);
             processQueue(null, newAccess);
             isRefreshing = false;
@@ -96,7 +97,7 @@ export async function apiRequest<T = unknown>(
           }
         }
       } catch (refreshErr) {
-        console.error("❌ [API] Falha no refresh:", refreshErr);
+        // Silent error
       }
     }
 
@@ -110,7 +111,6 @@ export async function apiRequest<T = unknown>(
   return data as T;
 }
 
-// --- ADAPTER PARA SERVIÇOS ---
 export const api = {
   get: <T>(path: string, options?: ApiOptions) =>
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),

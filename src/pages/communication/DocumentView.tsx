@@ -15,6 +15,7 @@ import {
     Reply
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import DOMPurify from "dompurify";
 import { useToast } from "@/hooks/use-toast";
 import { communicationApi } from "@/lib/services/communication";
 import { Button } from "@/components/ui/button";
@@ -192,7 +193,10 @@ export default function DocumentView() {
 
                             {/* Email Body */}
                             <div className="p-8 overflow-auto flex-1 bg-white">
-                                <div className="prose prose-slate max-w-none text-slate-800" dangerouslySetInnerHTML={{ __html: document.content }} />
+                                <div
+                                    className="prose prose-slate max-w-none text-slate-800"
+                                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(document.content) }}
+                                />
                             </div>
 
                             {/* Email Attachments */}

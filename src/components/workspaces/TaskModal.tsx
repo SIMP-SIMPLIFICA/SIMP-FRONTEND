@@ -15,7 +15,9 @@ import {
     FileIcon,
     ExternalLink,
     Plus,
-    X
+    X,
+    BarChart2,
+    Activity
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,13 +27,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { taskStatusMap, taskPriorityMap } from "@/lib/utils/mappers";
 
 interface TaskModalProps {
     taskId: string | null;
     isOpen: boolean;
     onClose: () => void;
     workspaceId: string;
-    userRole?: string; // Prop recebido do WorkspaceDetailPage
+    userRole?: string;
 }
 
 const API_URL = "http://localhost:3000";
@@ -44,12 +47,10 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
     const { mutateAsync: deleteTask } = useDeleteTask(workspaceId);
     const { upload, remove: removeAttachment } = useAttachments(taskId || "");
 
-    // --- PERMISSÕES ---
     const isViewer = userRole === 'VIEWER';
-    const canEdit = !isViewer; // Owner, Admin e Member podem editar
+    const canEdit = !isViewer;
     const canDeleteTask = userRole === 'OWNER' || userRole === 'ADMIN';
 
-    // --- LÓGICA DE ASSIGNEES ---
     const { data: assignableUsers } = useQuery({
         queryKey: ['assignableUsers', workspaceId],
         queryFn: () => taskService.getAssignableUsers(workspaceId),
@@ -130,34 +131,8 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                     <div className="p-8 flex justify-center items-center h-full">Carregando...</div>
                 ) : (
                     <>
-                        {/* --- HEADER --- */}
                         <div className="px-6 py-4 border-b bg-background z-10 flex justify-between items-start">
                             <div className="space-y-1">
-                                <div className="flex gap-2 mb-2">
-                                    <Select defaultValue={task.priority} onValueChange={handlePriorityChange} disabled={!canEdit}>
-                                        <SelectTrigger className="w-[100px] h-6 text-xs border-none bg-secondary/50">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="LOW">Baixa</SelectItem>
-                                            <SelectItem value="MEDIUM">Média</SelectItem>
-                                            <SelectItem value="HIGH">Alta</SelectItem>
-                                            <SelectItem value="URGENT">Urgente</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-
-                                    <Select defaultValue={task.status} onValueChange={handleStatusChange} disabled={!canEdit}>
-                                        <SelectTrigger className="w-[120px] h-6 text-xs border-none bg-blue-100 text-blue-700 font-bold">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="TODO">A Fazer</SelectItem>
-                                            <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
-                                            <SelectItem value="IN_REVIEW">Revisão</SelectItem>
-                                            <SelectItem value="DONE">Concluído</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
                                 <DialogTitle className="text-xl font-bold">{task.title}</DialogTitle>
                                 <DialogDescription>
                                     #{task.code} • Criado em {format(new Date(task.createdAt), "dd 'de' MMMM", { locale: ptBR })}
@@ -166,13 +141,11 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                             </div>
 
                             <div className="flex gap-2">
-                                {/* Concluir */}
                                 {canEdit && task.status !== 'DONE' && (
                                     <Button variant="secondary" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleStatusChange('DONE')}>
                                         <CheckCircle className="w-4 h-4 mr-2" /> Concluir
                                     </Button>
                                 )}
-                                {/* Excluir (Só Admin/Owner) */}
                                 {canDeleteTask && (
                                     <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
                                         <Trash2 className="w-4 h-4" />
@@ -181,10 +154,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                             </div>
                         </div>
 
-                        {/* --- CORPO --- */}
                         <div className="flex-1 flex overflow-hidden">
-
-                            {/* ESQUERDA: Conteúdo Principal */}
                             <div className="flex-1 flex flex-col border-r h-full bg-white">
                                 <Tabs defaultValue="overview" className="flex-1 flex flex-col h-full">
                                     <div className="px-6 pt-4 border-b">
@@ -197,7 +167,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                     </div>
 
                                     <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
-                                        {/* Aba Visão Geral */}
                                         <TabsContent value="overview" className="mt-0 space-y-8">
                                             <div className="space-y-2">
                                                 <h3 className="text-sm font-semibold flex items-center gap-2 text-gray-700">
@@ -253,14 +222,12 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                             </div>
                                         </TabsContent>
 
-                                        {/* Aba Checklist */}
                                         <TabsContent value="checklist" className="mt-0">
                                             <div className={!canEdit ? "pointer-events-none opacity-60" : ""}>
                                                 <Checklist taskId={task.id} items={task.checklist || []} />
                                             </div>
                                         </TabsContent>
 
-                                        {/* Aba Anexos */}
                                         <TabsContent value="attachments" className="mt-0">
                                             {canEdit && (
                                                 <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors relative cursor-pointer group">
@@ -298,7 +265,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                                                 </a>
                                                             </div>
                                                         </div>
-                                                        {/* AQUI ESTAVA O PROBLEMA: Botão de remover precisa de canEdit */}
                                                         {canEdit && (
                                                             <Button variant="ghost" size="sm" onClick={() => removeAttachment.mutate(file.id)}>
                                                                 <Trash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
@@ -309,7 +275,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                             </div>
                                         </TabsContent>
 
-                                        {/* Aba Histórico */}
                                         <TabsContent value="history" className="mt-0">
                                             <div className="space-y-6 relative pl-4 border-l-2 border-gray-100 ml-2 py-2">
                                                 {task.history?.map((log, idx) => (
@@ -320,7 +285,16 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                                                 {log.user?.firstName || 'Sistema'}
                                                             </span>
                                                             <span className="text-gray-600">
-                                                                {log.action}
+                                                                {(() => {
+                                                                    let actionText = log.action;
+                                                                    Object.keys(taskStatusMap).forEach(key => {
+                                                                        actionText = actionText.replace(key, taskStatusMap[key]);
+                                                                    });
+                                                                    Object.keys(taskPriorityMap).forEach(key => {
+                                                                        actionText = actionText.replace(key, taskPriorityMap[key]);
+                                                                    });
+                                                                    return actionText;
+                                                                })()}
                                                             </span>
                                                         </div>
                                                         <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
@@ -334,9 +308,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                 </Tabs>
                             </div>
 
-                            {/* DIREITA: Sidebar */}
                             <div className="w-72 bg-gray-50 p-6 border-l overflow-y-auto shrink-0 space-y-6">
-                                {/* Responsáveis */}
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Responsáveis</h4>
@@ -379,7 +351,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                                     <AvatarFallback>{assignee.user.firstName?.charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <span>{assignee.user.firstName}</span>
-                                                {/* Botão de Remover Responsável - Se você é ADMIN ou OWNER, canEdit é true, então você pode ver o botão */}
                                                 {canEdit && (
                                                     <button
                                                         className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 ml-1 transition-opacity"
@@ -393,7 +364,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                     </div>
                                 </div>
 
-                                {/* Datas */}
                                 <div className="space-y-3">
                                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Prazos</h4>
                                     <div className="space-y-2">
@@ -409,6 +379,42 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, userRole }: Ta
                                             />
                                         </div>
                                     </div>
+                                </div>
+
+                                <div className="space-y-3 pt-2">
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</h4>
+                                    <Select defaultValue={task.status} onValueChange={handleStatusChange} disabled={!canEdit}>
+                                        <SelectTrigger className="w-full h-9 text-xs border bg-background">
+                                            <div className="flex items-center gap-2">
+                                                <Activity className="w-3.5 h-3.5 text-blue-500" />
+                                                <SelectValue />
+                                            </div>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="TODO">A Fazer</SelectItem>
+                                            <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
+                                            <SelectItem value="IN_REVIEW">Revisão</SelectItem>
+                                            <SelectItem value="DONE">Concluído</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Prioridade</h4>
+                                    <Select defaultValue={task.priority} onValueChange={handlePriorityChange} disabled={!canEdit}>
+                                        <SelectTrigger className="w-full h-9 text-xs border bg-background">
+                                            <div className="flex items-center gap-2">
+                                                <BarChart2 className="w-3.5 h-3.5 text-orange-500" />
+                                                <SelectValue />
+                                            </div>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="LOW">Baixa</SelectItem>
+                                            <SelectItem value="MEDIUM">Média</SelectItem>
+                                            <SelectItem value="HIGH">Alta</SelectItem>
+                                            <SelectItem value="URGENT">Urgente</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="pt-6 border-t text-xs text-gray-400">
