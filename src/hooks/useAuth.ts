@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
-// Definição do tipo de Usuário
 export interface User {
   id: string;
   email: string;
@@ -9,6 +8,7 @@ export interface User {
   lastName?: string;
   avatar?: string;
   role?: string;
+  jobTitle?: string;
   metadata?: Record<string, any>;
 }
 

@@ -191,7 +191,7 @@ export default function CreateDocument() {
       documentType: isMessageMode ? "MENSAGEM" as any : type,
       priority: priority,
       documentNumber: finalDocNumber,
-      recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO" })),
+      recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO", canSign: true })),
       // Só envia attachments se existirem — evita deleteMany acidental no backend
       ...(attachments.length > 0 ? { attachments } : {}),
       metadata: {
@@ -267,6 +267,18 @@ export default function CreateDocument() {
 
   return (
     <div className="min-h-screen bg-slate-100 pb-20">
+      {/* OVERLAY DE CARREGAMENTO — Protocolar/Enviar */}
+      {isSending && (
+        <div className="fixed inset-0 z-[9999] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-10 flex flex-col items-center gap-4 max-w-sm w-full mx-4">
+            <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-slate-800">Protocolando Documento</h3>
+              <p className="text-sm text-slate-500 mt-1">Gerando PDF oficial e aplicando assinatura digital...<br />Isso pode levar alguns segundos.</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="sticky top-0 z-50 bg-white border-b shadow-sm px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
@@ -282,19 +294,20 @@ export default function CreateDocument() {
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => handleAction('DRAFT')} disabled={isCreating || isSending}><Save className="w-4 h-4 mr-2" /> Rascunho</Button>
           <Button onClick={() => handleAction('SEND')} disabled={isCreating || isSending} className="bg-blue-600 hover:bg-blue-700">
-            {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> {isMessageMode ? "Enviar Mensagem" : "Assinar Digitalmente"}</>}
+            {isSending ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Processando...</> : <><Send className="w-4 h-4 mr-2" /> {isMessageMode ? "Enviar Mensagem" : "Assinar Digitalmente"}</>}
           </Button>
         </div>
       </div>
 
       <div className="max-w-[210mm] mx-auto mt-8 bg-white shadow-lg min-h-[297mm] p-[20mm] flex flex-col relative">
-        {/* LOGO (Visualização no Editor) */}
+        {/* LOGO (Visualização no Editor) — exibe apenas a logo do usuário, nada se não configurada */}
         {!isMessageMode && (() => {
           const userLogoUrl = (user?.metadata as any)?.logoUrl;
-          const logoSrc = userLogoUrl ? `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${userLogoUrl}` : '/logo.png';
+          if (!userLogoUrl) return null;
+          const logoSrc = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${userLogoUrl}`;
           return (
             <div className="flex justify-center mb-8">
-              <img src={logoSrc} alt="Logo" className="h-24 object-contain" onError={(e) => (e.currentTarget.src = '/logo.png')} />
+              <img src={logoSrc} alt="Logo" className="h-24 object-contain" />
             </div>
           );
         })()}
@@ -397,15 +410,7 @@ export default function CreateDocument() {
           </div>
         </div>
 
-        {/* RODAPÉ (Visualização) */}
-        {!isMessageMode && (
-          <div className="mt-auto pt-8 flex flex-col items-center justify-center text-center">
-            <div className="w-64 border-t border-black mb-2"></div>
-            <p className="font-bold uppercase">ADMIN USER</p>
-            <p className="text-sm">Cargo Administrativo</p>
-            <p className="text-xs text-slate-400 mt-2">Assinado Digitalmente via SIMP</p>
-          </div>
-        )}
+        {/* RODAPÉ — removido: a assinatura visual pertence apenas ao PDF gerado pelo backend */}
       </div>
     </div>
   );

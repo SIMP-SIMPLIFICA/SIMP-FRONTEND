@@ -158,13 +158,24 @@ export const communicationApi = {
         const response = await api.get(`${BASE_URL}/documents/${documentId}/attachments/${attachmentId}/download`, {
             responseType: 'blob'
         });
-        const url = window.URL.createObjectURL(new Blob([response.data as BlobPart]));
+
+        // Garante que é um Blob válido e com tipo para o navegador
+        const blob = response.data instanceof Blob ? response.data : new Blob([response.data as any]);
+        const url = window.URL.createObjectURL(blob);
+
         const link = document.createElement('a');
+        link.style.display = 'none';
         link.href = url;
-        link.setAttribute('download', fileName);
+        link.download = fileName; // Utiliza a propriedade nativa "download"
+
         document.body.appendChild(link);
         link.click();
-        link.remove();
+
+        // Pequeno delay para garantir que o navegador iniciou o download antes de limpar
+        setTimeout(() => {
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        }, 300);
     },
 
     delete: async (id: string) => {

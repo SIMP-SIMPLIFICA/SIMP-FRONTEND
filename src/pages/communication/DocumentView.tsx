@@ -14,7 +14,7 @@ import {
     PenTool,
     Reply
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DOMPurify from "dompurify";
 import { useToast } from "@/hooks/use-toast";
 import { communicationApi } from "@/lib/services/communication";
@@ -34,13 +34,18 @@ export default function DocumentView() {
     const { toast } = useToast();
     const { user } = useAuth();
 
-    const { data: document, isLoading, isError } = useDocument(id || "");
+    const { data: document, isLoading, isError, refetch } = useDocument(id || "");
     const signMutation = useSignDocument();
 
     const [showReceipt, setShowReceipt] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [previewError, setPreviewError] = useState<boolean>(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+    // Estado de auto-assinatura em background (para o destinatário)
+    const [isAutoSigning, setIsAutoSigning] = useState(false);
+    const autoSignPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const hasStartedPolling = useRef(false);
 
     // Identifica o PDF Oficial (mesma lógica do backend: o PDF mais recente)
     const officialPdf = document?.attachments
@@ -69,6 +74,48 @@ export default function DocumentView() {
         }
     }, [document?.id, document?.status, document?.signatures]); // Re-run if ID, status or signatures change
 
+    // Inicia polling ao detectar que o destinatário ainda não assinou
+    useEffect(() => {
+        if (!document || !user) return;
+        if (hasStartedPolling.current) return; // Evita iniciar múltiplas vezes
+
+        const isRecipient = document.isRecipient && !document.isCreator;
+        const notYetSigned = !document.currentUserHasSigned;
+        const notDraft = document.status !== 'DRAFT';
+
+        if (isRecipient && notYetSigned && notDraft) {
+            hasStartedPolling.current = true;
+            setIsAutoSigning(true);
+
+            let attempts = 0;
+            const MAX_ATTEMPTS = 5;
+
+            autoSignPollingRef.current = setInterval(async () => {
+                attempts += 1;
+                await refetch();
+
+                if (attempts >= MAX_ATTEMPTS) {
+                    if (autoSignPollingRef.current) clearInterval(autoSignPollingRef.current);
+                    setIsAutoSigning(false);
+                }
+            }, 3000);
+        }
+
+        return () => {
+            if (autoSignPollingRef.current) clearInterval(autoSignPollingRef.current);
+        };
+        // Só roda uma vez quando o documento carrega pela primeira vez
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [document?.id]);
+
+    // Para o polling assim que a assinatura é confirmada
+    useEffect(() => {
+        if (document?.currentUserHasSigned && isAutoSigning) {
+            if (autoSignPollingRef.current) clearInterval(autoSignPollingRef.current);
+            setIsAutoSigning(false);
+        }
+    }, [document?.currentUserHasSigned, isAutoSigning]);
+
     const handleDownload = async (attachment: any) => {
         if (!document) return;
         try {
@@ -84,7 +131,12 @@ export default function DocumentView() {
 
     const handleSign = async () => {
         if (!document) return;
-        signMutation.mutate(document.id);
+        signMutation.mutate(document.id, {
+            onSuccess: () => {
+                // Refetch imediato para retirar o banner sem aguardar cache background
+                setTimeout(() => refetch(), 800);
+            }
+        });
     };
 
     if (isLoading) return <div className="p-8"><Skeleton className="h-96 w-full" /></div>;
@@ -116,6 +168,33 @@ export default function DocumentView() {
 
     return (
         <div className="max-w-[1600px] mx-auto p-6 space-y-6 h-[calc(100vh-4rem)] flex flex-col">
+            {/* BANNER — Assinatura pendente do destinatário (não-bloqueante) */}
+            {needsSignature && (
+                <div className="shrink-0 flex items-center justify-between gap-4 bg-emerald-50 border border-emerald-200 rounded-lg px-5 py-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 bg-emerald-100 rounded-full p-2">
+                            <PenTool className="h-5 w-5 text-emerald-700" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-emerald-900">Sua assinatura é necessária</p>
+                            <p className="text-xs text-emerald-700 mt-0.5">
+                                {isAutoSigning
+                                    ? <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Tentando assinar automaticamente...</span>
+                                    : 'Clique no botão para registrar seu recebimento e assinar digitalmente.'}
+                            </p>
+                        </div>
+                    </div>
+                    <Button
+                        onClick={handleSign}
+                        disabled={signMutation.isPending}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white flex-shrink-0"
+                    >
+                        {signMutation.isPending
+                            ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Assinando...</>
+                            : <><PenTool className="mr-2 h-4 w-4" /> Assinar Recebimento</>}
+                    </Button>
+                </div>
+            )}
             <div className="flex items-center justify-between bg-white p-4 rounded-lg border shadow-sm shrink-0">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="sm" onClick={() => navigate("/communication")}><ArrowLeft className="h-5 w-5" /></Button>
@@ -287,15 +366,23 @@ export default function DocumentView() {
                             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Paperclip className="h-4 w-4" /> Anexos</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
                                 {document.attachments.map((att: any) => (
-                                    <div key={att.id} className="flex items-center justify-between p-2 rounded border bg-slate-50">
+                                    <button
+                                        key={att.id}
+                                        onClick={() => handleDownload(att)}
+                                        disabled={!!downloadingId}
+                                        className="w-full flex items-center justify-between p-2 rounded border bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer group text-left"
+                                    >
                                         <div className="flex items-center gap-2 truncate">
-                                            <Paperclip className="h-4 w-4 text-blue-500" />
-                                            <span className="text-sm truncate max-w-[150px]" title={att.fileName}>{att.fileName}</span>
+                                            <Paperclip className="h-4 w-4 text-blue-500 shrink-0" />
+                                            <span className="text-sm truncate text-slate-700 group-hover:text-blue-700 group-hover:underline" title={att.fileName}>
+                                                {att.fileName}
+                                            </span>
                                         </div>
-                                        <Button variant="ghost" size="sm" className="h-6 w-6" onClick={() => handleDownload(att)}>
-                                            {downloadingId === att.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                                        </Button>
-                                    </div>
+                                        {downloadingId === att.id
+                                            ? <Loader2 className="h-4 w-4 animate-spin text-blue-500 shrink-0" />
+                                            : <Download className="h-4 w-4 text-slate-400 group-hover:text-blue-500 shrink-0" />
+                                        }
+                                    </button>
                                 ))}
                             </CardContent>
                         </Card>
