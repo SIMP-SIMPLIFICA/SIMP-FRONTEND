@@ -39,28 +39,35 @@ export default function DocumentView() {
 
     const [showReceipt, setShowReceipt] = useState(false);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState<boolean>(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-    // Identifica o PDF Oficial
-    const officialPdf = document?.attachments?.find((att: any) =>
-        att.fileType === 'application/pdf' && (att.fileName.startsWith('OFICIO_') || att.fileName.startsWith('DOC_'))
-    );
+    // Identifica o PDF Oficial (mesma lógica do backend: o PDF mais recente)
+    const officialPdf = document?.attachments
+        ?.filter((att: any) => att.fileType === 'application/pdf')
+        ?.sort((a: any, b: any) => new Date(b.uploadedAt || b.createdAt).getTime() - new Date(a.uploadedAt || a.createdAt).getTime())[0];
 
-    // Carrega prévia segura via Backend
+    // Carrega prévia segura via Backend (usa o novo endpoint para pegar o PDF principal)
     useEffect(() => {
+        let active = true;
         const loadPdfPreview = async () => {
-            if (officialPdf && document?.id) {
+            if (document?.id && document?.status !== 'DRAFT') {
                 try {
-                    const blobUrl = await communicationApi.getAttachmentPreviewUrl(document.id, officialPdf.id);
-                    setPreviewUrl(blobUrl);
+                    setPreviewError(false);
+                    const blobUrl = await communicationApi.getDocumentPreviewUrl(document.id);
+                    if (active) setPreviewUrl(blobUrl);
                 } catch (error) {
-                    console.error("Erro ao carregar prévia", error);
+                    console.error("Erro ao carregar prévia do documento", error);
+                    if (active) setPreviewError(true);
                 }
             }
         };
         loadPdfPreview();
-        return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }
-    }, [officialPdf, document?.id]); // Re-run when officialPdf changes (e.g. after signing)
+        return () => {
+            active = false;
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+        }
+    }, [document?.id, document?.status, document?.signatures]); // Re-run if ID, status or signatures change
 
     const handleDownload = async (attachment: any) => {
         if (!document) return;
@@ -221,6 +228,23 @@ export default function DocumentView() {
                         </div>
                     ) : previewUrl ? (
                         <iframe src={`${previewUrl}#toolbar=0&view=FitH`} className="w-full h-full border-none" title="PDF Preview" />
+                    ) : previewError ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 border border-slate-200 rounded-xl">
+                            <AlertCircle className="h-10 w-10 text-slate-400 mb-3" />
+                            <h3 className="text-slate-700 font-medium">Prévia Indisponível</h3>
+                            <p className="text-slate-500 text-sm max-w-sm text-center mt-1">
+                                Não foi possível carregar a visualização do documento. Tente baixar o PDF diretamente.
+                            </p>
+                            {officialPdf && (
+                                <Button
+                                    className="mt-4"
+                                    onClick={() => handleDownload(officialPdf)}
+                                >
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Baixar PDF Oficial
+                                </Button>
+                            )}
+                        </div>
                     ) : officialPdf ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8">
                             <Loader2 className="h-8 w-8 animate-spin text-slate-400" />

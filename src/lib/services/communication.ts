@@ -189,6 +189,14 @@ export const communicationApi = {
         return response.data;
     },
 
+    // ADICIONADO: Download do PDF principal do protocolo para PRÉVIA
+    getDocumentPreviewUrl: async (documentId: string) => {
+        const response = await api.get(`${BASE_URL}/documents/${documentId}/download`, {
+            responseType: 'blob'
+        });
+        return window.URL.createObjectURL(new Blob([response.data as BlobPart], { type: 'application/pdf' }));
+    },
+
     // ADICIONADO: Download do PDF principal do protocolo (sem precisar do attachmentId)
     downloadDocument: async (documentId: string, fileName: string = 'documento.pdf') => {
         const response = await api.get(`${BASE_URL}/documents/${documentId}/download`, {
