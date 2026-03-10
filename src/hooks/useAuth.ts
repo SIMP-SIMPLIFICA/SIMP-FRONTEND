@@ -8,7 +8,8 @@ export interface User {
   firstName: string;
   lastName?: string;
   avatar?: string;
-  role?: string; 
+  role?: string;
+  metadata?: Record<string, any>;
 }
 
 // Interface auxiliar para a resposta do backend que vem como { user: { ... } }
@@ -17,7 +18,7 @@ interface AuthMeResponse {
 }
 
 export function useAuth() {
-  const { data: user, isLoading, error, isError } = useQuery({
+  const { data: user, isLoading, error, isError, refetch } = useQuery({
     queryKey: ["auth", "me"],
     queryFn: async () => {
       // CORREÇÃO: Adicionado /api/v1 ao caminho
@@ -25,14 +26,15 @@ export function useAuth() {
       const response = await api.get<AuthMeResponse>("/api/v1/auth/me");
       return response.data.user; // Retorna apenas o objeto do usuário
     },
-    retry: 1, 
-    staleTime: 1000 * 60 * 5, 
+    retry: 1,
+    staleTime: 1000 * 60 * 5,
   });
 
-  return { 
-    user, 
-    isLoading, 
+  return {
+    user,
+    isLoading,
     isAuthenticated: !!user && !isError,
-    error 
+    error,
+    refreshUser: refetch
   };
 }

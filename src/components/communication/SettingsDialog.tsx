@@ -22,11 +22,11 @@ export function SettingsDialog() {
                     Configurações
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Configurações do Sistema</DialogTitle>
+                    <DialogTitle>Configurações do Usuário</DialogTitle>
                     <DialogDescription>
-                        Gerencie as informações globais que aparecem nos documentos oficiais.
+                        Configure sua logo institucional para os documentos.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4">
@@ -36,3 +36,4 @@ export function SettingsDialog() {
         </Dialog>
     );
 }
+

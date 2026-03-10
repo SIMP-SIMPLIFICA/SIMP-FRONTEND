@@ -16,32 +16,7 @@ import { uploadApi } from "@/lib/services/communication";
 
 import RichTextEditor from "@/components/ui/RichTextEditor";
 
-// Função mais robusta para converter imagem da pasta public em Base64
-const convertImageToBase64 = (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'Anonymous';
-    img.src = url;
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject("Canvas context error");
-        return;
-      }
-      ctx.drawImage(img, 0, 0);
-      const dataURL = canvas.toDataURL('image/png');
-      resolve(dataURL);
-    };
-    img.onerror = (error) => {
-      console.error("Erro ao carregar imagem para Base64:", error);
-      // Retorna string vazia para não quebrar o fluxo, mas avisa no console
-      resolve("");
-    };
-  });
-};
+
 
 export default function CreateDocument() {
   const navigate = useNavigate();
@@ -207,19 +182,7 @@ export default function CreateDocument() {
     setIsDirty(true);
   };
 
-  const buildPayload = async (): Promise<CreateDocumentDTO> => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(editorContent, 'text/html');
-    const paragraphsArray = Array.from(doc.body.querySelectorAll('p, h1, h2, li'))
-      .map(el => ({ id: crypto.randomUUID(), texto: el.textContent?.trim() || "" }))
-      .filter(p => p.texto !== "");
-
-    if (paragraphsArray.length === 0 && editorContent.trim()) paragraphsArray.push({ id: crypto.randomUUID(), texto: doc.body.textContent || "" });
-
-    // 1. Tenta converter a logo para Base64
-    const logoBase64 = await convertImageToBase64("/logo.png");
-
-    // 2. Garante que o número do documento seja o editado
+  const buildPayload = (): CreateDocumentDTO => {
     const finalDocNumber = `${docNumberPrefix}/${currentYear}`;
 
     return {
@@ -227,16 +190,14 @@ export default function CreateDocument() {
       content: editorContent || '<p><br></p>',
       documentType: isMessageMode ? "MENSAGEM" as any : type,
       priority: priority,
-      documentNumber: finalDocNumber, // Envia no campo padrão
+      documentNumber: finalDocNumber,
       recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO" })),
-      attachments: attachments,
+      // Só envia attachments se existirem — evita deleteMany acidental no backend
+      ...(attachments.length > 0 ? { attachments } : {}),
       metadata: {
-        // Envia dados cruciais para o gerador de PDF
         customHeader: customHeader,
-        paragrafos: paragraphsArray,
-        logoBase64: logoBase64, // Logo embutida
-        useCustomLayout: true, // Flag para avisar o backend (se implementado)
-        manualDocumentNumber: finalDocNumber, // Redundância para garantir
+        useCustomLayout: true,
+        manualDocumentNumber: finalDocNumber,
         generated_file: true,
         ...(replyToId && replyToDoc ? { replyToId: replyToDoc.id, replyToTitle: replyToDoc.title } : {})
       }
@@ -247,7 +208,7 @@ export default function CreateDocument() {
     if (!title) return; // Ignora silenciosamente se não houver título durante o Auto-Save
     setSaveStatus("SAVING");
     try {
-      const payload = await buildPayload();
+      const payload = buildPayload();
       let docId = editId;
       if (docId) {
         await updateDocument({ id: docId, data: payload });
@@ -277,7 +238,7 @@ export default function CreateDocument() {
     if (!title) return toast({ title: "Erro", description: "Assunto obrigatório.", variant: "destructive" });
 
     try {
-      const payload = await buildPayload();
+      const payload = buildPayload();
       let docId = editId;
       if (!docId) {
         const newDoc = await createDocument(payload);
@@ -328,11 +289,15 @@ export default function CreateDocument() {
 
       <div className="max-w-[210mm] mx-auto mt-8 bg-white shadow-lg min-h-[297mm] p-[20mm] flex flex-col relative">
         {/* LOGO (Visualização no Editor) */}
-        {!isMessageMode && (
-          <div className="flex justify-center mb-8">
-            <img src="/logo.png" alt="Logo" className="h-24 object-contain" onError={(e) => console.error("Erro ao carregar logo no editor", e)} />
-          </div>
-        )}
+        {!isMessageMode && (() => {
+          const userLogoUrl = (user?.metadata as any)?.logoUrl;
+          const logoSrc = userLogoUrl ? `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${userLogoUrl}` : '/logo.png';
+          return (
+            <div className="flex justify-center mb-8">
+              <img src={logoSrc} alt="Logo" className="h-24 object-contain" onError={(e) => (e.currentTarget.src = '/logo.png')} />
+            </div>
+          );
+        })()}
 
         {/* NUMERAÇÃO */}
         {!isMessageMode && (

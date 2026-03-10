@@ -94,11 +94,9 @@ export default function DocumentView() {
         </div>
     );
 
-    // Verifica Permissão de Assinatura
-    const recipientRecord = document.recipients?.find(r => r.userId === user?.id);
-    const canSign = (document.createdBy === user?.id) || (recipientRecord?.role === 'TO');
-    // Nota: O backend valida `canSign` e `isCreator`. Aqui simplificamos a UX.
-    const alreadySigned = document.signatures?.some(s => s.userId === user?.id);
+    // Verifica Permissão de Assinatura — usa flags explícitas do backend (mais confiável)
+    const canSign = document.currentUserCanSign ?? false;
+    const alreadySigned = document.currentUserHasSigned ?? false;
     const needsSignature = canSign && !alreadySigned && document.status !== 'DRAFT';
 
     // Timeline Dinâmica (Audit Trail ou Fallback)
@@ -144,7 +142,7 @@ export default function DocumentView() {
                         <Button variant="secondary" onClick={() => setShowReceipt(true)} className="text-blue-700 border-blue-200"><ShieldCheck className="mr-2 h-4 w-4" /> Comprovante</Button>
                     )}
                     {officialPdf && (
-                        <Button onClick={() => handleDownload(officialPdf)} className="bg-slate-800"><Download className="mr-2 h-4 w-4" /> Baixar PDF</Button>
+                        <Button onClick={() => communicationApi.downloadAttachment(document.id, officialPdf.id, officialPdf.fileName)} className="bg-slate-800"><Download className="mr-2 h-4 w-4" /> Baixar PDF</Button>
                     )}
                 </div>
             </div>
