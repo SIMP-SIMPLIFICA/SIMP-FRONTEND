@@ -37,7 +37,7 @@ jobs:
         if: always()
         run: npm audit --json > audit-report.json || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dependency-audit-frontend
@@ -76,7 +76,7 @@ jobs:
           output: results/
 
       - name: Upload SARIF as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: codeql-results-frontend
