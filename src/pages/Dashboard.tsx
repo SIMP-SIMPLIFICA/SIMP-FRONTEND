@@ -20,17 +20,17 @@ function StatCard({
 }) {
   return (
     <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-sm font-semibold tracking-wide text-slate-500">{title}</div>
-          <div className="mt-4 text-3xl font-semibold text-slate-800">{value}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold tracking-wide text-slate-500 truncate">{title}</div>
+          <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums break-all leading-tight">{value}</div>
           <div className="mt-2 flex items-center gap-2 text-sm">
             <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
               {delta}
             </span>
           </div>
         </div>
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-50 text-slate-700">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700">
           {icon}
         </div>
       </div>
