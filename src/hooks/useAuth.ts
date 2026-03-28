@@ -25,8 +25,8 @@ export function useAuth() {
       const response = await api.get<AuthMeResponse>("/api/v1/auth/me");
       return response.data.user; // Retorna apenas o objeto do usuário
     },
-    retry: 1, 
-    staleTime: 1000 * 60 * 5, 
+    retry: false,
+    staleTime: 1000 * 60 * 2,
   });
 
   return { 

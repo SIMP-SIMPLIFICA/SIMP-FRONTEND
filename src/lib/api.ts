@@ -74,7 +74,7 @@ export async function apiRequest<T = unknown>(
 
     if (refreshToken) {
       try {
-        const refreshRes = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+        const refreshRes = await fetch(`${API_URL}/api/v1/auth/refresh-token`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken }),

@@ -15,11 +15,10 @@ export function useMe(enabled = true) {
   const token = getAccessToken();
 
   return useQuery({
-    queryKey: ["me", token], // 👈 ESSENCIAL: muda quando o token muda
+    queryKey: ["auth", "me"], // mesma key do useAuth — compartilham o cache
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
     enabled: enabled && !!token,
-    staleTime: 0,
-    gcTime: 0,
+    staleTime: 1000 * 60 * 2,
     retry: false,
   });
 }
