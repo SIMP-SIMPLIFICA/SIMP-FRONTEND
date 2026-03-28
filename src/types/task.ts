@@ -1,9 +1,12 @@
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
+// ATUALIZADO: Adicionados lastName e email para corresponder ao controller e ao componente
 export interface UserSummary {
   id: string;
   firstName: string | null;
+  lastName: string | null; // <--- ADICIONADO
+  email: string;           // <--- ADICIONADO
   avatar: string | null;
 }
 
@@ -29,7 +32,7 @@ export interface TaskHistory {
   id: string;
   action: string;
   createdAt: string;
-  user: UserSummary | null; // Pode ser null se for sistema
+  user: UserSummary | null;
 }
 
 export interface TaskAttachment {
@@ -50,21 +53,21 @@ export interface Task {
   dueDate: string | null;
   workspaceId: string;
   assignees: TaskAssignee[];
-  creator?: UserSummary; // <--- ADICIONADO
+  creator?: UserSummary;
   _count?: {
     checklist: number;
     notes: number;
     attachments: number;
   };
   createdAt: string;
-  updatedAt: string; // <--- ADICIONADO
+  updatedAt: string;
 }
 
 export interface TaskDetails extends Task {
   checklist: ChecklistItem[];
   notes: TaskNote[];
-  history: TaskHistory[];         // <--- ADICIONADO
-  attachments: TaskAttachment[];  // <--- ADICIONADO
+  history: TaskHistory[];
+  attachments: TaskAttachment[];
 }
 
 export interface CreateTaskDTO {

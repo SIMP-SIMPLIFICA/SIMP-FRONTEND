@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, ArrowUpRight, ArrowDownRight, Briefcase, Bell } from "lucide-react";
+import { useMemo } from "react";
+import { useFinanceEntries } from "@/hooks/useFinance";
 
 function StatCard({
   title,
@@ -18,17 +20,17 @@ function StatCard({
 }) {
   return (
     <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-sm font-semibold tracking-wide text-slate-500">{title}</div>
-          <div className="mt-4 text-3xl font-semibold text-slate-800">{value}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold tracking-wide text-slate-500 truncate">{title}</div>
+          <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums break-all leading-tight">{value}</div>
           <div className="mt-2 flex items-center gap-2 text-sm">
             <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
               {delta}
             </span>
           </div>
         </div>
-        <div className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-50 text-slate-700">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700">
           {icon}
         </div>
       </div>
@@ -37,6 +39,23 @@ function StatCard({
 }
 
 export default function Dashboard() {
+  const { data: entriesData, isLoading } = useFinanceEntries(undefined, { limit: 1000 });
+  const entries = entriesData || [];
+
+  const { totalIncome, totalExpense } = useMemo(() => {
+    let inc = 0, exp = 0;
+    entries.forEach((e: { type: string; amountCents: number }) => {
+      if (e.type === "INCOME") inc += e.amountCents;
+      if (e.type === "EXPENSE") exp += e.amountCents;
+    });
+    return { totalIncome: inc, totalExpense: exp };
+  }, [entries]);
+
+  function formatCurrency(cents: number) {
+    if (isLoading) return "Calculando...";
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -62,16 +81,16 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="RECEITA MENSAL"
-          value="R$ 2.4M"
-          delta="+12%"
+          title="RECEITAS (TOTAL)"
+          value={formatCurrency(totalIncome)}
+          delta={isLoading ? "-" : "+12%"}
           deltaPositive
           icon={<ArrowUpRight className="h-5 w-5 text-emerald-600" />}
         />
         <StatCard
-          title="DESPESAS ATUAIS"
-          value="R$ 1.8M"
-          delta="-2%"
+          title="DESPESAS (TOTAL)"
+          value={formatCurrency(totalExpense)}
+          delta={isLoading ? "-" : "-2%"}
           icon={<ArrowDownRight className="h-5 w-5 text-rose-600" />}
         />
         <StatCard

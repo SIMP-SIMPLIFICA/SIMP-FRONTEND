@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
+import type { MeResponse } from "@/hooks/useMe";
 
 export interface User {
   id: string;
@@ -8,33 +10,24 @@ export interface User {
   lastName?: string;
   avatar?: string;
   role?: string;
-  jobTitle?: string;
-  metadata?: Record<string, any>;
-}
-
-// Interface auxiliar para a resposta do backend que vem como { user: { ... } }
-interface AuthMeResponse {
-  user: User;
 }
 
 export function useAuth() {
-  const { data: user, isLoading, error, isError, refetch } = useQuery({
+  const token = getAccessToken();
+
+  // Mesma queryFn que useMe → mesmo shape { user: {...} } → cache consistente
+  const { data, isLoading, error, isError } = useQuery<MeResponse>({
     queryKey: ["auth", "me"],
-    queryFn: async () => {
-      // CORREÇÃO: Adicionado /api/v1 ao caminho
-      // CORREÇÃO: Tipagem ajustada para AuthMeResponse
-      const response = await api.get<AuthMeResponse>("/api/v1/auth/me");
-      return response.data.user; // Retorna apenas o objeto do usuário
-    },
-    retry: 1,
-    staleTime: 1000 * 60 * 5,
+    queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
+    enabled: !!token,
+    retry: false,
+    staleTime: 1000 * 60 * 2,
   });
 
   return {
-    user,
+    user: data?.user as User | undefined,
     isLoading,
-    isAuthenticated: !!user && !isError,
+    isAuthenticated: !!data?.user && !isError,
     error,
-    refreshUser: refetch
   };
 }

@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 .env
 .estrutura.txt
+
+# Playwright
+/playwright-report/
+/test-results/
+/e2e/.auth/*.json

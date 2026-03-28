@@ -1,0 +1,151 @@
+name: Security Agent
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 8 * * 1' # Toda segunda-feira às 8h UTC
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # 1. Dependency Audit
+  # ─────────────────────────────────────────────────────────────
+  dependency-audit:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: npm audit (high+critical)
+        run: npm audit --audit-level=high
+
+      - name: npm audit full report
+        if: always()
+        run: npm audit --json > audit-report.json || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit-frontend
+          path: audit-report.json
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────
+  # 2. CodeQL
+  # ─────────────────────────────────────────────────────────────
+  codeql:
+    name: CodeQL Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: typescript
+          queries: security-extended
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: frontend
+          # upload:false — GitHub Advanced Security requer plano pago para repos privados
+          # SARIF salvo como artifact abaixo
+          upload: false
+          output: results/
+
+      - name: Upload SARIF as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-results-frontend
+          path: results/
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────
+  # 3. Secret Scan
+  # ─────────────────────────────────────────────────────────────
+  secret-scan:
+    name: Secret Leak Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog — secret scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  # ─────────────────────────────────────────────────────────────
+  # 4. Claude Security Review — XSS, dados expostos, auth frontend
+  # ─────────────────────────────────────────────────────────────
+  claude-security-review:
+    name: Claude Frontend Security Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Claude Security Analysis
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom_instructions: |
+            Você é o Security Agent do SIMP — frontend React 19 + TypeScript.
+            Analise este PR com foco EXCLUSIVO em segurança frontend. Não comente sobre estilo.
+
+            **XSS e Injeção:**
+            - `dangerouslySetInnerHTML` sem sanitização?
+            - Conteúdo de usuário renderizado diretamente como HTML?
+            - URLs de redirect não validadas (open redirect)?
+
+            **Exposição de dados:**
+            - Tokens JWT ou secrets em `console.log`?
+            - Dados sensíveis em query params da URL (ficam em histórico)?
+            - Estado do Redux/Context expondo dados que não deveriam estar no cliente?
+
+            **Autenticação frontend:**
+            - Tokens armazenados de forma insegura?
+            - Rotas protegidas com lógica de auth apenas no frontend (sem verificação backend)?
+            - `ANTHROPIC_API_KEY` ou qualquer chave de API hardcoded no código cliente?
+
+            **Dependências:**
+            - Imports de pacotes não declarados no package.json?
+            - Versões pinadas com vulnerabilidades conhecidas?
+
+            **SIMP específico:**
+            - Permissões verificadas só no sidebar/UI — sem `PermissionGate` ou verificação real?
+            - `userId` tirado de state local ao invés de decodificado do JWT?
+
+            Se não encontrar problemas, responda: "✅ Nenhum problema de segurança identificado neste PR."
+            Responda em português. Arquivo + linha + risco + fix sugerido.

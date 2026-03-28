@@ -43,18 +43,17 @@ export function NotificationBell() {
   const { toast } = useToast();
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const fetchNotifications = async () => {
-    try {
-      const response = await api.get<{ data: Notification[], unreadCount: number }>("/notifications");
-      setNotifications(response.data.data);
-      setUnreadCount(response.data.unreadCount);
-    } catch (error) {
-      console.error("Erro ao buscar notificações", error);
-    }
-  };
-
   useEffect(() => {
-    fetchNotifications();
+    const fetchNotifications = async () => {
+      try {
+        const response = await api.get<{ data: Notification[], unreadCount: number }>("/notifications");
+        setNotifications(response.data.data);
+        setUnreadCount(response.data.unreadCount);
+      } catch (error) {
+        console.error("Erro ao buscar notificações", error);
+      }
+    };
+    void fetchNotifications();
 
     const token = getAccessToken();
     if (!token) return;

@@ -1,30 +1,28 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { workspaceService } from "@/lib/services/workspaces";
+import { useQuery } from "@tanstack/react-query";
+import { workspaceService } from "@/lib/api/workspaces";
 import { useWorkspaceTasks, useCreateTask } from "@/hooks/useTasks";
 import { TaskCard } from "@/components/workspaces/TaskCard";
 import { TaskModal } from "@/components/workspaces/TaskModal";
+import { InviteMemberModal } from "@/components/workspaces/InviteMemberModal";
+import { MembersListModal } from "@/components/workspaces/MembersListModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Layout, Users, LogOut, Trash2 } from "lucide-react";
+import { Plus, Layout, Trash2, Loader2, LogOut } from "lucide-react";
 import { type TaskStatus, type Task } from "@/types/task";
+import { type Workspace } from "@/types/workspace";
 import { useState } from "react";
+import { useMe } from "@/hooks/useMe";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogDescription
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/hooks/useAuth";
-import { roleMap } from "@/lib/utils/mappers";
 
 const COLUMNS: { id: TaskStatus; label: string }[] = [
   { id: 'TODO', label: 'A Fazer' },
@@ -36,10 +34,17 @@ const COLUMNS: { id: TaskStatus; label: string }[] = [
 export default function WorkspaceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
 
-  const { data: workspace, isLoading: isLoadingWorkspace } = useQuery({
+  // 1. Busca dados do usuário logado
+  const { data: userData } = useMe();
+
+  // CORREÇÃO CRÍTICA: Tentativa robusta de pegar o ID
+  const currentUserId = (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.id
+    || (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.data?.id
+    || (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.user?.id;
+
+  // 2. Busca dados do workspace
+  const { data: workspace, isLoading: isLoadingWorkspace } = useQuery<Workspace>({
     queryKey: ["workspace", id],
     queryFn: () => workspaceService.getById(id!),
     enabled: !!id,
@@ -48,239 +53,169 @@ export default function WorkspaceDetailPage() {
   const { data: tasks, isLoading: isLoadingTasks } = useWorkspaceTasks(id);
   const { mutateAsync: createTask } = useCreateTask(id!);
 
-  const memberData = workspace?.members?.find((m: any) => m.userId === user?.id);
-  const myRole = memberData?.role;
-  const isOwner = myRole === 'OWNER';
-  const isAdmin = myRole === 'ADMIN';
-  const isViewer = myRole === 'VIEWER';
-
-  const canDeleteWorkspace = isOwner;
-  const canManageMembers = isOwner || isAdmin;
-  const canCreateTask = !isViewer;
-
-  const deleteWorkspace = useMutation({
-    mutationFn: () => workspaceService.delete(id!),
-    onSuccess: () => navigate("/workspaces"),
-    onError: (error: any) => alert(error.message || "Erro ao excluir workspace")
-  });
-
-  const addMember = useMutation({
-    mutationFn: ({ email, role }: { email: string, role: string }) =>
-      workspaceService.addMember(id!, email, role as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workspace", id] });
-      setNewMemberEmail("");
-    },
-    onError: (error: any) => alert("Erro: " + (error.message || "Falha ao adicionar membro"))
-  });
-
-  const removeMember = useMutation({
-    mutationFn: (userId: string) => workspaceService.removeMember(id!, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace", id] }),
-    onError: (error: any) => alert("Erro: " + (error.message || "Falha ao remover membro"))
-  });
-
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  const [isMembersOpen, setIsMembersOpen] = useState(false);
-
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newMemberEmail, setNewMemberEmail] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState("MEMBER");
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
+
     await createTask({ title: newTaskTitle, status: 'TODO', priority: 'MEDIUM' });
     setNewTaskTitle("");
     setIsNewTaskOpen(false);
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMemberEmail) return;
-    addMember.mutate({ email: newMemberEmail, role: newMemberRole });
-  };
-
-  const handleDeleteWorkspace = () => {
-    if (confirm("TEM CERTEZA? Isso apagará permanentemente o workspace e TODAS as tarefas. Essa ação não pode ser desfeita.")) {
-      deleteWorkspace.mutate();
+  const handleDeleteWorkspace = async () => {
+    if (!id) return;
+    if (confirm("ATENÇÃO: Isso apagará o workspace e TODAS as tarefas. Não há como desfazer.")) {
+      try {
+        await workspaceService.deleteWorkspace(id);
+        navigate("/workspaces");
+      } catch {
+        alert("Erro ao excluir workspace.");
+      }
     }
   };
 
-  if (isLoadingWorkspace || isLoadingTasks || !workspace) {
-    return <div className="p-8">Carregando quadro...</div>;
-  }
+  const handleLeaveWorkspace = async () => {
+    if (!id || !currentUserId) {
+        alert("Erro: Usuário não identificado. Tente recarregar a página.");
+        return;
+    }
+
+    if (confirm("Tem certeza que deseja SAIR deste workspace?")) {
+        try {
+            await workspaceService.removeMember(id, currentUserId);
+            navigate("/workspaces");
+        } catch {
+            alert("Erro ao sair do workspace.");
+        }
+    }
+  };
+
+  if (isLoadingWorkspace || !workspace) return <div className="p-8 flex items-center gap-2"><Loader2 className="animate-spin"/> Carregando board...</div>;
+
+  const members = workspace.members || [];
+
+  // Identifica o membro atual
+  const currentMember = currentUserId ? members.find(m => m.userId === currentUserId) : null;
+  const isOwner = currentMember?.role === 'OWNER';
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <header className="px-6 py-4 border-b bg-white flex justify-between items-center shrink-0">
         <div className="flex items-center gap-2">
-          <Layout className="h-5 w-5 text-gray-500" />
-          <h1 className="text-xl font-bold">{workspace.name}</h1>
-          <Badge variant="secondary" className="ml-2">{workspace.members?.length} Membros</Badge>
-          {myRole && <Badge className="ml-2 bg-blue-100 text-blue-800 hover:bg-blue-100">{roleMap[myRole] || myRole}</Badge>}
+            <Layout className="h-5 w-5 text-gray-500" />
+            <h1 className="text-xl font-bold">{workspace.name}</h1>
+
+            <MembersListModal
+                workspaceId={id!}
+                members={members}
+                currentUserId={currentUserId}
+            />
         </div>
 
-        <div className="flex gap-2">
-          {canDeleteWorkspace && (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleDeleteWorkspace}
-              title="Excluir Workspace"
-              disabled={deleteWorkspace.isPending}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          )}
-
-          {canManageMembers && (
-            <Dialog open={isMembersOpen} onOpenChange={setIsMembersOpen}>
-              <DialogTrigger asChild>
-                <Button variant="secondary" size="sm">
-                  <Users className="w-4 h-4 mr-2" /> Membros
+        <div className="flex items-center gap-3">
+            {isOwner && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={handleDeleteWorkspace}
+                    title="Excluir Workspace Inteiro"
+                >
+                    <Trash2 size={18} />
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Gerenciar Membros</DialogTitle>
-                  <DialogDescription>Adicione ou remova membros deste workspace.</DialogDescription>
-                </DialogHeader>
+            )}
 
-                <form onSubmit={handleAddMember} className="flex gap-2 items-end mb-4 pt-2">
-                  <div className="flex-1 space-y-1">
-                    <Label>Email do usuário</Label>
-                    <Input
-                      value={newMemberEmail}
-                      onChange={e => setNewMemberEmail(e.target.value)}
-                      placeholder="joao@exemplo.com"
-                    />
-                  </div>
-                  <Select value={newMemberRole} onValueChange={setNewMemberRole}>
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ADMIN">Administrador</SelectItem>
-                      <SelectItem value="MEMBER">Membro</SelectItem>
-                      <SelectItem value="VIEWER">Visualizador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button type="submit" disabled={addMember.isPending}>
-                    {addMember.isPending ? "..." : <Plus className="w-4 h-4" />}
-                  </Button>
-                </form>
+            {!isOwner && currentMember && (
+                 <Button
+                 variant="ghost"
+                 size="icon"
+                 className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                 onClick={handleLeaveWorkspace}
+                 title="Sair do Workspace"
+             >
+                 <LogOut size={18} />
+             </Button>
+            )}
 
-                <ScrollArea className="h-[300px] pr-4">
-                  <div className="space-y-3">
-                    {workspace.members?.map((member: any) => (
-                      <div key={member.id} className="flex items-center justify-between p-2 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={member.user.avatar} />
-                            <AvatarFallback>{member.user.firstName?.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">{member.user.firstName}</p>
-                            <p className="text-xs text-muted-foreground">{member.user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[10px]">{roleMap[member.role] || member.role}</Badge>
+            <InviteMemberModal workspaceId={id!} />
 
-                          {member.role !== 'OWNER' && member.user.id !== user?.id && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                if (confirm("Remover este membro?")) {
-                                  removeMember.mutate(member.user.id);
-                                }
-                              }}
-                            >
-                              <LogOut className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          {canCreateTask && (
             <Dialog open={isNewTaskOpen} onOpenChange={setIsNewTaskOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="w-4 h-4 mr-2" /> Nova Tarefa</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Criar Nova Tarefa</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleCreateTask} className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Título da Tarefa</Label>
-                    <Input
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder="Ex: Atualizar documentação"
-                      autoFocus
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit">Criar</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
+                <DialogTrigger asChild>
+                    <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Nova Tarefa</Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Criar Nova Tarefa</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateTask} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Título da Tarefa</Label>
+                            <Input
+                                value={newTaskTitle}
+                                onChange={(e) => setNewTaskTitle(e.target.value)}
+                                placeholder="Ex: Atualizar documentação"
+                                autoFocus
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit">Criar</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
             </Dialog>
-          )}
         </div>
       </header>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden bg-gray-50/50 p-6">
-        <div className="flex h-full gap-6 min-w-max">
-          {COLUMNS.map((col) => {
-            const colTasks = tasks?.filter((t) => t.status === col.id) || [];
+        {isLoadingTasks ? (
+           <div className="flex h-full justify-center items-center text-gray-400">
+              <Loader2 className="w-8 h-8 animate-spin mr-2" /> Carregando tarefas...
+           </div>
+        ) : (
+          <div className="flex h-full gap-6 min-w-max">
+            {COLUMNS.map((col) => {
+              const colTasks = tasks?.filter((t) => t.status === col.id) || [];
 
-            return (
-              <div key={col.id} className="w-80 flex flex-col h-full bg-gray-100/50 rounded-lg border border-gray-200">
-                <div className="p-3 font-semibold text-sm flex justify-between items-center border-b bg-gray-50 rounded-t-lg">
-                  <span className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.id === 'DONE' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                    {col.label}
-                  </span>
-                  <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{colTasks.length}</Badge>
-                </div>
+              return (
+                <div key={col.id} className="w-80 flex flex-col h-full bg-gray-100/50 rounded-lg border border-gray-200">
+                  <div className="p-3 font-semibold text-sm flex justify-between items-center border-b bg-gray-50 rounded-t-lg">
+                    <span className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${col.id === 'DONE' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                      {col.label}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{colTasks.length}</Badge>
+                  </div>
 
-                <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
-                  {colTasks.map((task: Task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      onClick={(t) => setSelectedTaskId(t.id)}
-                    />
-                  ))}
-                  {colTasks.length === 0 && (
-                    <div className="text-center py-8 text-xs text-muted-foreground border-2 border-dashed border-gray-200 rounded-md">
-                      Sem tarefas
-                    </div>
-                  )}
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+                    {colTasks.map((task: Task) => (
+                      <TaskCard
+                          key={task.id}
+                          task={task}
+                          onClick={(t) => setSelectedTaskId(t.id)}
+                      />
+                    ))}
+                    {colTasks.length === 0 && (
+                      <div className="text-center py-8 text-xs text-muted-foreground border-2 border-dashed border-gray-200 rounded-md">
+                          Sem tarefas
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <TaskModal
         isOpen={!!selectedTaskId}
         taskId={selectedTaskId}
         workspaceId={id!}
-        userRole={myRole}
+        workspaceMembers={members}
         onClose={() => setSelectedTaskId(null)}
       />
     </div>

@@ -196,10 +196,11 @@ export function UserFormDialog({
 
       onSuccess();
       onOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Verifique os dados e tente novamente.";
       toast({
         title: "Erro na operação",
-        description: err.message || "Verifique os dados e tente novamente.",
+        description: msg,
         variant: "destructive",
       });
     } finally {

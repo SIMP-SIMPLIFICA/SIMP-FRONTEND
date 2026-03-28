@@ -71,7 +71,6 @@ type UsersResponse = {
 };
 
 
-
 type ApiUserSession = {
   id: string;
   fingerprint: string | null;
@@ -173,8 +172,8 @@ export default function Users() {
       const res = await apiRequest<UsersResponse>(`/api/v1/users?page=${p}&limit=${limit}`);
       setItems(res.data);
       setPagination(res.pagination);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Ocorreu um erro.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -205,8 +204,8 @@ export default function Users() {
       toast({ title: "Sucesso", description: "Usuário removido." });
       setDeleteOpen(false);
       void fetchUsers(page);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Ocorreu um erro.", variant: "destructive" });
     } finally {
       setDeleteSubmitting(false);
     }
@@ -240,8 +239,8 @@ export default function Users() {
       } else {
         toast({ title: "Sucesso", description: res.message || "Reset iniciado." });
       }
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Ocorreu um erro.", variant: "destructive" });
     } finally {
       setResetSubmitting(false);
     }
@@ -270,8 +269,8 @@ export default function Users() {
       toast({ title: "Sucesso", description: `Usuário ${next ? "ativado" : "inativado"}.` });
       setStatusDialogOpen(false);
       void fetchUsers(page);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Ocorreu um erro.", variant: "destructive" });
     } finally {
       setStatusSubmitting(false);
     }
@@ -307,8 +306,8 @@ export default function Users() {
       await apiRequest(`/api/v1/users/${id}/sessions`, { method: "DELETE" });
       toast({ title: "Sucesso", description: "Sessões encerradas." });
       void fetchUserSessions(id);
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Ocorreu um erro.", variant: "destructive" });
     } finally {
       setTerminateAllLoading(false);
     }

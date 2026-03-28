@@ -11,6 +11,7 @@ const titleByPath: Record<string, string> = {
   "/configuracoes": "Configurações",
   "/communication": "Comunicação",
   "/processos-virtuais": "Processos Virtuais",
+  "/convenios": "Convênios",
   "/usuarios": "Usuários",
   "/roles": "Roles",
   "/profile": "Meu Perfil",

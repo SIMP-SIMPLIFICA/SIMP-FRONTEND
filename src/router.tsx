@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { PermissionGate } from "@/components/layout/PermissionGate";
 import { AuthGate } from "@/components/layout/AuthGate";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -13,6 +14,12 @@ import Placeholder from "@/pages/Placeholder";
 import Users from "@/pages/Users";
 import Roles from "@/pages/Roles";
 import Profile from "@/pages/Profile";
+import Grants from "@/pages/Grants";
+
+import FinanceiroOverview from "@/pages/financeiro/FinanceiroOverview";
+import Lancamentos from "@/pages/financeiro/Lancamentos";
+import Relatorios from "@/pages/financeiro/Relatorios";
+import Inteligencia from "@/pages/financeiro/Inteligencia";
 import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
 import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
 
@@ -26,18 +33,10 @@ import DocumentView from "@/pages/communication/DocumentView";
 import VirtualProcessesPage from "@/pages/virtual-processes/VirtualProcessesPage";
 
 export const router = createBrowserRouter([
-  {
-    path: "/login",
-    element: <Login />,
-  },
-  {
-    path: "/forgot-password",
-    element: <ForgotPassword />,
-  },
-  {
-    path: "/reset-password",
-    element: <ResetPassword />,
-  },
+  // Rotas públicas
+  { path: "/login", element: <Login /> },
+  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/reset-password", element: <ResetPassword /> },
 
   // Rota Pública de Validação (Fora do AppLayout)
   {
@@ -49,7 +48,9 @@ export const router = createBrowserRouter([
     element: <DigitalValidator />,
   },
 
+  // Rotas protegidas
   {
+    element: <ProtectedRoute />,
     children: [
       {
         element: <AuthGate />,
@@ -59,7 +60,10 @@ export const router = createBrowserRouter([
             children: [
               { path: "/", element: <Dashboard /> },
 
-              { path: "/financeiro", element: <Placeholder title="Financeiro" /> },
+              { path: "/financeiro", element: <FinanceiroOverview /> },
+              { path: "/financeiro/lancamentos", element: <Lancamentos /> },
+              { path: "/financeiro/relatorios", element: <Relatorios /> },
+              { path: "/financeiro/inteligencia", element: <Inteligencia /> },
 
               { path: "/workspaces", element: <WorkspacesPage /> },
               { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
@@ -67,7 +71,6 @@ export const router = createBrowserRouter([
               // --- MÓDULO DE COMUNICAÇÃO ---
               { path: "/communication", element: <CommunicationDashboard /> },
               { path: "/communication/create", element: <CreateDocument /> },
-              // Rota para visualização de documentos
               { path: "/communication/document/:id", element: <DocumentView /> },
               { path: "/communication/drafts", element: <Placeholder title="Rascunhos" /> },
               { path: "/communication/sent", element: <Placeholder title="Enviados" /> },
@@ -79,7 +82,10 @@ export const router = createBrowserRouter([
                 children: [{ path: "/processos-virtuais", element: <VirtualProcessesPage /> }],
               },
 
+              { path: "/convenios", element: <Grants /> },
+
               { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
+              { path: "/configuracoes", element: <Placeholder title="Configurações" /> },
 
               { path: "/profile", element: <Profile /> },
 

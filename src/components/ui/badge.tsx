@@ -1,40 +1,37 @@
 import * as React from "react"
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { cva, type VariantProps } from "class-variance-authority"
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+import { cn } from "@/lib/utils"
 
-const badgeVariants = {
-  primary: "bg-primary-50 text-primary-700 border-primary-200",
-  secondary: "bg-gray-100 text-gray-700 border-gray-200",
-  success: "bg-success-50 text-success-700 border-success-200",
-  warning: "bg-warning-50 text-warning-700 border-warning-200",
-  danger: "bg-danger-50 text-danger-700 border-danger-200",
-  gray: "bg-gray-50 text-gray-600 border-gray-200",
-}
+const badgeVariants = cva(
+  "inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  {
+    variants: {
+      variant: {
+        default:
+          "border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80",
+        secondary:
+          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        destructive:
+          "border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
+        outline: "text-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
-export type BadgeVariant = keyof typeof badgeVariants
+export interface BadgeProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof badgeVariants> {}
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: BadgeVariant
-}
-
-export function Badge({
-  className,
-  variant = "primary",
-  ...props
-}: BadgeProps) {
+export function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors",
-        "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-        badgeVariants[variant],
-        className
-      )}
-      {...props}
-    />
+    <div className={cn(badgeVariants({ variant }), className)} {...props} />
   )
 }
+
+// eslint-disable-next-line react-refresh/only-export-components
+export { badgeVariants }

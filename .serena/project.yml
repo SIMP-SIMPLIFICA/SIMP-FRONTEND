@@ -1,0 +1,28 @@
+# Serena project config — SIMP Frontend
+# Docs: https://github.com/oraios/serena
+
+project_name: simp-frontend
+
+# LSP para TypeScript/React
+language_backend: lsp
+
+# Paths ignorados na análise semântica
+ignored_paths:
+  - node_modules
+  - dist
+  - coverage
+  - .git
+  - "*.d.ts"
+  - "src/components/ui"   # shadcn gerado — raramente precisa de análise profunda
+
+# Dashboard web desabilitado em dev (pode habilitar se quiser monitorar)
+web_dashboard: false
+
+# Timeout para operações de símbolo (ms) — aumentado para TypeScript com muitos arquivos
+tool_timeout: 60
+
+# Configurações específicas para TypeScript LSP
+ls_specific_settings:
+  typescript:
+    # tsconfig do projeto
+    tsconfig: tsconfig.app.json

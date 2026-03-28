@@ -1,0 +1,66 @@
+name: Meta-Agent (Agent Maintenance)
+
+on:
+  schedule:
+    - cron: '0 9 1 * *' # Dia 1 de cada mês às 9h UTC
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Motivo da revisão manual dos agentes'
+        required: false
+        default: 'Revisão de manutenção'
+
+jobs:
+  review-agents:
+    name: Revisar e atualizar todos os agentes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Meta-Agent — Claude revisa os agentes
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom_instructions: |
+            Você é o Meta-Agent do projeto SIMP frontend. Sua missão é revisar TODOS os
+            agentes (workflows) e identificar onde estão desatualizados ou incompletos.
+
+            **O que revisar:**
+
+            1. **Versões das Actions** — Verifique versões mais recentes:
+               - actions/checkout, actions/setup-node, actions/upload-artifact
+               - github/codeql-action, trufflesecurity/trufflehog
+               - anthropics/claude-code-action
+               Compare com as versões em `.github/workflows/`.
+
+            2. **Node version** — Todos os workflows usam `node-version: '22'`?
+
+            3. **Prompts dos Review/Security agents desatualizados:**
+               Leia o código atual e compare com os `custom_instructions`:
+               - Leia `src/components/layout/AppLayout.tsx` — o padrão de layout mudou?
+               - Leia `src/components/layout/Sidebar.tsx` — há novos padrões críticos?
+               - Leia `src/hooks/useAuth.ts` e `useMe.ts` — a regra de cache ainda é a mesma?
+               - Leia `src/router.tsx` — há novas rotas que os agentes deveriam conhecer?
+               - Há novos módulos (ex: novos hooks, novos componentes de layout) que
+                 deveriam estar nos prompts dos agentes?
+
+            4. **Coverage thresholds** — Os thresholds em `vitest.config.ts` ainda são
+               adequados ou podem ser aumentados conforme o projeto cresce?
+
+            5. **Novos componentes sem testes** — Liste arquivos em `src/` (exceto `ui/`)
+               sem arquivo `.test.tsx` correspondente. Priorize hooks e utils.
+
+            6. **Scripts no package.json** — Faltam scripts úteis?
+               (ex: `test:watch`, `lint:fix`, `type-check:watch`)
+
+            **Como reportar:**
+            Abra um PR com mudanças propostas e comentário explicando cada uma.
+            Título: "chore(agents): manutenção mensal dos agentes — [MÊS/ANO]"
+
+            Responda em português.
