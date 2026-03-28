@@ -28,7 +28,7 @@ export const auditActionMap: Record<string, string> = {
     VISUALIZOU: "Visualizou o processo",
 };
 
-export function formatAuditAction(action: string, metadata?: any): string {
+export function formatAuditAction(action: string, metadata?: Record<string, unknown>): string {
     if (auditActionMap[action]) {
         const fileName = metadata?.fileName || metadata?.file?.name || metadata?.documentName;
         if (action === "ANEXOU_DOCUMENTO") {

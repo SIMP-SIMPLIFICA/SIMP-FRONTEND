@@ -27,9 +27,10 @@ export default function DigitalValidator() {
         try {
             const data = await publicApi.validate(hashToVerify);
             setResult(data);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.response?.data?.message || "Não foi possível validar o documento.");
+            const e = err as { response?: { data?: { message?: string } } };
+            setError(e.response?.data?.message || "Não foi possível validar o documento.");
             setResult({ valid: false });
         } finally {
             setLoading(false);

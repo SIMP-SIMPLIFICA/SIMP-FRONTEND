@@ -19,7 +19,7 @@ export type VirtualProcess = {
   validityEnd?: string;
   documentCount?: number;
   _count?: { documents: number };
-  documents?: any[];
+  documents?: VirtualProcessDocument[];
   createdAt: string;
   updatedAt: string;
 };
@@ -39,7 +39,7 @@ export type AuditLog = {
   id: string;
   action: string;
   createdAt: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
   user: { firstName: string; lastName: string };
 };
 
@@ -56,11 +56,13 @@ export const virtualProcessApi = {
     if (filters?.covenantNumber) params.append('covenantNumber', filters.covenantNumber);
 
     const queryString = params.toString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await api.get<any>(`/virtual-processes${queryString ? `?${queryString}` : ''}`);
     return Array.isArray(data) ? data : (data.processes || data.data || []);
   },
 
   getDetails: async (id: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res = await api.get<any>(`/virtual-processes/${id}`);
     const data = res.data;
     return {

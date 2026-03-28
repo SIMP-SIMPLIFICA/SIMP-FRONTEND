@@ -37,7 +37,7 @@ export interface CreateDocumentDTO {
     priority: Priority;
     recipients?: { userId: string; role: "TO" | "CC" | "BCC"; canSign?: boolean }[];
     attachments?: Omit<Attachment, "id">[];
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface CommunicationDocument {
@@ -54,7 +54,7 @@ export interface CommunicationDocument {
     sentAt?: string;
     userStatus?: "PENDING" | "READ" | "SIGNED";
     originalHash?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     createdBy: string;
     creator?: {
         id: string;
@@ -103,7 +103,7 @@ export interface CommunicationFilters {
 
 const BASE_URL = "/api/v1/communication";
 
-const buildQueryString = (params?: Record<string, any>) => {
+const buildQueryString = (params?: Record<string, unknown>) => {
     if (!params) return "";
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -160,6 +160,7 @@ export const communicationApi = {
         });
 
         // Garante que é um Blob válido e com tipo para o navegador
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const blob = response.data instanceof Blob ? response.data : new Blob([response.data as any]);
         const url = window.URL.createObjectURL(blob);
 

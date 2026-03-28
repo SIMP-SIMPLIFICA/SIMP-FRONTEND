@@ -33,7 +33,7 @@ export default function Settings() {
 
     // Carrega a logo atual do usuário
     useEffect(() => {
-        const logoUrl = (user?.metadata as any)?.logoUrl;
+        const logoUrl = (user?.metadata as Record<string, unknown>)?.logoUrl as string | undefined;
         if (logoUrl) {
             setLogoPreview(`${API_URL}${logoUrl}`);
         }
@@ -42,7 +42,7 @@ export default function Settings() {
     async function fetchSettings() {
         setLoading(true);
         try {
-            const data = await apiRequest<any>("/api/v1/settings/public");
+            const data = await apiRequest<{ MayorName?: string; CityAddress?: string; CoatOfArmsUrl?: string }>("/api/v1/settings/public");
             setSettings({
                 MayorName: data.MayorName || "",
                 CityAddress: data.CityAddress || "",
@@ -101,8 +101,9 @@ export default function Settings() {
             setLogoPreview(`${API_URL}${result.logoUrl}`);
             if (refreshUser) await refreshUser();
             toast({ title: "Logo atualizada!", description: "A logo será usada nos documentos gerados." });
-        } catch (error: any) {
-            toast({ title: "Erro no upload", description: error?.message || "Falha ao enviar logo.", variant: "destructive" });
+        } catch (error: unknown) {
+            const e = error as { message?: string };
+            toast({ title: "Erro no upload", description: e?.message || "Falha ao enviar logo.", variant: "destructive" });
             setLogoPreview(null);
         } finally {
             setUploadingLogo(false);
@@ -117,8 +118,9 @@ export default function Settings() {
             setLogoPreview(null);
             if (refreshUser) await refreshUser();
             toast({ title: "Logo removida", description: "A logo institucional foi removida." });
-        } catch (error: any) {
-            toast({ title: "Erro", description: error?.message || "Falha ao remover logo.", variant: "destructive" });
+        } catch (error: unknown) {
+            const e = error as { message?: string };
+            toast({ title: "Erro", description: e?.message || "Falha ao remover logo.", variant: "destructive" });
         } finally {
             setRemovingLogo(false);
         }

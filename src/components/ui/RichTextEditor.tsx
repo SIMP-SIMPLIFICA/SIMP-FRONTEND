@@ -18,35 +18,35 @@ interface RichTextEditorProps {
   disabled?: boolean
 }
 
+// Componente de botão de formatação declarado fora de qualquer render
+const FormatButton = ({
+  isActive,
+  onClick,
+  children,
+  label
+}: {
+  isActive: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  label: string
+}) => (
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    className={cn(
+      "h-8 w-8 p-0",
+      isActive ? "bg-slate-200 text-slate-900 font-bold" : "text-slate-500 hover:text-slate-900"
+    )}
+  >
+    {children}
+  </Button>
+)
+
 const Toolbar = ({ editor }: { editor: Editor | null }) => {
   if (!editor) return null
-
-  // Função auxiliar para renderizar botões de formatação
-  const FormatButton = ({ 
-    isActive, 
-    onClick, 
-    children, 
-    label 
-  }: { 
-    isActive: boolean; 
-    onClick: () => void; 
-    children: React.ReactNode; 
-    label: string 
-  }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={cn(
-        "h-8 w-8 p-0", 
-        isActive ? "bg-slate-200 text-slate-900 font-bold" : "text-slate-500 hover:text-slate-900"
-      )}
-    >
-      {children}
-    </Button>
-  )
 
   return (
     <div className="border-b bg-slate-50 p-2 flex flex-wrap gap-1 sticky top-0 z-10 items-center rounded-t-lg">

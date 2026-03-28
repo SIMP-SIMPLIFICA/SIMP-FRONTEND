@@ -122,9 +122,10 @@ export function useSignDocument() {
         variant: "default", // ou "success"
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error(error);
-      const msg = error.response?.data?.message || "Erro desconhecido";
+      const e = error as { response?: { data?: { message?: string } } };
+      const msg = e.response?.data?.message || "Erro desconhecido";
       toast({
         title: "Erro ao Assinar",
         description: msg,

@@ -81,7 +81,7 @@ export default function VirtualProcessesPage() {
 
   const createMutation = useMutation({
     mutationFn: virtualProcessApi.create,
-    onSuccess: (data: any) => {
+    onSuccess: (data: { process?: { id?: string } } | null) => {
       queryClient.invalidateQueries({ queryKey: ["virtual-processes"] });
       toast({ title: "Processo autuado com sucesso" });
       setIsCreateOpen(false);
@@ -125,8 +125,9 @@ export default function VirtualProcessesPage() {
       toast({ title: "Processo excluído com sucesso" });
       setSelectedProcessId(null);
     },
-    onError: (error: any) => {
-      const msg = error?.response?.data?.message || "Erro ao excluir processo";
+    onError: (error: unknown) => {
+      const e = error as { response?: { data?: { message?: string } } };
+      const msg = e?.response?.data?.message || "Erro ao excluir processo";
       toast({ title: msg, variant: "destructive" });
     }
   });
@@ -387,6 +388,7 @@ export default function VirtualProcessesPage() {
                     <TableRow key={proc.id} className="hover:bg-slate-50/50 transition-colors">
                       <TableCell className="font-semibold text-slate-900 border-b border-slate-100">{proc.processNumber}</TableCell>
                       <TableCell className="border-b border-slate-100">
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <Badge variant={getSourceColor(proc.source) as any}>
                           {proc.source}
                         </Badge>
@@ -624,7 +626,9 @@ export default function VirtualProcessesPage() {
                           variant="danger"
                           size="sm"
                           className="shadow-sm"
+                          // eslint-disable-next-line react-hooks/purity
                           disabled={Date.now() - new Date(details.process.createdAt).getTime() > 86400000 || deleteMutation.isPending}
+                          // eslint-disable-next-line react-hooks/purity
                           title={Date.now() - new Date(details.process.createdAt).getTime() > 86400000 ? "O prazo de 24 horas para exclusão expirou" : "Excluir Processo"}
                           onClick={() => {
                             if (confirm("Tem certeza que deseja excluir este processo?")) {
@@ -643,6 +647,7 @@ export default function VirtualProcessesPage() {
                         <Badge variant="gray">
                           {details.process.secretaria}
                         </Badge>
+                        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                         <Badge variant={getSourceColor(details.process.source) as any}>
                           {details.process.source}
                         </Badge>

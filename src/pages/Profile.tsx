@@ -78,8 +78,9 @@ export default function Profile() {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/png, image/jpeg";
-    input.onchange = async (e: any) => {
-      const file = e.target.files?.[0];
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (!file) return;
 
       if (file.size > 2 * 1024 * 1024) {
@@ -113,8 +114,9 @@ export default function Profile() {
 
         toast({ title: "Avatar atualizado", description: "Sua foto de perfil foi alterada com sucesso." });
         refreshMe();
-      } catch (err: any) {
-        toast({ title: "Erro no upload", description: err.message || "Não foi possível carregar a imagem.", variant: "destructive" });
+      } catch (err: unknown) {
+        const e2 = err as { message?: string };
+        toast({ title: "Erro no upload", description: e2.message || "Não foi possível carregar a imagem.", variant: "destructive" });
       } finally {
         setAvatarLoading(false);
       }

@@ -13,6 +13,7 @@ interface LegalReceiptModalProps {
 export const LegalReceiptModal = ({ document, onClose }: LegalReceiptModalProps) => {
     if (!document || !document.verification) return null;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { protocol, hash, url, timestamp } = document.verification as any;
 
     return (

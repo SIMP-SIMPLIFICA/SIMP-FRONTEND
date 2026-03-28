@@ -96,7 +96,7 @@ export async function apiRequest<T = unknown>(
             return apiRequest<T>(path, options);
           }
         }
-      } catch (refreshErr) {
+      } catch {
         // Silent error
       }
     }

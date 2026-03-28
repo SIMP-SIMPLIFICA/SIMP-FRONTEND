@@ -55,8 +55,9 @@ export function DocumentHeaderSettings({ onSaveSuccess }: DocumentHeaderSettings
             if (refreshUser) await refreshUser();
             toast({ title: "Logo atualizada!", description: "Será usada automaticamente nos seus documentos." });
             if (onSaveSuccess) onSaveSuccess();
-        } catch (error: any) {
-            toast({ title: "Erro no upload", description: error?.message || "Não foi possível enviar a logo.", variant: "destructive" });
+        } catch (error: unknown) {
+            const e = error as { message?: string };
+            toast({ title: "Erro no upload", description: e?.message || "Não foi possível enviar a logo.", variant: "destructive" });
             setLogoPreview(user?.metadata?.logoUrl ? `${API_URL}${user.metadata.logoUrl}` : null);
         } finally {
             setUploadingLogo(false);
@@ -71,8 +72,9 @@ export function DocumentHeaderSettings({ onSaveSuccess }: DocumentHeaderSettings
             setLogoPreview(null);
             if (refreshUser) await refreshUser();
             toast({ title: "Logo removida", description: "A logo institucional foi removida." });
-        } catch (error: any) {
-            toast({ title: "Erro", description: error?.message || "Não foi possível remover a logo.", variant: "destructive" });
+        } catch (error: unknown) {
+            const e = error as { message?: string };
+            toast({ title: "Erro", description: e?.message || "Não foi possível remover a logo.", variant: "destructive" });
         } finally {
             setRemovingLogo(false);
         }

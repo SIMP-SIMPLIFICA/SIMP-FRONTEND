@@ -58,12 +58,14 @@ export default function CreateDocument() {
   const [editorContent, setEditorContent] = useState("");
 
   // Anexos
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   // ... (Layout handlers omitted)
 
   // --- HELPER PARA NOMES ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getRecipientName = (u: any) => {
     const target = u.user || u;
     if (!target) return "Usuário Desconhecido";
@@ -82,16 +84,16 @@ export default function CreateDocument() {
       if (existingDoc.metadata?.customHeader) setCustomHeader(existingDoc.metadata.customHeader);
 
       if (existingDoc.metadata?.paragrafos) {
-        // @ts-ignore
-        const html = existingDoc.metadata.paragrafos.map((p) => `<p>${p.texto}</p>`).join("");
+        // @ts-expect-error — paragrafos is a runtime-only field not in the static type
+        const html = (existingDoc.metadata.paragrafos as Array<{ texto: string }>).map((p) => `<p>${p.texto}</p>`).join("");
         setEditorContent(html);
       } else {
         setEditorContent(existingDoc.content || "");
       }
 
       if (existingDoc.recipients) {
-        const filteredRecipients = existingDoc.recipients.filter((r: any) => r.userId !== user?.id);
-        setSelectedRecipients(filteredRecipients.map((r: any) => ({
+        const filteredRecipients = existingDoc.recipients.filter((r: { userId: string }) => r.userId !== user?.id);
+        setSelectedRecipients(filteredRecipients.map((r: { userId: string }) => ({
           userId: r.userId
         })));
       }
@@ -144,6 +146,7 @@ export default function CreateDocument() {
     setIsDirty(true);
 
     if (newRecipients.length === 1 && !customHeader && recipientsList) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const userObj = recipientsList.find((u: any) => u.id === userId);
       if (userObj) {
         const name = getRecipientName(userObj).toUpperCase();
@@ -169,7 +172,7 @@ export default function CreateDocument() {
       setAttachments(prev => [...prev, uploaded]);
       setIsDirty(true);
       toast({ title: "Anexo adicionado", description: file.name });
-    } catch (error) {
+    } catch {
       toast({ title: "Erro no upload", description: "Não foi possível enviar o arquivo.", variant: "destructive" });
     } finally {
       setIsUploading(false);
@@ -188,7 +191,7 @@ export default function CreateDocument() {
     return {
       title,
       content: editorContent || '<p><br></p>',
-      documentType: isMessageMode ? "MENSAGEM" as any : type,
+      documentType: isMessageMode ? "MENSAGEM" as DocumentType : type,
       priority: priority,
       documentNumber: finalDocNumber,
       recipients: selectedRecipients.map(r => ({ userId: r.userId, role: "TO", canSign: true })),
@@ -209,7 +212,7 @@ export default function CreateDocument() {
     setSaveStatus("SAVING");
     try {
       const payload = buildPayload();
-      let docId = editId;
+      const docId = editId;
       if (docId) {
         await updateDocument({ id: docId, data: payload });
       } else {
@@ -259,9 +262,10 @@ export default function CreateDocument() {
         setIsDirty(false);
         navigate("/communication");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const e = error as { message?: string };
       console.error("Erro ao salvar:", error);
-      toast({ title: "Erro", description: error.message || "Falha ao processar.", variant: "destructive" });
+      toast({ title: "Erro", description: e.message || "Falha ao processar.", variant: "destructive" });
     }
   };
 
@@ -302,7 +306,7 @@ export default function CreateDocument() {
       <div className="max-w-[210mm] mx-auto mt-8 bg-white shadow-lg min-h-[297mm] p-[20mm] flex flex-col relative">
         {/* LOGO (Visualização no Editor) — exibe apenas a logo do usuário, nada se não configurada */}
         {!isMessageMode && (() => {
-          const userLogoUrl = (user?.metadata as any)?.logoUrl;
+          const userLogoUrl = (user?.metadata as Record<string, unknown>)?.logoUrl as string | undefined;
           if (!userLogoUrl) return null;
           const logoSrc = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}${userLogoUrl}`;
           return (
@@ -346,6 +350,7 @@ export default function CreateDocument() {
             <Select onValueChange={addRecipient}>
               <SelectTrigger className="h-8 w-[250px] text-xs bg-white"><SelectValue placeholder="Selecione para adicionar à lista..." /></SelectTrigger>
               <SelectContent>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {recipientsList.map((u: any) => (
                   <SelectItem key={u.id} value={u.id}>
                     {getRecipientName(u)}
@@ -357,6 +362,7 @@ export default function CreateDocument() {
           <div className="flex flex-wrap gap-2 mb-4 min-h-[24px]">
             {selectedRecipients.length === 0 && <span className="text-xs text-slate-400 italic">Ninguém selecionado.</span>}
             {selectedRecipients.map(recipient => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const u = recipientsList.find((r: any) => r.id === recipient.userId);
               return (
                 <div key={recipient.userId} className="flex items-center gap-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full border border-blue-200">

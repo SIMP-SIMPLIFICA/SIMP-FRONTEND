@@ -49,8 +49,8 @@ export default function DocumentView() {
 
     // Identifica o PDF Oficial (mesma lógica do backend: o PDF mais recente)
     const officialPdf = document?.attachments
-        ?.filter((att: any) => att.fileType === 'application/pdf')
-        ?.sort((a: any, b: any) => new Date(b.uploadedAt || b.createdAt).getTime() - new Date(a.uploadedAt || a.createdAt).getTime())[0];
+        ?.filter((att: { fileType: string }) => att.fileType === 'application/pdf')
+        ?.sort((a: { uploadedAt?: string; createdAt?: string }, b: { uploadedAt?: string; createdAt?: string }) => new Date(b.uploadedAt || b.createdAt || "").getTime() - new Date(a.uploadedAt || a.createdAt || "").getTime())[0];
 
     // Carrega prévia segura via Backend (usa o novo endpoint para pegar o PDF principal)
     useEffect(() => {
@@ -116,13 +116,13 @@ export default function DocumentView() {
         }
     }, [document?.currentUserHasSigned, isAutoSigning]);
 
-    const handleDownload = async (attachment: any) => {
+    const handleDownload = async (attachment: { id: string; fileName: string }) => {
         if (!document) return;
         try {
             setDownloadingId(attachment.id);
             await communicationApi.downloadAttachment(document.id, attachment.id, attachment.fileName);
             toast({ title: "Sucesso", description: "Download iniciado." });
-        } catch (error) {
+        } catch {
             toast({ title: "Erro", description: "Falha ao baixar.", variant: "destructive" });
         } finally {
             setDownloadingId(null);
@@ -262,12 +262,12 @@ export default function DocumentView() {
                                     <div className="flex items-start gap-2">
                                         <span className="w-12 font-medium text-slate-500 pt-1">Para:</span>
                                         <div className="flex flex-wrap gap-1">
-                                            {document.recipients?.filter((r: any) => r.userId !== document.createdBy).map((r: any) => (
+                                            {document.recipients?.filter((r: { userId: string }) => r.userId !== document.createdBy).map((r: { id: string; user?: { firstName?: string; lastName?: string } }) => (
                                                 <Badge key={r.id} variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-100">
                                                     {r.user?.firstName} {r.user?.lastName}
                                                 </Badge>
                                             ))}
-                                            {(!document.recipients || document.recipients.filter((r: any) => r.userId !== document.createdBy).length === 0) && (
+                                            {(!document.recipients || document.recipients.filter((r: { userId: string }) => r.userId !== document.createdBy).length === 0) && (
                                                 <span className="text-slate-400 italic text-sm py-1">Sem destinatários</span>
                                             )}
                                         </div>
@@ -290,7 +290,7 @@ export default function DocumentView() {
                                         <Paperclip className="h-4 w-4" /> Anexos ({document.attachments.length})
                                     </h4>
                                     <div className="flex flex-wrap gap-3">
-                                        {document.attachments.map((att: any) => (
+                                        {document.attachments.map((att: { id: string; fileName: string; fileType: string; uploadedAt?: string; createdAt?: string }) => (
                                             <Button
                                                 key={att.id}
                                                 variant="secondary"
@@ -345,7 +345,7 @@ export default function DocumentView() {
                         <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Clock className="h-4 w-4" /> Rastreamento</CardTitle></CardHeader>
                         <CardContent>
                             <div className="relative pl-4 border-l-2 border-slate-100 space-y-6 ml-1 py-1">
-                                {timelineEvents.map((step: any, idx: number) => (
+                                {timelineEvents.map((step: { description?: string; event?: string; timestamp?: string; date?: string; user?: { firstName: string; lastName: string } }, idx: number) => (
                                     <div key={idx} className="relative">
                                         <span className={`absolute -left-[21px] top-1 h-3 w-3 rounded-full border-2 bg-blue-500 border-blue-500`} />
                                         <div className="flex flex-col">
@@ -365,7 +365,7 @@ export default function DocumentView() {
                         <Card>
                             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><Paperclip className="h-4 w-4" /> Anexos</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
-                                {document.attachments.map((att: any) => (
+                                {document.attachments.map((att: { id: string; fileName: string; fileType: string; uploadedAt?: string; createdAt?: string }) => (
                                     <button
                                         key={att.id}
                                         onClick={() => handleDownload(att)}
@@ -392,7 +392,7 @@ export default function DocumentView() {
                         <Card>
                             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex gap-2"><ShieldCheck className="h-4 w-4" /> Assinaturas Digitais</CardTitle></CardHeader>
                             <CardContent className="space-y-2">
-                                {document.signatures.map((sig: any) => (
+                                {document.signatures.map((sig: { id: string; signedAt: string; user?: { firstName?: string; lastName?: string }; sealData?: { hash?: string } }) => (
                                     <div key={sig.id} className="flex flex-col gap-1 text-xs bg-green-50 text-green-700 p-3 rounded border border-green-200">
                                         <div className="flex items-center gap-2 font-bold">
                                             <ShieldCheck className="h-3 w-3" />

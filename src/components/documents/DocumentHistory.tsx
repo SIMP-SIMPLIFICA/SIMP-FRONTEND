@@ -1,9 +1,9 @@
 import { CheckCircle2, FileText, Send, Eye } from "lucide-react";
-// @ts-ignore
-import type { CommunicationDocument } from "@/lib/services/communication";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function DocumentHistory({ document }: { document: any }) {
   if (!document) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events: any[] = [];
   // Use o array 'auditTrail' que o backend agora retorna, ou monte manualmente se preferir
   const sourceEvents = document.auditTrail || [];
@@ -26,6 +26,7 @@ export function DocumentHistory({ document }: { document: any }) {
     }
   } else {
     // USANDO O NOVO AUDIT TRAIL DO BACKEND
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sourceEvents.forEach((ev: any) => {
       let icon = <FileText className="h-4 w-4 text-slate-500" />;
       let actionText = "EVENTO REGISTRADO";
