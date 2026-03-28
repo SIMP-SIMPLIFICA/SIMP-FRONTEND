@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   LogOut,
   User,
+  HandCoins,
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -94,6 +95,11 @@ export default function Sidebar() {
         to: "/roles",
         icon: <Shield className="h-5 w-5" />,
         anyOf: ["roles:read", "roles:manage"],
+      },
+      {
+        label: "Convênios",
+        to: "/convenios",
+        icon: <HandCoins className="h-5 w-5" />,
       },
     ],
     []
