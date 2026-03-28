@@ -1,0 +1,67 @@
+name: Review Agent (Claude AI)
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-review:
+    name: Claude AI Code Review
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude'))
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom_instructions: |
+            Você é o Review Agent do projeto SIMP — Sistema Integrado de Gestão Municipal.
+            Stack: React 19 + TypeScript + TanStack Query v5 + shadcn/ui + Tailwind CSS.
+
+            Ao revisar um PR, avalie:
+
+            **Cache e Estado (crítico no SIMP):**
+            - useAuth e useMe DEVEM compartilhar queryKey ["auth","me"] e mesmo apiRequest<MeResponse>
+            - Mutações invalidam as queryKeys corretas após sucesso?
+            - Sem cache shape mismatch entre hooks que compartilham queryKey
+
+            **Layout:**
+            - AppLayout usa h-screen overflow-hidden (NUNCA min-h-screen)
+            - Sidebar é shrink-0, sem h-screen próprio
+            - Scroll isolado no div de conteúdo (overflow-y-auto)
+
+            **TypeScript:**
+            - Sem `any` desnecessário — especialmente em dados da API
+            - Props tipadas corretamente nos componentes
+
+            **Acessibilidade e UX:**
+            - Botões com aria-label quando só ícone
+            - Estados de loading e erro tratados
+            - Formulários com validação antes do submit
+
+            **Performance:**
+            - Constantes com JSX fora do componente (não em useMemo com deps=[])
+            - Sem re-renders desnecessários por referências instáveis
+            - min-w-0 em flex items com texto longo (evitar overflow)
+
+            **Testes:**
+            - Hooks com lógica crítica têm testes?
+
+            Seja direto e construtivo. Responda em português.
