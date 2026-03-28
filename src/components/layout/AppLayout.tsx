@@ -15,17 +15,15 @@ export function AppLayout() {
   const title = titleByPath[location.pathname] ?? "SIMP";
 
   return (
-    <div className="min-h-screen bg-[#F6F8FC]">
-      <div className="flex min-h-screen">
-        <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-[#F6F8FC]">
+      <Sidebar />
 
-        <main className="flex-1">
-          <Topbar title={title} />
-          <div className="p-6">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <Topbar title={title} />
+        <div className="flex-1 overflow-y-auto p-6">
+          <Outlet />
+        </div>
+      </main>
     </div>
   );
 }

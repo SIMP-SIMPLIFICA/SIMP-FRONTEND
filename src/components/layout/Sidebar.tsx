@@ -149,7 +149,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cx(
-        "h-screen bg-[#0A5BC4] text-white flex flex-col",
+        "bg-[#0A5BC4] text-white flex flex-col shrink-0",
         collapsed ? "w-[88px]" : "w-[280px]"
       )}
     >
