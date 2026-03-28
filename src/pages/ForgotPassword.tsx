@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, LayoutGrid, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LayoutGrid, Loader2 } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -36,76 +36,86 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-[#0A5BC4] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md rounded-3xl border-slate-200 p-8 shadow-xl">
-        <div className="mb-6 flex justify-center">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0A5BC4]/10">
-            <LayoutGrid className="h-6 w-6 text-[#0A5BC4]" />
+      <div className="w-full max-w-md">
+
+        {/* Logo */}
+        <div className="mb-6 flex items-center justify-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur-sm">
+            <LayoutGrid className="h-5 w-5 text-white" />
           </div>
+          <span className="text-xl font-semibold tracking-wide text-white">SIMP</span>
         </div>
 
-        <h2 className="text-center text-2xl font-semibold text-slate-900">
-          Recuperar Senha
-        </h2>
-        
-        {!success ? (
-          <>
-            <p className="mt-2 text-center text-sm text-slate-500">
-              Informe seu e-mail institucional para receber as instruções.
-            </p>
-
-            <form onSubmit={onSubmit} className="mt-8 space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">E-mail</label>
-                <Input
-                  type="email"
-                  className="h-11 rounded-2xl"
-                  placeholder="exemplo@prefeitura.gov.br"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+        <Card className="rounded-3xl border-slate-200 p-8 shadow-sm">
+          {!success ? (
+            <>
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">Recuperar senha</h2>
+                <p className="mt-1.5 text-sm text-slate-500">
+                  Informe seu e-mail institucional e enviaremos as instruções de recuperação.
+                </p>
               </div>
 
-              <Button
-                type="submit"
-                className="h-11 w-full rounded-2xl bg-[#0A5BC4] hover:bg-[#094FA8]"
-                disabled={loading}
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Enviar Link
-              </Button>
-            </form>
-          </>
-        ) : (
-          <div className="mt-6 text-center animate-in fade-in zoom-in duration-300">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h3 className="text-lg font-medium text-slate-900">Verifique seu e-mail</h3>
-            <p className="mt-2 text-sm text-slate-500">
-              Enviamos um link de recuperação para <strong>{email}</strong>.
-            </p>
-            <Button
-              variant="outline"
-              className="mt-6 h-11 w-full rounded-2xl"
-              onClick={() => setSuccess(false)}
-            >
-              Tentar outro e-mail
-            </Button>
-          </div>
-        )}
+              <form onSubmit={onSubmit} className="mt-7 space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-slate-700">E-mail Institucional</label>
+                  <Input
+                    type="email"
+                    className="h-11 rounded-xl"
+                    placeholder="exemplo@prefeitura.gov.br"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    autoComplete="email"
+                  />
+                </div>
 
-        <div className="mt-6 text-center">
-          <Link
-            to="/login"
-            className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-[#0A5BC4]"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para o Login
-          </Link>
-        </div>
-      </Card>
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-xl bg-[#0A5BC4] text-sm font-medium hover:bg-[#094FA8] transition-colors"
+                  disabled={loading}
+                >
+                  {loading
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+                    : "Enviar link de recuperação"
+                  }
+                </Button>
+              </form>
+            </>
+          ) : (
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Verifique seu e-mail</h3>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">
+                Enviamos um link de recuperação para{" "}
+                <span className="font-medium text-slate-700">{email}</span>.
+                <br />Verifique também a caixa de spam.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-6 h-11 w-full rounded-xl"
+                onClick={() => { setSuccess(false); setEmail(""); }}
+              >
+                Tentar outro e-mail
+              </Button>
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-center border-t border-slate-100 pt-5">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#0A5BC4] transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para o login
+            </Link>
+          </div>
+        </Card>
+
+      </div>
     </div>
   );
 }
