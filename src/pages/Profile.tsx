@@ -89,8 +89,8 @@ export default function Profile() {
       });
       toast({ title: "Perfil atualizado", description: "Suas informações foram salvas." });
       refreshMe(); // Atualiza o contexto global
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Erro ao atualizar perfil.", variant: "destructive" });
     } finally {
       setProfileLoading(false);
     }
@@ -113,8 +113,8 @@ export default function Profile() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Erro ao alterar senha.", variant: "destructive" });
     } finally {
       setPassLoading(false);
     }
@@ -138,8 +138,8 @@ export default function Profile() {
       await apiRequest(`/api/v1/auth/sessions/${id}`, { method: "DELETE" });
       toast({ title: "Sessão encerrada" });
       void fetchSessions();
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Erro ao encerrar sessão.", variant: "destructive" });
     }
   }
 
@@ -148,8 +148,8 @@ export default function Profile() {
       await apiRequest("/api/v1/auth/sessions", { method: "DELETE" });
       toast({ title: "Sucesso", description: "Todas as outras sessões foram encerradas." });
       void fetchSessions();
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Erro", description: err instanceof Error ? err.message : "Erro ao encerrar sessões.", variant: "destructive" });
     }
   }
 

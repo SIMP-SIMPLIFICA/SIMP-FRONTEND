@@ -59,7 +59,7 @@ export function GrantConfigDialog({ open, onOpenChange, onSuccess }: GrantConfig
     try {
       await apiRequest("/api/v1/grants/reset", { method: "POST" });
       toast({ title: "Limpeza Concluída", description: "Todos os dados foram apagados." });
-    } catch (err) {
+    } catch {
       toast({ title: "Erro", description: "Falha ao limpar banco.", variant: "destructive" });
     } finally {
       setResetting(false);
@@ -85,7 +85,7 @@ export function GrantConfigDialog({ open, onOpenChange, onSuccess }: GrantConfig
         onSuccess({ startDate, endDate, status });
       }
       onOpenChange(false);
-    } catch (err) {
+    } catch {
       toast({ title: "Erro", description: "Não foi possível salvar.", variant: "destructive" });
     } finally {
       setLoading(false);

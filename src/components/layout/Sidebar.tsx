@@ -123,7 +123,7 @@ export default function Sidebar() {
   // Keep submenu open when navigating into any /financeiro/* route
   useEffect(() => {
     if (location.pathname.startsWith("/financeiro")) {
-      setFinanceOpen(true);
+      setTimeout(() => setFinanceOpen(true), 0);
     }
   }, [location.pathname]);
 

@@ -50,7 +50,7 @@ export async function apiRequest<T = unknown>(
   });
 
   const contentType = res.headers.get("content-type") || "";
-  let data: any;
+  let data: unknown;
 
   if (contentType.includes("application/json")) {
     data = await res.json().catch(() => ({}));
@@ -113,21 +113,21 @@ export const api = {
   get: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
     
-  post: <T>(path: string, body: any, options?: ApiOptions) => 
+  post: <T>(path: string, body: unknown, options?: ApiOptions) =>
     apiRequest<T>(path, { 
       ...options, 
       method: "POST", 
       body: body instanceof FormData ? body : JSON.stringify(body) 
     }).then(data => ({ data })),
     
-  put: <T>(path: string, body: any, options?: ApiOptions) => 
+  put: <T>(path: string, body: unknown, options?: ApiOptions) =>
     apiRequest<T>(path, { 
       ...options, 
       method: "PUT", 
       body: body instanceof FormData ? body : JSON.stringify(body) 
     }).then(data => ({ data })),
 
-  patch: <T>(path: string, body: any, options?: ApiOptions) => 
+  patch: <T>(path: string, body: unknown, options?: ApiOptions) =>
     apiRequest<T>(path, { 
       ...options, 
       method: "PATCH", 

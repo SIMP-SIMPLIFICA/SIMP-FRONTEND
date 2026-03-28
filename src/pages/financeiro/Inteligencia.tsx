@@ -158,14 +158,16 @@ export default function Inteligencia() {
     }
 
     // Chart Formatters
-    const CustomTooltip = ({ active, payload, label }: any) => {
+    interface TooltipEntry { dataKey: string; name: string; value: number; color: string }
+    interface TooltipProps { active?: boolean; payload?: TooltipEntry[]; label?: string }
+    const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
         if (active && payload && payload.length) {
             return (
                 <div className="bg-white p-3 border border-slate-200 shadow-xl rounded-2xl">
                     <p className="text-sm font-semibold text-slate-800 mb-2">{label}</p>
-                    {payload.map((entry: any, index: number) => {
+                    {payload.map((entry: TooltipEntry, index: number) => {
                         // Skip rendering both if it's the connection point (Current month has both)
-                        if (entry.dataKey.includes("Proj") && payload.find((p: any) => p.dataKey === entry.dataKey.replace("Proj", ""))) return null;
+                        if (entry.dataKey.includes("Proj") && payload.find((p: TooltipEntry) => p.dataKey === entry.dataKey.replace("Proj", ""))) return null;
 
                         let name = entry.name;
                         if (entry.dataKey === "receitasProj") name = "Receitas Previstas";

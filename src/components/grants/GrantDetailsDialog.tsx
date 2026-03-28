@@ -48,7 +48,7 @@ export function GrantDetailsDialog({ open, onOpenChange, grantId }: GrantDetails
     try {
       const res = await apiRequest<Grant>(`/api/v1/grants/${grantId}`);
       setGrant(res);
-    } catch (err) {
+    } catch {
       toast({ title: "Erro", description: "Falha ao carregar detalhes.", variant: "destructive" });
       onOpenChange(false);
     } finally {
@@ -69,7 +69,7 @@ export function GrantDetailsDialog({ open, onOpenChange, grantId }: GrantDetails
       
       setGrant(prev => prev ? { ...prev, notes: [newNote, ...prev.notes] } : null);
       setNoteText("");
-    } catch (err) {
+    } catch {
       toast({ title: "Erro", description: "Não foi possível salvar a nota.", variant: "destructive" });
     } finally {
       setSendingNote(false);

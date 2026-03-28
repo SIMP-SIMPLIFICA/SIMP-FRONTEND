@@ -205,9 +205,9 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
 
             toast({ title: "Sucesso", description: entry ? "Lançamento atualizado." : "Lançamento criado." });
             onSuccessSave();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Save entry error:", error);
-            toast({ title: "Erro", description: error?.message || "Ocorreu um erro ao salvar.", variant: "destructive" });
+            toast({ title: "Erro", description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar.", variant: "destructive" });
         } finally {
             setIsSaving(false);
         }

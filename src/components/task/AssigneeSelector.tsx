@@ -39,8 +39,11 @@ export function AssigneeSelector({ taskId, currentAssignees, onUpdate, members }
       await taskService.addAssignee(taskId, userId);
       setIsSelecting(false);
       onUpdate(); 
-    } catch (error: any) {
-      alert(error.response?.data?.message || "Erro ao adicionar membro");
+    } catch (error: unknown) {
+      const msg = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined;
+      alert(msg || "Erro ao adicionar membro");
     } finally {
       setLoading(false);
     }
@@ -52,7 +55,7 @@ export function AssigneeSelector({ taskId, currentAssignees, onUpdate, members }
       setLoading(true);
       await taskService.removeAssignee(taskId, userId);
       onUpdate();
-    } catch (error) {
+    } catch {
       alert("Erro ao remover membro");
     } finally {
       setLoading(false);

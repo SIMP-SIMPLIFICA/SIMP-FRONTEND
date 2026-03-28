@@ -52,7 +52,7 @@ export default function Login() {
       if (typeof err === "string") {
         msg = err;
       } else if (err && typeof err === "object") {
-        const e = err as any;
+        const e = err as { message?: string; error?: string };
         msg = e.message || e.error || msg;
       }
       toast({ title: "Falha no login", description: msg, variant: "destructive" });

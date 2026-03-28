@@ -29,7 +29,7 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
-  workspaceMembers: any[];
+  workspaceMembers: unknown[];
 }
 
 const API_URL = "http://localhost:3000"; 
@@ -47,7 +47,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
 
   useEffect(() => {
     if (task) {
-      setDescription(task.description || "");
+      setTimeout(() => setDescription(task.description || ""), 0);
     }
   }, [task]);
 
@@ -66,12 +66,12 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
 
   const handleStatusChange = (newStatus: string) => {
      if (!task) return;
-     updateTask({ id: task.id, status: newStatus as any });
+     updateTask({ id: task.id, status: newStatus as string });
   };
 
   const handlePriorityChange = (newPriority: string) => {
      if (!task) return;
-     updateTask({ id: task.id, priority: newPriority as any });
+     updateTask({ id: task.id, priority: newPriority as string });
   };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {

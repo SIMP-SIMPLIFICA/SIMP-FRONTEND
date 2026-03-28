@@ -44,7 +44,7 @@ export default function Dashboard() {
 
   const { totalIncome, totalExpense } = useMemo(() => {
     let inc = 0, exp = 0;
-    entries.forEach((e: any) => {
+    entries.forEach((e: { type: string; amountCents: number }) => {
       if (e.type === "INCOME") inc += e.amountCents;
       if (e.type === "EXPENSE") exp += e.amountCents;
     });

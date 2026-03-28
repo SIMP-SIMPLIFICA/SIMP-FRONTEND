@@ -40,7 +40,9 @@ export default function WorkspaceDetailPage() {
   
   // CORREÇÃO CRÍTICA: Tentativa robusta de pegar o ID
   // Às vezes a API retorna { id: ... } direto, às vezes { data: { id: ... } }
-  const currentUserId = (userData as any)?.id || (userData as any)?.data?.id || (userData as any)?.user?.id;
+  const currentUserId = (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.id
+    || (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.data?.id
+    || (userData as { id?: string; data?: { id?: string }; user?: { id?: string } } | undefined)?.user?.id;
 
   // 2. Busca dados do workspace
   const { data: workspace, isLoading: isLoadingWorkspace } = useQuery<Workspace>({
@@ -71,9 +73,8 @@ export default function WorkspaceDetailPage() {
       try {
         await workspaceService.deleteWorkspace(id);
         navigate("/workspaces");
-      } catch (error) {
+      } catch {
         alert("Erro ao excluir workspace.");
-        console.error(error);
       }
     }
   };
@@ -88,7 +89,7 @@ export default function WorkspaceDetailPage() {
         try {
             await workspaceService.removeMember(id, currentUserId);
             navigate("/workspaces");
-        } catch (error) {
+        } catch {
             alert("Erro ao sair do workspace.");
         }
     }

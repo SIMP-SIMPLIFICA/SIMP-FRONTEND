@@ -43,10 +43,10 @@ export default function ResetPassword() {
       });
       toast({ title: "Senha alterada!", description: "Você já pode fazer login com a nova senha." });
       navigate("/login");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Erro",
-        description: err.message || "Token inválido ou expirado.",
+        description: err instanceof Error ? err.message : "Token inválido ou expirado.",
         variant: "destructive",
       });
     } finally {

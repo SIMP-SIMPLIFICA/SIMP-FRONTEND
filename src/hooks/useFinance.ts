@@ -3,7 +3,7 @@ import { financeService } from "../lib/api/finance";
 import type { FinanceEntry } from "../pages/financeiro/types";
 import { useWorkspaces } from "./useWorkspaces";
 
-export function useFinanceEntries(workspaceId: string | undefined, filters?: any) {
+export function useFinanceEntries(workspaceId: string | undefined, filters?: Record<string, unknown>) {
     const { data: workspaces } = useWorkspaces();
     const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
 
@@ -41,7 +41,7 @@ export function useCreateFinanceEntry(workspaceId: string | undefined) {
             if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
             return financeService.createEntry(resolvedWorkspaceId, data);
         },
-        onSuccess: (_, variables, context) => {
+        onSuccess: () => {
             const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
             queryClient.invalidateQueries({ queryKey: ["financeEntries", resolvedWorkspaceId] });
         },

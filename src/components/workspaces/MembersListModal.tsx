@@ -21,7 +21,7 @@ interface Member {
 
 interface MembersListModalProps {
   workspaceId: string;
-  members: any[];
+  members: Member[];
   currentUserId?: string;
 }
 
@@ -46,14 +46,17 @@ export function MembersListModal({ workspaceId, members, currentUserId }: Member
       } else {
           queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      alert(error.response?.data?.message || "Erro ao realizar a ação.");
+      const msg = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Erro ao realizar a ação."
+        : "Erro ao realizar a ação.";
+      alert(msg);
     }
   };
 
   // Lógica de Permissões
-  const myMembership = members.find((m: Member) => m.userId === currentUserId);
+  const myMembership = members.find((m) => m.userId === currentUserId);
   const myRole = myMembership?.role;
   const canManage = myRole === 'OWNER' || myRole === 'ADMIN';
 
@@ -74,7 +77,7 @@ export function MembersListModal({ workspaceId, members, currentUserId }: Member
           </div>
         </DialogHeader>
         <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
-          {members.map((member: Member) => {
+          {members.map((member) => {
             const isMe = member.userId === currentUserId;
             const isTargetOwner = member.role === 'OWNER';
 

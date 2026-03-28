@@ -45,7 +45,7 @@ export default function FinanceiroOverview() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("month");
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const onPieEnter = (_: any, index: number) => {
+  const onPieEnter = (_: unknown, index: number) => {
     setActiveIndex(index);
   };
 
@@ -264,7 +264,7 @@ export default function FinanceiroOverview() {
                   tickFormatter={(value) => value === 0 ? '0' : `R$ ${Math.round(value / 1000)}k`}
                 />
                 <Tooltip
-                  formatter={(value: any) => formatCurrency(Number(value))}
+                  formatter={(value: number | string) => formatCurrency(Number(value))}
                   cursor={{ fill: '#f1f5f9' }}
                   contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)', padding: '12px 16px' }}
                   itemStyle={{ fontWeight: 600, fontSize: '14px' }}
@@ -305,6 +305,7 @@ export default function FinanceiroOverview() {
                     <Pie
                       {...({
                         activeIndex,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         activeShape: (props: any) => {
                           const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
                           return (
@@ -333,6 +334,7 @@ export default function FinanceiroOverview() {
                             </g>
                           );
                         }
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       } as any)}
                       data={expenseChartData}
                       cx="50%"
@@ -351,7 +353,7 @@ export default function FinanceiroOverview() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: any) => formatCurrency(Number(value))}
+                      formatter={(value: number | string) => formatCurrency(Number(value))}
                       contentStyle={{ borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px -5px rgba(0,0,0,0.1)', padding: '12px 16px' }}
                       itemStyle={{ color: '#0f172a', fontWeight: 600, fontSize: '14px' }}
                       labelStyle={{ color: '#64748b', fontSize: '12px', marginBottom: '4px' }}

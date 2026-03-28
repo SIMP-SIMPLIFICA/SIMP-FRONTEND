@@ -23,10 +23,10 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Erro",
-        description: err.message || "Não foi possível enviar o e-mail.",
+        description: err instanceof Error ? err.message : "Não foi possível enviar o e-mail.",
         variant: "destructive",
       });
     } finally {

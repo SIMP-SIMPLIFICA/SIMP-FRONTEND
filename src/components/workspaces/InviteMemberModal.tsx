@@ -25,9 +25,11 @@ export function InviteMemberModal({ workspaceId }: InviteMemberModalProps) {
       alert("Usuário adicionado com sucesso!");
       setEmail("");
       setOpen(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Se o erro vier do backend
-        const msg = error.response?.data?.message || "Erro ao convidar usuário.";
+        const msg = error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Erro ao convidar usuário."
+          : "Erro ao convidar usuário.";
         alert(msg);
     } finally {
       setLoading(false);

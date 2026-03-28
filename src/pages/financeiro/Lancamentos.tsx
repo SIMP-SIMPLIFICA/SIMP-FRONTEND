@@ -54,7 +54,7 @@ export default function Lancamentos() {
   const { workspaceId } = useParams();
   const { data: workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces();
   const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-  const activeWorkspaceName = workspaces?.find((w: any) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
+  const activeWorkspaceName = workspaces?.find((w: { id: string; name: string }) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
 
   const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
   const { mutate: deleteEntry } = useDeleteFinanceEntry(resolvedWorkspaceId);

@@ -71,6 +71,7 @@ export default function Relatorios() {
     }
 
     // Process & Aggregate Data
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const aggregatedData = useMemo(() => {
         // 1. Filter raw data
         let filtered = entries;
