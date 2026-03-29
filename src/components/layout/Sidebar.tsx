@@ -5,7 +5,6 @@ import {
   BarChart3,
   Briefcase,
   BookOpen,
-  Settings,
   Users,
   Shield,
   ChevronLeft,
@@ -16,6 +15,10 @@ import {
   Receipt,
   FileText,
   Brain,
+  FolderArchive,
+  Settings,
+  X,
+  Wrench,
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -60,6 +63,22 @@ const NAV_ITEMS: NavItem[] = [
     icon: <Briefcase className="h-5 w-5" />,
   },
   {
+    label: "Comunicação",
+    to: "/communication",
+    icon: <FileText className="h-5 w-5" />,
+  },
+  {
+    label: "Processos Virtuais",
+    to: "/processos-virtuais",
+    icon: <FolderArchive className="h-5 w-5" />,
+    anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
+  },
+  {
+    label: "Convênios",
+    to: "/convenios",
+    icon: <HandCoins className="h-5 w-5" />,
+  },
+  {
     label: "Biblioteca",
     to: "/biblioteca",
     icon: <BookOpen className="h-5 w-5" />,
@@ -87,9 +106,9 @@ const NAV_ITEMS: NavItem[] = [
     anyOf: ["roles:read", "roles:manage"],
   },
   {
-    label: "Convênios",
-    to: "/convenios",
-    icon: <HandCoins className="h-5 w-5" />,
+    label: "Utilidades",
+    to: "/utilidades",
+    icon: <Wrench className="h-5 w-5" />,
   },
 ];
 
@@ -107,7 +126,12 @@ const ACTIVE_ITEM = "bg-white/12 ring-1 ring-white/15";
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  setMobileOpen?: (open: boolean) => void;
+}
+
+export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data } = useMe(true);
@@ -120,10 +144,15 @@ export default function Sidebar() {
     location.pathname.startsWith("/financeiro")
   );
 
+  // Fecha o menu mobile ao mudar de rota
+  useEffect(() => {
+    if (setMobileOpen) setMobileOpen(false);
+  }, [location.pathname, setMobileOpen]);
+
   // Keep submenu open when navigating into any /financeiro/* route
   useEffect(() => {
     if (location.pathname.startsWith("/financeiro")) {
-      setFinanceOpen(true);
+      setTimeout(() => setFinanceOpen(true), 0);
     }
   }, [location.pathname]);
 
@@ -146,26 +175,46 @@ export default function Sidebar() {
     return hasAnyPermission(data, item.anyOf);
   });
 
-  return (
-    <aside
+  const sidebarContent = (
+    <div
       className={cx(
-        "bg-[#0A5BC4] text-white flex flex-col shrink-0",
+        "h-full bg-[#0A5BC4] text-white flex flex-col transition-all duration-300 ease-in-out shadow-xl relative",
         collapsed ? "w-[88px]" : "w-[280px]"
       )}
     >
+      {/* Glow Effect Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[30%] bg-white/5 blur-[100px] rounded-full" />
+        <div className="absolute bottom-[5%] right-0 w-[30%] h-[20%] bg-blue-400/10 blur-[80px] rounded-full" />
+      </div>
+
       {/* Logo */}
-      <div className="flex h-16 shrink-0 items-center gap-3 px-6">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/15">
-          <LayoutGrid className="h-5 w-5" />
+      <div className="flex h-16 items-center justify-between px-6 shrink-0 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 shadow-inner">
+            <LayoutGrid className="h-5 w-5" />
+          </div>
+          {!collapsed && (
+            <div className="text-xl font-bold tracking-tight bg-gradient-to-br from-white to-white/70 bg-clip-text text-transparent">
+              SIMP
+            </div>
+          )}
         </div>
-        {!collapsed && (
-          <span className="text-xl font-semibold tracking-wide">SIMP</span>
+
+        {/* Mobile Close Button */}
+        {setMobileOpen && (
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-4 pt-4">
-        <ul className="space-y-1">
+      <nav className="flex-1 px-3 mt-4 overflow-y-auto no-scrollbar relative z-10">
+        <ul className="space-y-1.5">
           {visibleItems.map((item) => {
             // ── Item with submenu ──────────────────────────────────────────
             if (item.children) {
@@ -269,10 +318,10 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 space-y-2 px-4 pb-5">
+      <div className="p-3 mt-auto space-y-1.5 relative z-10 border-t border-white/5">
         <button
           onClick={toggleCollapsed}
-          className={cx(BASE_ITEM, "w-full bg-transparent")}
+          className={cx(BASE_ITEM, "hidden lg:flex w-full bg-transparent")}
         >
           <ChevronLeft
             className={cx(
@@ -280,7 +329,7 @@ export default function Sidebar() {
               collapsed ? "rotate-180" : ""
             )}
           />
-          {!collapsed && <span className="font-semibold">Recolher</span>}
+          {!collapsed && <span className="font-medium text-sm">Recolher</span>}
         </button>
 
         <button
@@ -289,10 +338,45 @@ export default function Sidebar() {
         >
           <LogOut className="h-5 w-5 shrink-0 text-red-200" />
           {!collapsed && (
-            <span className="font-semibold text-red-100">Sair</span>
+            <span className="font-medium text-sm">Sair</span>
           )}
         </button>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block h-screen shrink-0 sticky top-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Drawer */}
+      <div
+        className={cx(
+          "fixed inset-0 z-[100] transition-opacity duration-300 lg:hidden",
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+      >
+        {/* Overlay */}
+        <div
+          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen?.(false)}
+        />
+
+        {/* Drawer Content */}
+        <div
+          className={cx(
+            "absolute inset-y-0 left-0 transition-transform duration-300 ease-out shadow-2xl",
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <div className="h-full w-[280px]">
+            {sidebarContent}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
