@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, ArrowDownRight, DollarSign, Clock, FileText, ChevronRight, Loader2, HeartPulse, HardHat, Car, Home } from "lucide-react";

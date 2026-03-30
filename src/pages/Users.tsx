@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
-import { Search, Power, Eye, RefreshCw, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
+import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -17,7 +18,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -70,6 +70,7 @@ type UsersResponse = {
   pagination: ApiPagination;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type PatchUserStatusBody = {
   isActive: boolean;
   reason?: string;

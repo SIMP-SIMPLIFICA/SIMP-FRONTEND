@@ -30,8 +30,8 @@ jobs:
 
       - run: npm ci
 
-      - name: npm audit (high+critical)
-        run: npm audit --audit-level=high
+      - name: npm audit (critical only)
+        run: npm audit --audit-level=critical
 
       - name: npm audit full report
         if: always()

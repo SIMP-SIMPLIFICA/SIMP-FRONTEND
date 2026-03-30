@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, RefreshCw, Shield, AlertTriangle, Layers, Lock, Users as UsersIcon, Settings } from "lucide-react";
+import { Search, Plus, RefreshCw, Shield, AlertTriangle, Layers, Lock, Settings } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";

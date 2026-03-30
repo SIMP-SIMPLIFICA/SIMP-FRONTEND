@@ -43,6 +43,7 @@ export default function ResetPassword() {
       });
       toast({ title: "Senha alterada!", description: "Você já pode fazer login com a nova senha." });
       navigate("/login");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({
         title: "Erro",
