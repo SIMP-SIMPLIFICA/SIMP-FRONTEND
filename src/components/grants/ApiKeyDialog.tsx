@@ -36,7 +36,7 @@ export function ApiKeyDialog({ open, onOpenChange, onSuccess }: ApiKeyDialogProp
       toast({ title: "Sucesso", description: "Chave de acesso configurada!" });
       onSuccess();
       onOpenChange(false);
-    } catch (err) {
+    } catch {
       toast({ title: "Erro", description: "Não foi possível salvar a chave.", variant: "destructive" });
     } finally {
       setLoading(false);
