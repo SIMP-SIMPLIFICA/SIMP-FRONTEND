@@ -54,7 +54,7 @@ export default function Grants() {
         description: `Encontrados: ${res.created} novos, ${res.updated} atualizados.` 
       });
       fetchGrants();
-    } catch (err: any) {
+    } catch {
       toast({ title: "Erro", description: "Falha ao sincronizar.", variant: "destructive" });
     } finally {
       setSyncing(false);

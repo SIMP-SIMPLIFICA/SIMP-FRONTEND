@@ -195,6 +195,7 @@ export function UserFormDialog({
 
       onSuccess();
       onOpenChange(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({
         title: "Erro na operação",

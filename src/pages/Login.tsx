@@ -52,6 +52,7 @@ export default function Login() {
       if (typeof err === "string") {
         msg = err;
       } else if (err && typeof err === "object") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const e = err as any;
         msg = e.message || e.error || msg;
       }

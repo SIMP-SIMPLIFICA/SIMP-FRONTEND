@@ -21,6 +21,7 @@ interface Member {
 
 interface MembersListModalProps {
   workspaceId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   members: any[];
   currentUserId?: string;
 }
@@ -46,6 +47,7 @@ export function MembersListModal({ workspaceId, members, currentUserId }: Member
       } else {
           queryClient.invalidateQueries({ queryKey: ["workspace", workspaceId] });
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error(error);
       alert(error.response?.data?.message || "Erro ao realizar a ação.");

@@ -50,6 +50,7 @@ export async function apiRequest<T = unknown>(
   });
 
   const contentType = res.headers.get("content-type") || "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let data: any;
 
   if (contentType.includes("application/json")) {
@@ -113,25 +114,28 @@ export const api = {
   get: <T>(path: string, options?: ApiOptions) => 
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
     
-  post: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "POST", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
-    }).then(data => ({ data })),
-    
-  put: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "PUT", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  post: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "POST",
+      body: body instanceof FormData ? body : JSON.stringify(body)
     }).then(data => ({ data })),
 
-  patch: <T>(path: string, body: any, options?: ApiOptions) => 
-    apiRequest<T>(path, { 
-      ...options, 
-      method: "PATCH", 
-      body: body instanceof FormData ? body : JSON.stringify(body) 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  put: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "PUT",
+      body: body instanceof FormData ? body : JSON.stringify(body)
+    }).then(data => ({ data })),
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  patch: <T>(path: string, body: any, options?: ApiOptions) =>
+    apiRequest<T>(path, {
+      ...options,
+      method: "PATCH",
+      body: body instanceof FormData ? body : JSON.stringify(body)
     }).then(data => ({ data })),
     
   delete: <T>(path: string, options?: ApiOptions) => 

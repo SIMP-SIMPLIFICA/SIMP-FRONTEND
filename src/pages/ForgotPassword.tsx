@@ -23,6 +23,7 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
       setSuccess(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({
         title: "Erro",

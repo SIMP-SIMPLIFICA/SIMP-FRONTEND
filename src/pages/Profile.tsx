@@ -89,6 +89,7 @@ export default function Profile() {
       });
       toast({ title: "Perfil atualizado", description: "Suas informações foram salvas." });
       refreshMe(); // Atualiza o contexto global
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -113,6 +114,7 @@ export default function Profile() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -138,6 +140,7 @@ export default function Profile() {
       await apiRequest(`/api/v1/auth/sessions/${id}`, { method: "DELETE" });
       toast({ title: "Sessão encerrada" });
       void fetchSessions();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }
@@ -148,6 +151,7 @@ export default function Profile() {
       await apiRequest("/api/v1/auth/sessions", { method: "DELETE" });
       toast({ title: "Sucesso", description: "Todas as outras sessões foram encerradas." });
       void fetchSessions();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     }

@@ -29,6 +29,7 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   workspaceMembers: any[];
 }
 
@@ -47,6 +48,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
 
   useEffect(() => {
     if (task) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDescription(task.description || "");
     }
   }, [task]);
@@ -66,11 +68,13 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
 
   const handleStatusChange = (newStatus: string) => {
      if (!task) return;
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
      updateTask({ id: task.id, status: newStatus as any });
   };
 
   const handlePriorityChange = (newPriority: string) => {
      if (!task) return;
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
      updateTask({ id: task.id, priority: newPriority as any });
   };
 

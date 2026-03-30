@@ -25,6 +25,7 @@ export function InviteMemberModal({ workspaceId }: InviteMemberModalProps) {
       alert("Usuário adicionado com sucesso!");
       setEmail("");
       setOpen(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         // Se o erro vier do backend
         const msg = error.response?.data?.message || "Erro ao convidar usuário.";

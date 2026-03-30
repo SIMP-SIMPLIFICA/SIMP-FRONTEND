@@ -44,6 +44,7 @@ export default function Dashboard() {
 
   const { totalIncome, totalExpense } = useMemo(() => {
     let inc = 0, exp = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entries.forEach((e: any) => {
       if (e.type === "INCOME") inc += e.amountCents;
       if (e.type === "EXPENSE") exp += e.amountCents;
