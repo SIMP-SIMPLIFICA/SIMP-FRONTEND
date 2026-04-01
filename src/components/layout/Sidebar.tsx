@@ -11,8 +11,7 @@ import {
   ChevronDown,
   LogOut,
   User,
-  HandCoins,
-  Receipt,
+Receipt,
   FileText,
   Brain,
   FolderArchive,
@@ -73,12 +72,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: <FolderArchive className="h-5 w-5" />,
     anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
   },
-  {
-    label: "Convênios",
-    to: "/convenios",
-    icon: <HandCoins className="h-5 w-5" />,
-  },
-  {
+{
     label: "Biblioteca",
     to: "/biblioteca",
     icon: <BookOpen className="h-5 w-5" />,

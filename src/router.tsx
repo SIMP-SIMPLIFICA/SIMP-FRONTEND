@@ -13,7 +13,6 @@ import Placeholder from "@/pages/Placeholder";
 import Users from "@/pages/Users";
 import Roles from "@/pages/Roles";
 import Profile from "@/pages/Profile";
-import Grants from "@/pages/Grants";
 
 import FinanceiroOverview from "@/pages/financeiro/FinanceiroOverview";
 import Lancamentos from "@/pages/financeiro/Lancamentos";
@@ -45,9 +44,7 @@ export const router = createBrowserRouter([
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
-          { path: "/convenios", element: <Grants /> },
-
-          { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
+{ path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
           { path: "/configuracoes", element: <Placeholder title="Configurações" /> },
 
           { path: "/profile", element: <Profile /> },
