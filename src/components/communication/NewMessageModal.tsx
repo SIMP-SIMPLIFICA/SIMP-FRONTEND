@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, X, Paperclip, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
   const [selectedRecipients, setSelectedRecipients] = useState<SelectedRecipient[]>([]);
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
+  const [recipientFocused, setRecipientFocused] = useState(false);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   // Pre-fill when replying
   useEffect(() => {
@@ -50,10 +52,9 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
   }, [open, replyTo]);
 
   const searchRecipients = useCallback(async (q: string) => {
-    if (q.length < 2) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const params = q ? `?search=${encodeURIComponent(q)}` : "";
+      const params = q.trim() ? `?search=${encodeURIComponent(q.trim())}` : "";
       const data = await apiRequest<Recipient[]>(`/api/v1/communication/recipients${params}`);
       setSearchResults(data.filter(r => !selectedRecipients.find(s => s.id === r.id)));
     } catch {
@@ -63,15 +64,30 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
     }
   }, [selectedRecipients]);
 
+  // Dispara busca com debounce quando digitar
   useEffect(() => {
-    const t = setTimeout(() => searchRecipients(recipientSearch), 300);
+    if (!recipientFocused) return;
+    const t = setTimeout(() => searchRecipients(recipientSearch), 250);
     return () => clearTimeout(t);
-  }, [recipientSearch, searchRecipients]);
+  }, [recipientSearch, recipientFocused, searchRecipients]);
+
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setRecipientFocused(false);
+        setSearchResults([]);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   function addRecipient(recipient: Recipient) {
     setSelectedRecipients(prev => [...prev, { ...recipient, role: "TO" }]);
     setRecipientSearch("");
     setSearchResults([]);
+    setRecipientFocused(false);
   }
 
   function removeRecipient(id: string) {
@@ -169,40 +185,51 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
                 </div>
               )}
 
-              {/* Search input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              {/* Search input + dropdown */}
+              <div className="relative" ref={searchWrapperRef}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
                 <Input
                   value={recipientSearch}
                   onChange={e => setRecipientSearch(e.target.value)}
+                  onFocus={() => {
+                    setRecipientFocused(true);
+                    searchRecipients(recipientSearch);
+                  }}
                   placeholder="Buscar destinatário por nome ou e-mail..."
                   className="pl-9"
+                  autoComplete="off"
                 />
                 {searching && (
                   <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
                 )}
-              </div>
 
-              {/* Resultados */}
-              {searchResults.length > 0 && (
-                <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
-                  {searchResults.map(r => (
-                    <button
-                      key={r.id}
-                      onClick={() => addRecipient(r)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
-                    >
-                      <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                        {r.name.charAt(0)}
+                {/* Dropdown flutuante — fora do ScrollArea para não ser clipado */}
+                {recipientFocused && (searchResults.length > 0 || searching) && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-50 border border-slate-200 rounded-lg bg-white shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                    {searching && searchResults.length === 0 && (
+                      <div className="flex items-center justify-center py-4 text-slate-400 text-sm gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Buscando...
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">{r.name}</p>
-                        <p className="text-xs text-slate-400">{r.role} · {r.email}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+                    )}
+                    {searchResults.map(r => (
+                      <button
+                        key={r.id}
+                        onMouseDown={e => { e.preventDefault(); addRecipient(r); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-emerald-50 text-left transition-colors border-b border-slate-50 last:border-0"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                          {r.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{r.name}</p>
+                          <p className="text-xs text-slate-400">{r.role} · {r.email}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Assunto */}
