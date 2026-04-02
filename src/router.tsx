@@ -23,6 +23,7 @@ import Categorias from "@/pages/financeiro/Categorias";
 import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
 import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
 import Communication from "@/pages/Communication";
+import ProcessosVirtuais from "@/pages/processos-virtuais/ProcessosVirtuais";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
 { path: "/communication", element: <Communication /> },
+          { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
           { path: "/utilidades", element: <Placeholder title="Utilidades" /> },
 
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
