@@ -122,8 +122,9 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
                   <SelectContent>
-                    {categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    {categories.length === 0 && <SelectItem value="" disabled>Nenhuma categoria cadastrada</SelectItem>}
+                    {categories.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
+                      : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
