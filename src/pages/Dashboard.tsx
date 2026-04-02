@@ -1,34 +1,71 @@
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Search, Plus, ArrowUpRight, ArrowDownRight, Briefcase, Bell } from "lucide-react";
 import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Briefcase,
+  Mail,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useFinanceEntries } from "@/hooks/useFinance";
+import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { apiRequest } from "@/lib/api";
+import type { FinanceEntry } from "@/pages/financeiro/types";
+import type { MessageListItem } from "@/types/communication";
 
-function StatCard({
-  title,
-  value,
-  delta,
-  deltaPositive,
-  icon,
-}: {
+// --- Helpers ---
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    cents / 100
+  );
+}
+
+function getMonthLabel(monthsAgo: number) {
+  const d = new Date();
+  d.setMonth(d.getMonth() - monthsAgo);
+  return d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+}
+
+// --- StatCard ---
+type StatCardProps = {
   title: string;
   value: string;
-  delta: string;
+  delta?: string;
   deltaPositive?: boolean;
   icon: React.ReactNode;
-}) {
+  loading?: boolean;
+};
+
+function StatCard({ title, value, delta, deltaPositive, icon, loading }: StatCardProps) {
   return (
     <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold tracking-wide text-slate-500 truncate">{title}</div>
-          <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums break-all leading-tight">{value}</div>
-          <div className="mt-2 flex items-center gap-2 text-sm">
-            <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
-              {delta}
-            </span>
+          <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase truncate">
+            {title}
           </div>
+          {loading ? (
+            <Skeleton className="mt-4 h-7 w-28" />
+          ) : (
+            <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums leading-tight break-all">
+              {value}
+            </div>
+          )}
+          {delta && !loading && (
+            <div className="mt-2 flex items-center gap-1 text-sm">
+              {deltaPositive ? (
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+              )}
+              <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
+                {delta}
+              </span>
+            </div>
+          )}
         </div>
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700">
           {icon}
@@ -38,126 +75,240 @@ function StatCard({
   );
 }
 
-export default function Dashboard() {
-  const { data: entriesData, isLoading } = useFinanceEntries(undefined, { limit: 1000 });
-  const entries = entriesData || [];
+// --- BarChart simples ---
+type BarChartProps = {
+  months: { label: string; income: number; expense: number }[];
+  loading: boolean;
+};
 
+function MonthlyChart({ months, loading }: BarChartProps) {
+  const max = Math.max(...months.map((m) => Math.max(m.income, m.expense)), 1);
+
+  return (
+    <Card className="rounded-2xl border-slate-200 p-6 shadow-sm">
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-lg font-semibold text-slate-900">Fluxo Financeiro</div>
+        <div className="flex items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block" />
+            Receitas
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full bg-rose-400 inline-block" />
+            Despesas
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-end gap-3 h-36">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="flex-1 rounded-xl" style={{ height: `${40 + i * 10}%` }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-end gap-2 h-36">
+          {months.map((m) => (
+            <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full flex items-end gap-0.5 h-28">
+                <div
+                  className="flex-1 rounded-t-lg bg-emerald-500/80 transition-all"
+                  style={{ height: `${(m.income / max) * 100}%`, minHeight: m.income > 0 ? 4 : 0 }}
+                  title={formatCurrency(m.income)}
+                />
+                <div
+                  className="flex-1 rounded-t-lg bg-rose-400/80 transition-all"
+                  style={{ height: `${(m.expense / max) * 100}%`, minHeight: m.expense > 0 ? 4 : 0 }}
+                  title={formatCurrency(m.expense)}
+                />
+              </div>
+              <span className="text-[10px] text-slate-400 capitalize">{m.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// --- Distribuição por categoria ---
+type CategoryChartProps = {
+  categories: { name: string; totalCents: number; color: string }[];
+  loading: boolean;
+};
+
+const COLORS = [
+  "#0A5BC4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316",
+];
+
+function CategoryChart({ categories, loading }: CategoryChartProps) {
+  const total = categories.reduce((s, c) => s + c.totalCents, 0);
+
+  return (
+    <Card className="rounded-2xl border-slate-200 p-6 shadow-sm">
+      <div className="text-lg font-semibold text-slate-900 mb-6">Despesas por Categoria</div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-3 w-3 rounded-full" />
+              <Skeleton className="h-3 flex-1" />
+              <Skeleton className="h-3 w-12" />
+            </div>
+          ))}
+        </div>
+      ) : categories.length === 0 ? (
+        <div className="flex items-center justify-center h-24 text-sm text-slate-400">
+          Nenhum lançamento registrado
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {categories.map((cat) => {
+            const pct = total > 0 ? Math.round((cat.totalCents / total) * 100) : 0;
+            return (
+              <div key={cat.name}>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <span className="text-sm text-slate-700 truncate">{cat.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-xs text-slate-400">{pct}%</span>
+                    <span className="text-xs font-medium text-slate-700">
+                      {formatCurrency(cat.totalCents)}
+                    </span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: cat.color }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// --- Página principal ---
+export default function Dashboard() {
+  const { data: workspaces, isLoading: loadingWorkspaces } = useWorkspaces();
+  const { data: entriesData, isLoading: loadingEntries } = useFinanceEntries(undefined, {
+    limit: 1000,
+  });
+  const { data: inbox, isLoading: loadingInbox } = useQuery<MessageListItem[]>({
+    queryKey: ["communication", "inbox"],
+    queryFn: () => apiRequest("/api/v1/communication/inbox"),
+    staleTime: 30_000,
+  });
+
+  const entries: FinanceEntry[] = (entriesData as FinanceEntry[]) || [];
+
+  // Totais financeiros
   const { totalIncome, totalExpense } = useMemo(() => {
     let inc = 0, exp = 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    entries.forEach((e: any) => {
+    entries.forEach((e) => {
       if (e.type === "INCOME") inc += e.amountCents;
       if (e.type === "EXPENSE") exp += e.amountCents;
     });
     return { totalIncome: inc, totalExpense: exp };
   }, [entries]);
 
-  function formatCurrency(cents: number) {
-    if (isLoading) return "Calculando...";
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-  }
+  // Fluxo dos últimos 6 meses
+  const monthlyData = useMemo(() => {
+    return Array.from({ length: 6 }, (_, idx) => {
+      const monthsAgo = 5 - idx;
+      const target = new Date();
+      target.setMonth(target.getMonth() - monthsAgo);
+      const y = target.getFullYear();
+      const m = target.getMonth();
+
+      const filtered = entries.filter((e) => {
+        const d = new Date(e.occurredAt);
+        return d.getFullYear() === y && d.getMonth() === m;
+      });
+
+      return {
+        label: getMonthLabel(monthsAgo),
+        income: filtered.filter((e) => e.type === "INCOME").reduce((s, e) => s + e.amountCents, 0),
+        expense: filtered.filter((e) => e.type === "EXPENSE").reduce((s, e) => s + e.amountCents, 0),
+      };
+    });
+  }, [entries]);
+
+  // Despesas por categoria (top 5)
+  const categoryData = useMemo(() => {
+    const map = new Map<string, number>();
+    entries
+      .filter((e) => e.type === "EXPENSE")
+      .forEach((e) => {
+        const name = e.categoryName || "Sem categoria";
+        map.set(name, (map.get(name) ?? 0) + e.amountCents);
+      });
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, totalCents], i) => ({ name, totalCents, color: COLORS[i % COLORS.length] }));
+  }, [entries]);
+
+  const unreadCount = (inbox ?? []).filter((m) => !m.isRead).length;
+  const workspaceCount = workspaces?.length ?? 0;
+
+  const loadingFinance = loadingEntries;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <div className="text-3xl font-semibold text-slate-900">Painel de Controle</div>
-          <div className="mt-1 text-slate-500">
-            Visão geral da administração municipal hoje.
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative w-full sm:w-[260px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <Input className="h-11 rounded-2xl pl-9" placeholder="Buscar" />
-          </div>
-
-          <Button className="h-11 rounded-2xl bg-[#0A5BC4] px-5 hover:bg-[#094FA8]">
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Relatório
-          </Button>
-        </div>
+      {/* Header */}
+      <div>
+        <div className="text-3xl font-semibold text-slate-900">Painel de Controle</div>
+        <div className="mt-1 text-slate-500">Visão geral da administração municipal.</div>
       </div>
 
+      {/* Cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="RECEITAS (TOTAL)"
+          title="Receitas (Total)"
           value={formatCurrency(totalIncome)}
-          delta={isLoading ? "-" : "+12%"}
+          delta={totalIncome > 0 ? formatCurrency(totalIncome) : undefined}
           deltaPositive
           icon={<ArrowUpRight className="h-5 w-5 text-emerald-600" />}
+          loading={loadingFinance}
         />
         <StatCard
-          title="DESPESAS (TOTAL)"
+          title="Despesas (Total)"
           value={formatCurrency(totalExpense)}
-          delta={isLoading ? "-" : "-2%"}
-          icon={<ArrowDownRight className="h-5 w-5 text-rose-600" />}
+          delta={totalExpense > 0 ? formatCurrency(totalExpense) : undefined}
+          icon={<ArrowDownRight className="h-5 w-5 text-rose-500" />}
+          loading={loadingFinance}
         />
         <StatCard
-          title="OBRAS ATIVAS"
-          value="24"
-          delta="+3"
-          deltaPositive
+          title="Workspaces Ativos"
+          value={String(workspaceCount)}
           icon={<Briefcase className="h-5 w-5 text-[#0A5BC4]" />}
+          loading={loadingWorkspaces}
         />
         <StatCard
-          title="SOLICITAÇÕES (SAC)"
-          value="142"
-          delta="+5%"
-          deltaPositive
-          icon={<Bell className="h-5 w-5 text-amber-500" />}
+          title="Mensagens não lidas"
+          value={String(unreadCount)}
+          deltaPositive={unreadCount === 0}
+          delta={unreadCount === 0 ? "Em dia" : `${unreadCount} pendente${unreadCount > 1 ? "s" : ""}`}
+          icon={<Mail className="h-5 w-5 text-amber-500" />}
+          loading={loadingInbox}
         />
       </div>
 
+      {/* Gráficos */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="rounded-2xl border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold text-slate-900">Fluxo Financeiro (Mensal)</div>
-            <div className="text-sm text-slate-500">Últimos 7 meses</div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-7 items-end gap-4">
-            {[40, 68, 30, 72, 55, 42, 65].map((h, i) => (
-              <div key={i} className="h-40 rounded-2xl bg-slate-50 flex items-end">
-                <div
-                  className="w-full rounded-2xl bg-[#0A5BC4]/20"
-                  style={{ height: `${h}%` }}
-                />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card className="rounded-2xl border-slate-200 p-6 shadow-sm">
-          <div className="text-lg font-semibold text-slate-900">Distribuição de Verba</div>
-
-          <div className="mt-8 flex flex-col items-center gap-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative grid h-48 w-48 place-items-center">
-              <div className="h-44 w-44 rounded-full border-[14px] border-slate-100" />
-              <div className="absolute h-44 w-44 rounded-full border-[14px] border-transparent border-t-[#0A5BC4] border-r-amber-500 border-b-emerald-400" />
-              <div className="absolute grid h-24 w-24 place-items-center rounded-full bg-white shadow-sm">
-                <div className="text-sm text-slate-500">Total</div>
-                <div className="text-xl font-semibold text-slate-900">100%</div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-[#0A5BC4]" />
-                <span className="text-slate-700 font-medium">Educação</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-amber-500" />
-                <span className="text-slate-700 font-medium">Saúde</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full bg-emerald-400" />
-                <span className="text-slate-700 font-medium">Infraestrutura</span>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <MonthlyChart months={monthlyData} loading={loadingFinance} />
+        <CategoryChart categories={categoryData} loading={loadingFinance} />
       </div>
     </div>
   );
