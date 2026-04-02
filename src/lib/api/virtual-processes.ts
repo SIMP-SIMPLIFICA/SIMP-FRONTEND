@@ -1,6 +1,13 @@
 import { api } from '../api'
 import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPayload } from '@/types/virtual-process'
 
+export interface VirtualProcessCategory {
+  id: string
+  workspaceId: string
+  name: string
+  createdAt: string
+}
+
 export const virtualProcessService = {
   list: async (workspaceId: string, params?: {
     page?: number; limit?: number; search?: string; status?: string;
@@ -58,5 +65,25 @@ export const virtualProcessService = {
 
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/virtual-processes/${id}/documents/${documentId}`)
+  },
+
+  // Categories
+  listCategories: async (workspaceId: string) => {
+    const res = await api.get<VirtualProcessCategory[]>(`/virtual-processes/workspaces/${workspaceId}/categories`)
+    return res.data
+  },
+
+  createCategory: async (workspaceId: string, data: { name: string }) => {
+    const res = await api.post<VirtualProcessCategory>(`/virtual-processes/workspaces/${workspaceId}/categories`, { ...data, workspaceId })
+    return res.data
+  },
+
+  updateCategory: async (id: string, data: { name: string }) => {
+    const res = await api.put<VirtualProcessCategory>(`/virtual-processes/categories/${id}`, data)
+    return res.data
+  },
+
+  deleteCategory: async (id: string) => {
+    await api.delete(`/virtual-processes/categories/${id}`)
   },
 }

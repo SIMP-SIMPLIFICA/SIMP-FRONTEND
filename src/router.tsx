@@ -24,6 +24,7 @@ import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
 import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
 import Communication from "@/pages/Communication";
 import ProcessosVirtuais from "@/pages/processos-virtuais/ProcessosVirtuais";
+import CategoriasProcessos from "@/pages/processos-virtuais/Categorias";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
             element: <PermissionGate anyOf={["processes:read", "processes:write", "processes:manage", "processes:download"]} />,
             children: [
               { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
+              { path: "/processos-virtuais/categorias", element: <CategoriasProcessos /> },
             ],
           },
           { path: "/utilidades", element: <Placeholder title="Utilidades" /> },

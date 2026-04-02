@@ -115,3 +115,55 @@ export function useDeleteProcessDocument(processId: string | null, _workspaceId:
     },
   })
 }
+
+export function useVirtualProcessCategories(workspaceId: string | undefined) {
+  const resolvedId = useWorkspaceId(workspaceId)
+  return useQuery({
+    queryKey: ['virtualProcessCategories', resolvedId],
+    queryFn: () => {
+      if (!resolvedId) throw new Error('Workspace ID required')
+      return virtualProcessService.listCategories(resolvedId)
+    },
+    enabled: !!resolvedId,
+  })
+}
+
+export function useCreateVirtualProcessCategory(workspaceId: string | undefined) {
+  const queryClient = useQueryClient()
+  const resolvedId = useWorkspaceId(workspaceId)
+
+  return useMutation({
+    mutationFn: (data: { name: string }) => {
+      if (!resolvedId) throw new Error('Workspace ID required')
+      return virtualProcessService.createCategory(resolvedId, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
+    },
+  })
+}
+
+export function useUpdateVirtualProcessCategory(workspaceId: string | undefined) {
+  const queryClient = useQueryClient()
+  const resolvedId = useWorkspaceId(workspaceId)
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
+      virtualProcessService.updateCategory(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
+    },
+  })
+}
+
+export function useDeleteVirtualProcessCategory(workspaceId: string | undefined) {
+  const queryClient = useQueryClient()
+  const resolvedId = useWorkspaceId(workspaceId)
+
+  return useMutation({
+    mutationFn: (id: string) => virtualProcessService.deleteCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
+    },
+  })
+}

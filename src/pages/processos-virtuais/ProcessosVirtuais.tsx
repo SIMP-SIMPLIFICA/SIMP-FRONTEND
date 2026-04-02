@@ -17,12 +17,14 @@ import { toast } from '@/hooks/use-toast'
 import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
+  useVirtualProcessCategories,
 } from '@/hooks/useVirtualProcesses'
-import { PROCESS_STATUSES, PROCESS_CATEGORIES } from '@/types/virtual-process'
+import { PROCESS_STATUSES } from '@/types/virtual-process'
 import type { VirtualProcess } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Link } from 'react-router-dom'
 
 // --- helpers ---
 const STATUS_COLORS: Record<string, string> = {
@@ -54,17 +56,18 @@ type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; wo
 function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogProps) {
   const [form, setForm] = useState({
     processNumber: '', secretaria: '', source: '', subject: '',
-    category: 'Outros', sourceDetail: '', companyName: '', companyCnpj: '',
+    category: '', sourceDetail: '', companyName: '', companyCnpj: '',
     startDate: '', endDate: '',
   })
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
+  const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: 'Outros', sourceDetail: '', companyName: '', companyCnpj: '', startDate: '', endDate: '' })
+    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', startDate: '', endDate: '' })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -110,10 +113,18 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
                 <p className="text-xs text-slate-400">Formato: NUMERO/ANO</p>
               </div>
               <div className="space-y-1.5">
-                <Label>Categoria <span className="text-red-500">*</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label>Categoria <span className="text-red-500">*</span></Label>
+                  <Link to="/processos-virtuais/categorias" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>
+                    Gerenciar categorias →
+                  </Link>
+                </div>
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                    {categories.length === 0 && <SelectItem value="" disabled>Nenhuma categoria cadastrada</SelectItem>}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -488,6 +499,7 @@ export default function ProcessosVirtuais() {
   })
 
   const { mutate: deleteProcess, isPending: deleting } = useDeleteVirtualProcess(undefined)
+  const { data: categories = [] } = useVirtualProcessCategories(undefined)
 
   const processes = data?.data ?? []
   const totalPages = data?.meta?.totalPages ?? 1
@@ -551,7 +563,7 @@ export default function ProcessosVirtuais() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todas as categorias</SelectItem>
-                {PROCESS_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

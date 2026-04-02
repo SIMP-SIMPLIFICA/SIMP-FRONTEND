@@ -78,6 +78,10 @@ const NAV_ITEMS: NavItem[] = [
     to: "/processos-virtuais",
     icon: <FolderArchive className="h-5 w-5" />,
     anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
+    children: [
+      { label: "Processos", to: "/processos-virtuais", icon: <FolderArchive className="h-4 w-4" /> },
+      { label: "Categorias", to: "/processos-virtuais/categorias", icon: <Tag className="h-4 w-4" /> },
+    ],
   },
 {
     label: "Biblioteca",
@@ -147,6 +151,10 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     location.pathname.startsWith("/financeiro")
   );
 
+  const [processesOpen, setProcessesOpen] = useState(() =>
+    location.pathname.startsWith("/processos-virtuais")
+  );
+
   // Fecha o menu mobile ao mudar de rota
   useEffect(() => {
     if (setMobileOpen) setMobileOpen(false);
@@ -156,6 +164,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   useEffect(() => {
     if (location.pathname.startsWith("/financeiro")) {
       setTimeout(() => setFinanceOpen(true), 0);
+    }
+  }, [location.pathname]);
+
+  // Keep submenu open when navigating into any /processos-virtuais/* route
+  useEffect(() => {
+    if (location.pathname.startsWith("/processos-virtuais")) {
+      setTimeout(() => setProcessesOpen(true), 0);
     }
   }, [location.pathname]);
 
@@ -222,7 +237,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
           {visibleItems.map((item) => {
             // ── Item with submenu ──────────────────────────────────────────
             if (item.children) {
-              const onFinanceiro = location.pathname.startsWith(item.to);
+              const isActive = location.pathname.startsWith(item.to);
+              const submenuOpen = item.to === "/processos-virtuais" ? processesOpen : financeOpen;
+              const setSubmenuOpen = item.to === "/processos-virtuais" ? setProcessesOpen : setFinanceOpen;
 
               return (
                 <li key={item.to}>
@@ -232,7 +249,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                       to={item.to}
                       className={cx(
                         "flex items-center justify-center rounded-2xl px-4 py-3 transition hover:bg-white/10",
-                        onFinanceiro ? ACTIVE_ITEM : "bg-transparent"
+                        isActive ? ACTIVE_ITEM : "bg-transparent"
                       )}
                     >
                       <span className="shrink-0">{item.icon}</span>
@@ -242,7 +259,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                     <div
                       className={cx(
                         "flex items-center rounded-2xl overflow-hidden",
-                        onFinanceiro ? ACTIVE_ITEM : "bg-transparent"
+                        isActive ? ACTIVE_ITEM : "bg-transparent"
                       )}
                     >
                       <NavLink
@@ -257,14 +274,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                       </NavLink>
 
                       <button
-                        onClick={() => setFinanceOpen((v) => !v)}
+                        onClick={() => setSubmenuOpen((v) => !v)}
                         className="px-3 py-3 transition hover:bg-white/10"
-                        aria-label={financeOpen ? "Recolher submenu" : "Expandir submenu"}
+                        aria-label={submenuOpen ? "Recolher submenu" : "Expandir submenu"}
                       >
                         <ChevronDown
                           className={cx(
                             "h-4 w-4 transition-transform",
-                            financeOpen ? "rotate-180" : ""
+                            submenuOpen ? "rotate-180" : ""
                           )}
                         />
                       </button>
@@ -272,7 +289,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                   )}
 
                   {/* Submenu children */}
-                  {financeOpen && !collapsed && (
+                  {submenuOpen && !collapsed && (
                     <ul className="mt-1 ml-4 space-y-1 border-l border-white/20 pl-4">
                       {item.children.map((child) => (
                         <li key={child.to}>
