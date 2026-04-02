@@ -94,7 +94,9 @@ export function UserFormDialog({
         setUsername(user.username || "");
         setEmail(user.email || "");
         setIsActive(user.isActive);
-        setPassword(""); // Não edita senha aqui
+        setPassword("");
+        setSelectedRoles(new Set(user.roles.map((r) => r.role.id)));
+        void fetchRoles();
       } else {
         // Modo Criação
         setFirstName("");
@@ -159,20 +161,31 @@ export function UserFormDialog({
 
       if (isEditing && user) {
         // --- ATUALIZAR ---
-        const body: UpdateUserBody = {
-          firstName,
-          lastName,
-          username,
-          email,
-          isActive
-        };
-        
+        const body: UpdateUserBody = { firstName, lastName, username, email, isActive };
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
           body: JSON.stringify(body),
         });
 
-        toast({ title: "Usuário atualizado", description: "Dados alterados com sucesso." });
+        // Diff de roles
+        const previousIds = new Set(user.roles.map((r) => r.role.id));
+        const toAdd = [...selectedRoles].filter((id) => !previousIds.has(id));
+        const toRemove = [...previousIds].filter((id) => !selectedRoles.has(id));
+
+        if (toAdd.length > 0) {
+          await apiRequest(`/api/v1/users/${user.id}/roles`, {
+            method: "POST",
+            body: JSON.stringify({ roleIds: toAdd }),
+          });
+        }
+        if (toRemove.length > 0) {
+          await apiRequest(`/api/v1/users/${user.id}/roles`, {
+            method: "DELETE",
+            body: JSON.stringify({ roleIds: toRemove }),
+          });
+        }
+
+        toast({ title: "Usuário atualizado", description: "Dados e perfis alterados com sucesso." });
       } else {
         // --- CRIAR ---
         const body: CreateUserBody = {
@@ -304,43 +317,39 @@ export function UserFormDialog({
             </Label>
           </div>
 
-          {/* Seleção de Roles (apenas criação) */}
-          {!isEditing && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Atribuir Perfis (Roles)</Label>
-                  {loadingRoles && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
+          {/* Seleção de Roles */}
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Perfis de Acesso (Roles)</Label>
+              {loadingRoles && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto border rounded-lg p-2 bg-slate-50">
+              {availableRoles.map((role) => (
+                <div key={role.id} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`role-${role.id}`}
+                    checked={selectedRoles.has(role.id)}
+                    onCheckedChange={() => toggleRole(role.id)}
+                    disabled={submitting}
+                  />
+                  <label
+                    htmlFor={`role-${role.id}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
+                    title={role.displayName}
+                  >
+                    {role.displayName}
+                  </label>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-2 max-h-[120px] overflow-y-auto border rounded-lg p-2 bg-slate-50">
-                  {availableRoles.map((role) => (
-                    <div key={role.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`role-${role.id}`}
-                        checked={selectedRoles.has(role.id)}
-                        onCheckedChange={() => toggleRole(role.id)}
-                        disabled={submitting}
-                      />
-                      <label
-                        htmlFor={`role-${role.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate"
-                        title={role.displayName}
-                      >
-                        {role.displayName}
-                      </label>
-                    </div>
-                  ))}
-                  {!loadingRoles && availableRoles.length === 0 && (
-                    <div className="text-xs text-slate-500 col-span-2 text-center py-2">
-                      Nenhuma role disponível.
-                    </div>
-                  )}
+              ))}
+              {!loadingRoles && availableRoles.length === 0 && (
+                <div className="text-xs text-slate-500 col-span-2 text-center py-2">
+                  Nenhuma role disponível.
                 </div>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          </div>
 
           <DialogFooter className="gap-2 sm:gap-0 mt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>

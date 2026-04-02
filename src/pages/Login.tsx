@@ -4,6 +4,7 @@ import { Eye, EyeOff, LayoutGrid, Loader2 } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { setAuthTokens } from "@/lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type LoginResponse = {
 
 export default function Login() {
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +47,7 @@ export default function Login() {
       }
 
       setAuthTokens(accessToken, refreshToken);
+      queryClient.clear();
       toast({ title: "Login realizado", description: "Bem-vindo ao SIMP." });
       nav("/");
     } catch (err: unknown) {

@@ -40,22 +40,40 @@ export const router = createBrowserRouter([
         children: [
           { path: "/", element: <Dashboard /> },
 
-          { path: "/financeiro", element: <FinanceiroOverview /> },
-          { path: "/financeiro/lancamentos", element: <Lancamentos /> },
-          { path: "/financeiro/relatorios", element: <Relatorios /> },
-          { path: "/financeiro/inteligencia", element: <Inteligencia /> },
-          { path: "/financeiro/contas", element: <ContasBancarias /> },
-          { path: "/financeiro/categorias", element: <Categorias /> },
+          {
+            element: <PermissionGate anyOf={["finance:read", "finance:write", "finance:approve", "finance:export"]} />,
+            children: [
+              { path: "/financeiro", element: <FinanceiroOverview /> },
+              { path: "/financeiro/lancamentos", element: <Lancamentos /> },
+              { path: "/financeiro/relatorios", element: <Relatorios /> },
+              { path: "/financeiro/inteligencia", element: <Inteligencia /> },
+              { path: "/financeiro/contas", element: <ContasBancarias /> },
+              { path: "/financeiro/categorias", element: <Categorias /> },
+            ],
+          },
 
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
-{ path: "/communication", element: <Communication /> },
-          { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
+          {
+            element: <PermissionGate anyOf={["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"]} />,
+            children: [
+              { path: "/communication", element: <Communication /> },
+            ],
+          },
+          {
+            element: <PermissionGate anyOf={["processes:read", "processes:write", "processes:manage", "processes:download"]} />,
+            children: [
+              { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
+            ],
+          },
           { path: "/utilidades", element: <Placeholder title="Utilidades" /> },
 
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
-          { path: "/configuracoes", element: <Placeholder title="Configurações" /> },
+          {
+            element: <PermissionGate anyOf={["settings:read", "settings:write", "system:admin"]} />,
+            children: [{ path: "/configuracoes", element: <Placeholder title="Configurações" /> }],
+          },
 
           { path: "/profile", element: <Profile /> },
 

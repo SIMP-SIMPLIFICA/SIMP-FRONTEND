@@ -136,8 +136,8 @@ export function RolesTable(props: {
                       variant="outline"
                       className="rounded-2xl"
                       onClick={() => onEdit(r)}
-                      disabled={loading || r.isSystem}
-                      title={r.isSystem ? "Roles do sistema não podem ser editadas" : "Editar"}
+                      disabled={loading}
+                      title="Editar"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>

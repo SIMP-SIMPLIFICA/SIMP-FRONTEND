@@ -81,7 +81,8 @@ const FALLBACK_CATALOG: CatalogData = {
     { name: "roles", displayName: "Gestão de Perfis (Roles)", permissions: ["roles:read", "roles:write", "roles:delete", "roles:manage"] },
     { name: "financial", displayName: "Módulo Financeiro", permissions: ["finance:read", "finance:write", "finance:approve", "finance:export"] },
     { name: "system", displayName: "Configurações do Sistema", permissions: ["system:admin", "settings:read", "settings:write", "audit:read", "audit:export"] },
-    { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] }
+    { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] },
+    { name: "processes", displayName: "Processos Virtuais", permissions: ["processes:read", "processes:write", "processes:download", "processes:manage"] }
   ],
   permissions: [
     // Users
@@ -110,6 +111,11 @@ const FALLBACK_CATALOG: CatalogData = {
     { key: "sessions:manage", description: "Derrubar sessões de usuários", category: "security" },
     { key: "backup:create", description: "Gerar backup manual", category: "security" },
     { key: "backup:restore", description: "Restaurar sistema", category: "security" },
+    // Processes
+    { key: "processes:read", description: "Visualizar processos virtuais", category: "processes" },
+    { key: "processes:write", description: "Criar e editar processos", category: "processes" },
+    { key: "processes:download", description: "Baixar documentos de processos", category: "processes" },
+    { key: "processes:manage", description: "Gerenciar todos os processos", category: "processes" },
     // Profile
     { key: "profile:read", description: "Ver próprio perfil", category: "other" },
     { key: "profile:write", description: "Editar próprio perfil", category: "other" },
@@ -240,48 +246,47 @@ export default function Roles() {
     try {
       const res = await apiRequest<unknown>("/api/v1/roles/permissions/available");
       
-      let rawPermissions: unknown[] = [];
-      let rawCategories: unknown[] = [];
+      const normalizedPermissions: PermissionItem[] = [];
+      const normalizedCategories: CategoryItem[] = [];
 
-      if (Array.isArray(res)) {
-        rawPermissions = res;
-      } else if (isRecord(res)) {
-        if (Array.isArray(res.permissions)) {
-          rawPermissions = res.permissions;
-        } else if (isRecord(res.data) && Array.isArray(res.data.permissions)) {
-          rawPermissions = res.data.permissions;
-        } else if (Array.isArray(res.data)) {
-           rawPermissions = res.data;
+      // Backend returns: { permissions: { [category]: { displayName, permissions: [...] } }, categories: string[] }
+      if (isRecord(res) && isRecord(res.permissions)) {
+        for (const [catKey, catValue] of Object.entries(res.permissions)) {
+          if (!isRecord(catValue)) continue;
+          const displayName = typeof catValue.displayName === "string" ? catValue.displayName : catKey;
+          const perms = Array.isArray(catValue.permissions) ? catValue.permissions : [];
+          const permKeys: string[] = [];
+
+          for (const p of perms) {
+            if (typeof p === "string") {
+              normalizedPermissions.push({ key: p, description: "", category: catKey });
+              permKeys.push(p);
+            } else if (isRecord(p) && typeof p.key === "string") {
+              normalizedPermissions.push({
+                key: p.key,
+                description: typeof p.description === "string" ? p.description : "",
+                category: catKey,
+                level: typeof p.level === "string" ? p.level : undefined,
+              });
+              permKeys.push(p.key);
+            }
+          }
+
+          normalizedCategories.push({ name: catKey, displayName, permissions: permKeys });
         }
-
-        if (Array.isArray(res.categories)) {
-          rawCategories = res.categories;
+      } else if (Array.isArray(res)) {
+        // Flat array fallback
+        for (const p of res) {
+          if (typeof p === "string") normalizedPermissions.push({ key: p, description: "" });
+          else if (isRecord(p) && typeof p.key === "string") {
+            normalizedPermissions.push({
+              key: p.key,
+              description: typeof p.description === "string" ? p.description : "",
+              category: typeof p.category === "string" ? p.category : undefined,
+            });
+          }
         }
       }
-
-      const normalizedPermissions = rawPermissions.map((p): PermissionItem | null => {
-        if (typeof p === "string") return { key: p, description: "" };
-        if (isRecord(p) && typeof p.key === "string") {
-          return {
-            key: p.key,
-            description: typeof p.description === "string" ? p.description : "",
-            category: typeof p.category === "string" ? p.category : undefined,
-            level: typeof p.level === "string" ? p.level : undefined,
-          };
-        }
-        return null;
-      }).filter((p): p is PermissionItem => p !== null);
-
-      const normalizedCategories: CategoryItem[] = rawCategories.map((c) => {
-        if (isRecord(c) && typeof c.name === "string" && Array.isArray(c.permissions)) {
-          return {
-            name: c.name,
-            displayName: typeof c.displayName === "string" ? c.displayName : c.name,
-            permissions: c.permissions.filter((x): x is string => typeof x === "string"),
-          };
-        }
-        return null;
-      }).filter((c): c is CategoryItem => c !== null);
 
       if (normalizedPermissions.length === 0) {
         throw new Error("Empty catalog");
@@ -341,10 +346,6 @@ export default function Roles() {
   }
 
   function openEditDialog(role: ApiRole) {
-    if (role.isSystem) {
-      toast({ title: "Erro", description: "Role de sistema não editável.", variant: "destructive" });
-      return;
-    }
     setUpsertMode("edit");
     setEditingRole(role);
     setCreateName(role.name);
@@ -548,7 +549,10 @@ export default function Roles() {
                     <div className="space-y-4">
                         <div className="space-y-1.5">
                           <Label className="text-xs text-slate-500">Slug (Identificador)</Label>
-                          <Input className="h-9" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="ex: gerente_vendas" disabled={createSubmitting} />
+                          <Input className="h-9" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="ex: gerente_vendas" disabled={createSubmitting || (upsertMode === "edit" && !!editingRole?.isSystem)} />
+                          {upsertMode === "edit" && editingRole?.isSystem && (
+                            <p className="text-[11px] text-slate-400">Slug de roles do sistema não pode ser alterado.</p>
+                          )}
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs text-slate-500">Nome de Exibição</Label>

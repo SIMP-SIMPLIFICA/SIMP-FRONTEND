@@ -22,6 +22,7 @@ Receipt,
   Tag,
 } from "lucide-react";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/useMe";
 import { hasAnyPermission } from "@/lib/permissions";
 import { clearAccessToken } from "@/lib/auth";
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Financeiro",
     to: "/financeiro",
     icon: <BarChart3 className="h-5 w-5" />,
+    anyOf: ["finance:read", "finance:write", "finance:approve", "finance:export"],
     children: [
       { label: "Lançamentos", to: "/financeiro/lancamentos", icon: <Receipt className="h-4 w-4" /> },
       { label: "Contas Bancárias", to: "/financeiro/contas", icon: <Landmark className="h-4 w-4" /> },
@@ -69,6 +71,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Comunicação",
     to: "/communication",
     icon: <FileText className="h-5 w-5" />,
+    anyOf: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"],
   },
   {
     label: "Processos Virtuais",
@@ -90,6 +93,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Configurações",
     to: "/configuracoes",
     icon: <Settings className="h-5 w-5" />,
+    anyOf: ["settings:read", "settings:write", "system:admin"],
   },
   {
     label: "Usuários",
@@ -132,6 +136,7 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { data } = useMe(true);
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -164,6 +169,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
 
   function logout() {
     clearAccessToken();
+    queryClient.clear();
     navigate("/login");
   }
 
