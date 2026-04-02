@@ -212,7 +212,11 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
             onSuccessSave();
         } catch (error: any) {
             console.error("Save entry error:", error);
-            toast({ title: "Erro", description: error?.message || "Ocorreu um erro ao salvar.", variant: "destructive" });
+            const raw = error?.message;
+            const msg = typeof raw === 'string' && raw.length <= 100
+                ? raw
+                : "Verifique os campos e tente novamente.";
+            toast({ title: "Erro ao salvar lançamento", description: msg, variant: "destructive" });
         } finally {
             setIsSaving(false);
         }
