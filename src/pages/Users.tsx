@@ -70,11 +70,6 @@ type UsersResponse = {
   pagination: ApiPagination;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type PatchUserStatusBody = {
-  isActive: boolean;
-  reason?: string;
-};
 
 type ApiUserSession = {
   id: string;

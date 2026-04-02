@@ -44,7 +44,7 @@ export default function Login() {
         throw { message: "Token de acesso não retornado pela API." };
       }
 
-      setAuthTokens(accessToken, refreshToken, remember);
+      setAuthTokens(accessToken, refreshToken);
       toast({ title: "Login realizado", description: "Bem-vindo ao SIMP." });
       nav("/");
     } catch (err: unknown) {

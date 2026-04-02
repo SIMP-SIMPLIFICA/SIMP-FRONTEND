@@ -1,0 +1,255 @@
+import { useState, useEffect, useCallback } from "react";
+import { Search, X, Paperclip, Send, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { apiRequest } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
+import type { Recipient } from "@/types/communication";
+
+type SelectedRecipient = Recipient & { role: "TO" | "CC" | "BCC" };
+
+type Props = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  replyTo?: { id: string; subject: string; creatorId: string; creatorName: string } | null;
+};
+
+export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Props) {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [recipientSearch, setRecipientSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Recipient[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<SelectedRecipient[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  // Pre-fill when replying
+  useEffect(() => {
+    if (open && replyTo) {
+      setSubject(`Re: ${replyTo.subject}`);
+    }
+    if (!open) {
+      setSubject("");
+      setBody("");
+      setRecipientSearch("");
+      setSearchResults([]);
+      setSelectedRecipients([]);
+    }
+  }, [open, replyTo]);
+
+  const searchRecipients = useCallback(async (q: string) => {
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    try {
+      const params = q ? `?search=${encodeURIComponent(q)}` : "";
+      const data = await apiRequest<Recipient[]>(`/api/v1/communication/recipients${params}`);
+      setSearchResults(data.filter(r => !selectedRecipients.find(s => s.id === r.id)));
+    } catch {
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [selectedRecipients]);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchRecipients(recipientSearch), 300);
+    return () => clearTimeout(t);
+  }, [recipientSearch, searchRecipients]);
+
+  function addRecipient(recipient: Recipient) {
+    setSelectedRecipients(prev => [...prev, { ...recipient, role: "TO" }]);
+    setRecipientSearch("");
+    setSearchResults([]);
+  }
+
+  function removeRecipient(id: string) {
+    setSelectedRecipients(prev => prev.filter(r => r.id !== id));
+  }
+
+  function toggleRole(id: string) {
+    setSelectedRecipients(prev =>
+      prev.map(r => {
+        if (r.id !== id) return r;
+        const next: Record<string, "TO" | "CC" | "BCC"> = { TO: "CC", CC: "BCC", BCC: "TO" };
+        return { ...r, role: next[r.role] };
+      })
+    );
+  }
+
+  async function handleSend() {
+    if (!subject.trim()) {
+      toast({ title: "Informe o assunto", variant: "destructive" });
+      return;
+    }
+    if (!body.trim()) {
+      toast({ title: "Escreva o corpo da mensagem", variant: "destructive" });
+      return;
+    }
+    if (selectedRecipients.length === 0) {
+      toast({ title: "Adicione ao menos um destinatário", variant: "destructive" });
+      return;
+    }
+
+    setSending(true);
+    try {
+      await apiRequest("/api/v1/communication/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          subject: subject.trim(),
+          body: body.trim(),
+          recipients: selectedRecipients.map(r => ({ userId: r.id, role: r.role }))
+        })
+      });
+      toast({ title: "Mensagem enviada com sucesso" });
+      onSuccess();
+      onOpenChange(false);
+    } catch {
+      toast({ title: "Erro ao enviar mensagem", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100">
+          <DialogTitle className="text-lg">
+            {replyTo ? "Responder mensagem" : "Nova Mensagem"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 overflow-auto">
+          <div className="px-6 py-4 flex flex-col gap-5">
+
+            {/* Destinatários */}
+            <div className="space-y-2">
+              <Label className="text-sm text-slate-600">Para</Label>
+
+              {/* Chips selecionados */}
+              {selectedRecipients.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-1">
+                  {selectedRecipients.map(r => (
+                    <div
+                      key={r.id}
+                      className="flex items-center gap-1.5 bg-slate-100 rounded-full px-2 py-1 text-xs"
+                    >
+                      <button
+                        onClick={() => toggleRole(r.id)}
+                        title="Clique para alternar TO / CC / BCC"
+                      >
+                        <Badge
+                          variant={r.role === "TO" ? "default" : "outline"}
+                          className="text-[10px] px-1.5 py-0 h-4 cursor-pointer"
+                        >
+                          {r.role}
+                        </Badge>
+                      </button>
+                      <span className="text-slate-700 font-medium">{r.name}</span>
+                      <button
+                        onClick={() => removeRecipient(r.id)}
+                        className="text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  value={recipientSearch}
+                  onChange={e => setRecipientSearch(e.target.value)}
+                  placeholder="Buscar destinatário por nome ou e-mail..."
+                  className="pl-9"
+                />
+                {searching && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+                )}
+              </div>
+
+              {/* Resultados */}
+              {searchResults.length > 0 && (
+                <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
+                  {searchResults.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => addRecipient(r)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 text-left transition-colors"
+                    >
+                      <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                        {r.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{r.name}</p>
+                        <p className="text-xs text-slate-400">{r.role} · {r.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Assunto */}
+            <div className="space-y-2">
+              <Label className="text-sm text-slate-600">Assunto</Label>
+              <Input
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                placeholder="Assunto da mensagem"
+              />
+            </div>
+
+            {/* Corpo */}
+            <div className="space-y-2">
+              <Label className="text-sm text-slate-600">Mensagem</Label>
+              <Textarea
+                value={body}
+                onChange={e => setBody(e.target.value)}
+                placeholder="Escreva sua mensagem aqui..."
+                className="min-h-[180px] resize-none"
+              />
+            </div>
+
+            {/* Anexos — placeholder visual (upload implementado na próxima iteração) */}
+            <div>
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-emerald-600 transition-colors"
+                onClick={() => toast({ title: "Upload de anexos em breve", description: "Funcionalidade será habilitada em breve." })}
+              >
+                <Paperclip className="h-4 w-4" />
+                Anexar arquivo
+              </button>
+            </div>
+          </div>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 border-t border-slate-100 flex items-center justify-between sm:justify-between">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={sending}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSend} disabled={sending} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Enviar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

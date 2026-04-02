@@ -20,6 +20,7 @@ import Relatorios from "@/pages/financeiro/Relatorios";
 import Inteligencia from "@/pages/financeiro/Inteligencia";
 import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
 import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
+import Communication from "@/pages/Communication";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -44,7 +45,7 @@ export const router = createBrowserRouter([
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
-{ path: "/communication", element: <Placeholder title="Comunicação" /> },
+{ path: "/communication", element: <Communication /> },
           { path: "/utilidades", element: <Placeholder title="Utilidades" /> },
 
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },

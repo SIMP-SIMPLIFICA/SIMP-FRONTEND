@@ -116,7 +116,7 @@ export const exportToPDF = (
                 }
             }
         },
-        didDrawPage: (data) => {
+        didDrawPage: (_data) => {
             // --- RODAPÉ COM PAGINAÇÃO ---
             const str = `Página ${doc.getNumberOfPages()}`;
             doc.setFontSize(8);
