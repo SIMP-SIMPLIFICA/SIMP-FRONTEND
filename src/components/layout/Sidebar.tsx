@@ -80,7 +80,7 @@ const NAV_ITEMS: NavItem[] = [
     anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
     children: [
       { label: "Processos", to: "/processos-virtuais", icon: <FolderArchive className="h-4 w-4" /> },
-      { label: "Categorias", to: "/processos-virtuais/categorias", icon: <Tag className="h-4 w-4" /> },
+      { label: "Configurações", to: "/processos-virtuais/configuracoes", icon: <Tag className="h-4 w-4" /> },
     ],
   },
 {

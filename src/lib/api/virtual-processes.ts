@@ -8,6 +8,21 @@ export interface VirtualProcessCategory {
   createdAt: string
 }
 
+export interface VirtualProcessSource {
+  id: string
+  workspaceId: string
+  name: string
+  createdAt: string
+}
+
+export interface VirtualProcessCompany {
+  id: string
+  workspaceId: string
+  name: string
+  cnpj?: string | null
+  createdAt: string
+}
+
 export const virtualProcessService = {
   list: async (workspaceId: string, params?: {
     page?: number; limit?: number; search?: string; status?: string;
@@ -85,5 +100,39 @@ export const virtualProcessService = {
 
   deleteCategory: async (id: string) => {
     await api.delete(`/virtual-processes/categories/${id}`)
+  },
+
+  // Sources (Origens do Recurso)
+  listSources: async (workspaceId: string) => {
+    const res = await api.get<VirtualProcessSource[]>(`/virtual-processes/workspaces/${workspaceId}/sources`)
+    return res.data
+  },
+  createSource: async (workspaceId: string, data: { name: string }) => {
+    const res = await api.post<VirtualProcessSource>(`/virtual-processes/workspaces/${workspaceId}/sources`, { ...data, workspaceId })
+    return res.data
+  },
+  updateSource: async (id: string, data: { name: string }) => {
+    const res = await api.put<VirtualProcessSource>(`/virtual-processes/sources/${id}`, data)
+    return res.data
+  },
+  deleteSource: async (id: string) => {
+    await api.delete(`/virtual-processes/sources/${id}`)
+  },
+
+  // Companies lookup (Empresas Contratadas)
+  listCompanyItems: async (workspaceId: string) => {
+    const res = await api.get<VirtualProcessCompany[]>(`/virtual-processes/workspaces/${workspaceId}/companies`)
+    return res.data
+  },
+  createCompanyItem: async (workspaceId: string, data: { name: string; cnpj?: string | null }) => {
+    const res = await api.post<VirtualProcessCompany>(`/virtual-processes/workspaces/${workspaceId}/companies`, { ...data, workspaceId })
+    return res.data
+  },
+  updateCompanyItem: async (id: string, data: { name: string; cnpj?: string | null }) => {
+    const res = await api.put<VirtualProcessCompany>(`/virtual-processes/companies/${id}`, data)
+    return res.data
+  },
+  deleteCompanyItem: async (id: string) => {
+    await api.delete(`/virtual-processes/companies/${id}`)
   },
 }

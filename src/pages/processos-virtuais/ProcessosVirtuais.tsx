@@ -17,7 +17,7 @@ import { toast } from '@/hooks/use-toast'
 import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
-  useVirtualProcessCategories,
+  useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
 } from '@/hooks/useVirtualProcesses'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
 import type { VirtualProcess } from '@/types/virtual-process'
@@ -62,6 +62,8 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
   const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
+  const { data: sources = [] } = useVirtualProcessSources(workspaceId)
+  const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
@@ -115,8 +117,8 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label>Categoria <span className="text-red-500">*</span></Label>
-                  <Link to="/processos-virtuais/categorias" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>
-                    Gerenciar categorias →
+                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>
+                    Configurações →
                   </Link>
                 </div>
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
@@ -137,8 +139,15 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Origem <span className="text-red-500">*</span></Label>
-                <Input required placeholder="Ex: Requerimento, Ofício..." value={form.source} onChange={set('source')} />
+                <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
+                  <SelectContent>
+                    {sources.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
+                      : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Detalhe da Origem</Label>
@@ -153,8 +162,15 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Empresa / Interessado</Label>
-                <Input placeholder="Nome da empresa ou pessoa" value={form.companyName} onChange={set('companyName')} />
+                <Label>Empresa Contratada</Label>
+                <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                  <SelectContent>
+                    {companies.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
+                      : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>CNPJ / CPF</Label>
