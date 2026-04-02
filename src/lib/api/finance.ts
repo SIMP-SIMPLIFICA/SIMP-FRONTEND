@@ -9,6 +9,17 @@ export interface FinanceCategory {
     description?: string | null;
 }
 
+export interface BankAccount {
+    id: string;
+    workspaceId: string;
+    name: string;
+    agency?: string | null;
+    accountNumber?: string | null;
+    initialBalanceCents: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface FinanceAttachment {
     id: string;
     entryId: string;
@@ -64,6 +75,38 @@ export const financeService = {
             workspaceId
         });
         return response.data;
+    },
+
+    updateCategory: async (id: string, data: { name?: string; description?: string }) => {
+        const response = await api.put<FinanceCategory>(`/finance/categories/${id}`, data);
+        return response.data;
+    },
+
+    deleteCategory: async (id: string) => {
+        await api.delete(`/finance/categories/${id}`);
+    },
+
+    // Contas Bancárias
+    getBankAccounts: async (workspaceId: string) => {
+        const response = await api.get<BankAccount[]>(`/finance/workspaces/${workspaceId}/accounts`);
+        return response.data;
+    },
+
+    createBankAccount: async (workspaceId: string, data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+        const response = await api.post<BankAccount>(`/finance/workspaces/${workspaceId}/accounts`, {
+            ...data,
+            workspaceId,
+        });
+        return response.data;
+    },
+
+    updateBankAccount: async (id: string, data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+        const response = await api.put<BankAccount>(`/finance/accounts/${id}`, data);
+        return response.data;
+    },
+
+    deleteBankAccount: async (id: string) => {
+        await api.delete(`/finance/accounts/${id}`);
     },
 
     // Anexos (R2)

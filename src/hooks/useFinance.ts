@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { financeService } from "../lib/api/finance";
+
 import type { FinanceEntry } from "../pages/financeiro/types";
 import { useWorkspaces } from "./useWorkspaces";
 
@@ -92,6 +93,91 @@ export function useCreateFinanceCategory(workspaceId: string | undefined) {
         onSuccess: () => {
             const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
             queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
+        },
+    });
+}
+
+export function useUpdateFinanceCategory(workspaceId: string | undefined) {
+    const queryClient = useQueryClient();
+    const { data: workspaces } = useWorkspaces();
+
+    return useMutation({
+        mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string } }) =>
+            financeService.updateCategory(id, data),
+        onSuccess: () => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
+        },
+    });
+}
+
+export function useDeleteFinanceCategory(workspaceId: string | undefined) {
+    const queryClient = useQueryClient();
+    const { data: workspaces } = useWorkspaces();
+
+    return useMutation({
+        mutationFn: (id: string) => financeService.deleteCategory(id),
+        onSuccess: () => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
+        },
+    });
+}
+
+export function useFinanceBankAccounts(workspaceId: string | undefined) {
+    const { data: workspaces } = useWorkspaces();
+    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+
+    return useQuery({
+        queryKey: ["financeBankAccounts", resolvedWorkspaceId],
+        queryFn: () => {
+            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
+            return financeService.getBankAccounts(resolvedWorkspaceId);
+        },
+        enabled: !!resolvedWorkspaceId,
+    });
+}
+
+export function useCreateBankAccount(workspaceId: string | undefined) {
+    const queryClient = useQueryClient();
+    const { data: workspaces } = useWorkspaces();
+
+    return useMutation({
+        mutationFn: (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
+            return financeService.createBankAccount(resolvedWorkspaceId, data);
+        },
+        onSuccess: () => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
+        },
+    });
+}
+
+export function useUpdateBankAccount(workspaceId: string | undefined) {
+    const queryClient = useQueryClient();
+    const { data: workspaces } = useWorkspaces();
+
+    return useMutation({
+        mutationFn: ({ id, data }: { id: string; data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number } }) =>
+            financeService.updateBankAccount(id, data),
+        onSuccess: () => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
+        },
+    });
+}
+
+export function useDeleteBankAccount(workspaceId: string | undefined) {
+    const queryClient = useQueryClient();
+    const { data: workspaces } = useWorkspaces();
+
+    return useMutation({
+        mutationFn: (id: string) => financeService.deleteBankAccount(id),
+        onSuccess: () => {
+            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
+            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
         },
     });
 }

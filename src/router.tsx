@@ -18,6 +18,8 @@ import FinanceiroOverview from "@/pages/financeiro/FinanceiroOverview";
 import Lancamentos from "@/pages/financeiro/Lancamentos";
 import Relatorios from "@/pages/financeiro/Relatorios";
 import Inteligencia from "@/pages/financeiro/Inteligencia";
+import ContasBancarias from "@/pages/financeiro/Contas";
+import Categorias from "@/pages/financeiro/Categorias";
 import WorkspacesPage from "@/pages/workspaces/WorkspacesPage";
 import WorkspaceDetailPage from "@/pages/workspaces/WorkspaceDetailPage";
 import Communication from "@/pages/Communication";
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
           { path: "/financeiro/lancamentos", element: <Lancamentos /> },
           { path: "/financeiro/relatorios", element: <Relatorios /> },
           { path: "/financeiro/inteligencia", element: <Inteligencia /> },
+          { path: "/financeiro/contas", element: <ContasBancarias /> },
+          { path: "/financeiro/categorias", element: <Categorias /> },
 
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },

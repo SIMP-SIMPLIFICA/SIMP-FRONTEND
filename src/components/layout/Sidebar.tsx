@@ -18,6 +18,8 @@ Receipt,
   Settings,
   X,
   Wrench,
+  Landmark,
+  Tag,
 } from "lucide-react";
 
 import { useMe } from "@/hooks/useMe";
@@ -52,6 +54,8 @@ const NAV_ITEMS: NavItem[] = [
     icon: <BarChart3 className="h-5 w-5" />,
     children: [
       { label: "Lançamentos", to: "/financeiro/lancamentos", icon: <Receipt className="h-4 w-4" /> },
+      { label: "Contas Bancárias", to: "/financeiro/contas", icon: <Landmark className="h-4 w-4" /> },
+      { label: "Categorias", to: "/financeiro/categorias", icon: <Tag className="h-4 w-4" /> },
       { label: "Relatórios", to: "/financeiro/relatorios", icon: <FileText className="h-4 w-4" /> },
       { label: "Inteligência", to: "/financeiro/inteligencia", icon: <Brain className="h-4 w-4" /> },
     ],

@@ -50,7 +50,7 @@ function StatCard({ title, value, delta, deltaPositive, icon, loading }: StatCar
           {loading ? (
             <Skeleton className="mt-4 h-7 w-28" />
           ) : (
-            <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums leading-tight break-all">
+            <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums leading-tight truncate">
               {value}
             </div>
           )}

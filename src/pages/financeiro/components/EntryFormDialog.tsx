@@ -8,7 +8,7 @@ import type { FinanceEntry, EntryType } from "../types";
 
 import { useToast } from "@/hooks/use-toast";
 import { useParams } from "react-router-dom";
-import { useFinanceCategories, useCreateFinanceCategory, useCreateFinanceEntry, useUpdateFinanceEntry, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
+import { useFinanceCategories, useCreateFinanceCategory, useCreateFinanceEntry, useUpdateFinanceEntry, useFinanceAttachments, useDeleteAttachment, useFinanceBankAccounts } from "@/hooks/useFinance";
 import { useQueryClient } from "@tanstack/react-query";
 import { Paperclip, X, Image as ImageIcon, FileText, Trash2, Loader2, AlertTriangle } from "lucide-react";
 
@@ -54,6 +54,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     const [issueDate, setIssueDate] = useState(""); // Data Emissão NF (DD/MM/AAAA)
     const [deliveryDate, setDeliveryDate] = useState(""); // Data Entrega (DD/MM/AAAA)
 
+    const [accountId, setAccountId] = useState<string>("");
     const [isSaving, setIsSaving] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     const { workspaceId } = useParams();
     const { toast } = useToast();
     const { data: categories = [] } = useFinanceCategories(workspaceId);
+    const { data: bankAccounts = [] } = useFinanceBankAccounts(workspaceId);
     const { mutateAsync: createCategory } = useCreateFinanceCategory(workspaceId);
     const { mutateAsync: createEntry } = useCreateFinanceEntry(workspaceId);
     const { mutateAsync: updateEntry } = useUpdateFinanceEntry(workspaceId);
@@ -76,6 +78,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                 setType(entry.type);
                 setCategoryName(entry.categoryName);
                 setAmountStr((entry.amountCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
+                setAccountId((entry as FinanceEntry & { accountId?: string }).accountId ?? "");
                 const [y, m, d] = entry.occurredAt.split("T")[0].split("-");
                 setOccurredAt(`${d}/${m}/${y}`);
 
@@ -101,6 +104,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                 setType("EXPENSE");
                 setCategoryName("");
                 setAmountStr("");
+                setAccountId("");
                 const today = new Date();
                 const dd = String(today.getDate()).padStart(2, '0');
                 const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -165,6 +169,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                 description,
                 type,
                 categoryId,
+                accountId: accountId || undefined,
                 amountCents: cents,
                 occurredAt: isoDate,
                 subcategoryName: subcategoryName || undefined,
@@ -320,6 +325,22 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                                 />
                             </div>
                         </div>
+
+                        {bankAccounts.length > 0 && (
+                            <div className="space-y-2">
+                                <Label htmlFor="accountId">Conta Bancária</Label>
+                                <Select value={accountId} onValueChange={setAccountId}>
+                                    <SelectTrigger id="accountId">
+                                        <SelectValue placeholder="Selecionar conta (opcional)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {bankAccounts.map(acc => (
+                                            <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
 
                         {/* --- INÍCIO: NOVOS CAMPOS PARA RASTREABILIDADE PÚBLICA (OPCIONAIS NA UI, MAS EXIGIDOS NA ROTINA) --- */}
                         <div className="bg-slate-50 border border-slate-100 rounded-lg p-4 space-y-4">
