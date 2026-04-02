@@ -44,7 +44,10 @@ export const router = createBrowserRouter([
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
-{ path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
+{ path: "/communication", element: <Placeholder title="Comunicação" /> },
+          { path: "/utilidades", element: <Placeholder title="Utilidades" /> },
+
+          { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
           { path: "/configuracoes", element: <Placeholder title="Configurações" /> },
 
           { path: "/profile", element: <Profile /> },
