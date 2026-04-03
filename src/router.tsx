@@ -26,6 +26,7 @@ import Communication from "@/pages/Communication";
 import ProcessosVirtuais from "@/pages/processos-virtuais/ProcessosVirtuais";
 import ConfiguracoesProcessos from "@/pages/processos-virtuais/Configuracoes";
 import CalendarPage from "@/pages/utilidades/Calendar";
+import NotesPage from "@/pages/utilidades/Notes";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -72,6 +73,7 @@ export const router = createBrowserRouter([
           },
           { path: "/utilidades", element: <CalendarPage /> },
           { path: "/utilidades/calendario", element: <CalendarPage /> },
+          { path: "/utilidades/notas", element: <NotesPage /> },
 
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
           {

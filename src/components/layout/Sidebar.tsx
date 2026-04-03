@@ -21,6 +21,7 @@ import {
   Landmark,
   Tag,
   CalendarDays,
+  StickyNote,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -118,6 +119,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: <Wrench className="h-5 w-5" />,
     children: [
       { label: "Calendário", to: "/utilidades/calendario", icon: <CalendarDays className="h-4 w-4" /> },
+      { label: "Anotações",  to: "/utilidades/notas",      icon: <StickyNote   className="h-4 w-4" /> },
     ],
   },
 ];
