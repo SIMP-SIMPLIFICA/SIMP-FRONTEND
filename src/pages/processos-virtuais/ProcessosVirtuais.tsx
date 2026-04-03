@@ -421,15 +421,20 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
                       <div className="text-xs text-slate-400">{doc.tag} · {formatBytes(doc.fileSize)} · {formatDate(doc.uploadedAt)}</div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <a
-                        href={virtualProcessService.getDownloadUrl(processId, doc.id)}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
                         className="p-1 text-slate-400 hover:text-[#0A5BC4] transition-colors"
                         title="Download"
+                        onClick={async () => {
+                          try {
+                            const data = await virtualProcessService.getDownloadUrl(processId!, doc.id)
+                            window.open(data.url, '_blank')
+                          } catch {
+                            toast({ title: 'Erro ao baixar documento', variant: 'destructive' })
+                          }
+                        }}
                       >
                         <FileText className="h-3.5 w-3.5" />
-                      </a>
+                      </button>
                       <button
                         onClick={() => setDeletingDocId(doc.id)}
                         className="p-1 text-slate-400 hover:text-red-500 transition-colors"

@@ -75,8 +75,10 @@ export const virtualProcessService = {
     return res.data
   },
 
-  getDownloadUrl: (id: string, documentId: string) =>
-    `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/virtual-processes/${id}/documents/${documentId}/download`,
+  getDownloadUrl: async (id: string, documentId: string) => {
+    const res = await api.get<{ url: string }>(`/virtual-processes/${id}/documents/${documentId}/download`)
+    return res.data
+  },
 
   deleteDocument: async (id: string, documentId: string) => {
     await api.delete(`/virtual-processes/${id}/documents/${documentId}`)
