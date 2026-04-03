@@ -117,9 +117,7 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label>Categoria <span className="text-red-500">*</span></Label>
-                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>
-                    Configurações →
-                  </Link>
+                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
                 </div>
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
@@ -139,7 +137,10 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                <div className="flex items-center justify-between">
+                  <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
+                </div>
                 <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
                   <SelectTrigger><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
                   <SelectContent>
@@ -162,7 +163,10 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Empresa Contratada</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Empresa Contratada</Label>
+                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
+                </div>
                 <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
                   <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                   <SelectContent>
