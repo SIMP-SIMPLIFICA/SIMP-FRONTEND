@@ -11,7 +11,7 @@ import {
   ChevronDown,
   LogOut,
   User,
-Receipt,
+  Receipt,
   FileText,
   Brain,
   FolderArchive,
@@ -20,6 +20,7 @@ Receipt,
   Wrench,
   Landmark,
   Tag,
+  CalendarDays,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -115,6 +116,9 @@ const NAV_ITEMS: NavItem[] = [
     label: "Utilidades",
     to: "/utilidades",
     icon: <Wrench className="h-5 w-5" />,
+    children: [
+      { label: "Calendário", to: "/utilidades/calendario", icon: <CalendarDays className="h-4 w-4" /> },
+    ],
   },
 ];
 
@@ -155,6 +159,10 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     location.pathname.startsWith("/processos-virtuais")
   );
 
+  const [utilitiesOpen, setUtilitiesOpen] = useState(() =>
+    location.pathname.startsWith("/utilidades")
+  );
+
   // Fecha o menu mobile ao mudar de rota
   useEffect(() => {
     if (setMobileOpen) setMobileOpen(false);
@@ -171,6 +179,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   useEffect(() => {
     if (location.pathname.startsWith("/processos-virtuais")) {
       setTimeout(() => setProcessesOpen(true), 0);
+    }
+  }, [location.pathname]);
+
+  // Keep submenu open when navigating into any /utilidades/* route
+  useEffect(() => {
+    if (location.pathname.startsWith("/utilidades")) {
+      setTimeout(() => setUtilitiesOpen(true), 0);
     }
   }, [location.pathname]);
 
@@ -238,8 +253,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
             // ── Item with submenu ──────────────────────────────────────────
             if (item.children) {
               const isActive = location.pathname.startsWith(item.to);
-              const submenuOpen = item.to === "/processos-virtuais" ? processesOpen : financeOpen;
-              const setSubmenuOpen = item.to === "/processos-virtuais" ? setProcessesOpen : setFinanceOpen;
+              const submenuOpen =
+                item.to === "/processos-virtuais" ? processesOpen :
+                item.to === "/utilidades" ? utilitiesOpen :
+                financeOpen;
+              const setSubmenuOpen =
+                item.to === "/processos-virtuais" ? setProcessesOpen :
+                item.to === "/utilidades" ? setUtilitiesOpen :
+                setFinanceOpen;
 
               return (
                 <li key={item.to}>

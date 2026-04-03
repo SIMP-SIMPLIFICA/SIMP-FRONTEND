@@ -8,7 +8,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 
 type LoginResponse = {
@@ -25,7 +24,6 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -157,16 +155,9 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Lembrar-me + Esqueci a senha */}
-                <div className="flex items-center justify-between">
-                  <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-slate-600">
-                    <Checkbox
-                      checked={remember}
-                      onCheckedChange={(v) => setRemember(v === true)}
-                    />
-                    Lembrar-me
-                  </label>
-
+                {/* Esqueci a senha */}
+                <div className="flex items-center justify-end">
+                  {/* TODO: implementar "Lembrar-me" — checkbox existe mas rememberMe não é enviado ao backend nem altera duração da sessão */}
                   <Link
                     to="/forgot-password"
                     className="text-sm font-medium text-[#0A5BC4] hover:underline"
