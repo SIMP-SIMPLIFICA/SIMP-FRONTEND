@@ -39,7 +39,7 @@ export default function ResetPassword() {
       await apiRequest("/api/v1/auth/reset-password", {
         method: "POST",
         noAuth: true,
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, confirmPassword: confirm }),
       });
       toast({ title: "Senha alterada!", description: "Você já pode fazer login com a nova senha." });
       navigate("/login");
@@ -114,11 +114,11 @@ export default function ResetPassword() {
                 <Input
                   type={showPassword ? "text" : "password"}
                   className="h-11 rounded-xl pr-10"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mín. 8 chars, maiúscula, número e especial"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={8}
                   disabled={loading}
                   autoComplete="new-password"
                 />
