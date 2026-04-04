@@ -7,10 +7,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToastAction } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { getAccessToken } from "@/lib/auth"; // Importante: pegar o token
+import { getAccessToken } from "@/lib/auth";
 
 interface Notification {
   id: string;
@@ -18,6 +19,7 @@ interface Notification {
   message: string;
   read: boolean;
   link?: string;
+  entityId?: string;
   createdAt: string;
   type: string;
 }
@@ -62,14 +64,19 @@ export function NotificationBell() {
 
       try {
         const newNotification = JSON.parse(event.data);
-        
+
         setNotifications((prev) => [newNotification, ...prev]);
         setUnreadCount((prev) => prev + 1);
 
         toast({
           title: newNotification.title,
           description: newNotification.message,
-          duration: 5000,
+          duration: 6000,
+          action: newNotification.link ? (
+            <ToastAction altText="Ver" onClick={() => navigate(newNotification.link)}>
+              Ver
+            </ToastAction>
+          ) : undefined,
         });
       } catch (e) {
         console.error("Erro ao processar notificação", e);

@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { exportToPDF, exportToExcel } from "@/utils/export";
-import { Link } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useFinanceEntries, useDeleteFinanceEntry, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
