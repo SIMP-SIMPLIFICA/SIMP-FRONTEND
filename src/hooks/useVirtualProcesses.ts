@@ -1,25 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
-import { useWorkspaces } from './useWorkspaces'
 import type { CreateVirtualProcessPayload } from '@/types/virtual-process'
 
-function useWorkspaceId(workspaceId: string | undefined) {
-  const { data: workspaces } = useWorkspaces()
-  return workspaceId || workspaces?.[0]?.id
-}
-
-export function useVirtualProcesses(workspaceId: string | undefined, filters?: {
+export function useVirtualProcesses(_workspaceId?: string | undefined, filters?: {
   page?: number; limit?: number; search?: string; status?: string;
   secretaria?: string; category?: string; startDate?: string; endDate?: string
 }) {
-  const resolvedId = useWorkspaceId(workspaceId)
   return useQuery({
-    queryKey: ['virtualProcesses', resolvedId, filters],
-    queryFn: () => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.list(resolvedId, filters)
-    },
-    enabled: !!resolvedId,
+    queryKey: ['virtualProcesses', filters],
+    queryFn: () => virtualProcessService.list(filters),
   })
 }
 
@@ -31,64 +20,52 @@ export function useVirtualProcessDetail(id: string | null) {
   })
 }
 
-export function useCreateVirtualProcess(workspaceId: string | undefined) {
+export function useCreateVirtualProcess(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
-    mutationFn: (data: Omit<CreateVirtualProcessPayload, 'workspaceId'>) => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.create(resolvedId, data)
-    },
+    mutationFn: (data: CreateVirtualProcessPayload) => virtualProcessService.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcesses', resolvedId] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
     },
   })
 }
 
-export function useUpdateProcessStatus(workspaceId: string | undefined) {
+export function useUpdateProcessStatus(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       virtualProcessService.updateStatus(id, status),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcesses', resolvedId] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
       queryClient.invalidateQueries({ queryKey: ['virtualProcess', id] })
     },
   })
 }
 
-export function useUpdateProcessCompany(workspaceId: string | undefined) {
+export function useUpdateProcessCompany(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: { companyName?: string; companyCnpj?: string } }) =>
       virtualProcessService.updateCompany(id, data),
     onSuccess: (_, { id }) => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcesses', resolvedId] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
       queryClient.invalidateQueries({ queryKey: ['virtualProcess', id] })
     },
   })
 }
 
-export function useDeleteVirtualProcess(workspaceId: string | undefined) {
+export function useDeleteVirtualProcess(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
     mutationFn: (id: string) => virtualProcessService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcesses', resolvedId] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
     },
   })
 }
 
-export function useUploadProcessDocument(processId: string | null, _workspaceId: string | undefined) {
+export function useUploadProcessDocument(processId: string | null, _workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: ({ file, tag, description }: { file: File; tag: string; description?: string }) => {
       if (!processId) throw new Error('Process ID required')
@@ -100,10 +77,8 @@ export function useUploadProcessDocument(processId: string | null, _workspaceId:
   })
 }
 
-export function useDeleteProcessDocument(processId: string | null, _workspaceId: string | undefined) {
+export function useDeleteProcessDocument(processId: string | null, _workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(undefined)
-
   return useMutation({
     mutationFn: (documentId: string) => {
       if (!processId) throw new Error('Process ID required')
@@ -111,145 +86,103 @@ export function useDeleteProcessDocument(processId: string | null, _workspaceId:
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtualProcess', processId] })
-      queryClient.invalidateQueries({ queryKey: ['virtualProcesses', resolvedId] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
     },
   })
 }
 
-export function useVirtualProcessCategories(workspaceId: string | undefined) {
-  const resolvedId = useWorkspaceId(workspaceId)
+export function useVirtualProcessCategories(_workspaceId?: string | undefined) {
   return useQuery({
-    queryKey: ['virtualProcessCategories', resolvedId],
-    queryFn: () => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.listCategories(resolvedId)
-    },
-    enabled: !!resolvedId,
+    queryKey: ['virtualProcessCategories'],
+    queryFn: () => virtualProcessService.listCategories(),
   })
 }
 
-export function useCreateVirtualProcessCategory(workspaceId: string | undefined) {
+export function useCreateVirtualProcessCategory(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
-    mutationFn: (data: { name: string }) => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.createCategory(resolvedId, data)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
-    },
+    mutationFn: (data: { name: string }) => virtualProcessService.createCategory(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories'] }) },
   })
 }
 
-export function useUpdateVirtualProcessCategory(workspaceId: string | undefined) {
+export function useUpdateVirtualProcessCategory(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
       virtualProcessService.updateCategory(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories'] }) },
   })
 }
 
-export function useVirtualProcessSources(workspaceId: string | undefined) {
-  const resolvedId = useWorkspaceId(workspaceId)
-  return useQuery({
-    queryKey: ['virtualProcessSources', resolvedId],
-    queryFn: () => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.listSources(resolvedId)
-    },
-    enabled: !!resolvedId,
-  })
-}
-
-export function useCreateVirtualProcessSource(workspaceId: string | undefined) {
+export function useDeleteVirtualProcessCategory(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
   return useMutation({
-    mutationFn: (data: { name: string }) => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.createSource(resolvedId, data)
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources', resolvedId] }),
+    mutationFn: (id: string) => virtualProcessService.deleteCategory(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories'] }) },
   })
 }
 
-export function useUpdateVirtualProcessSource(workspaceId: string | undefined) {
+export function useVirtualProcessSources(_workspaceId?: string | undefined) {
+  return useQuery({
+    queryKey: ['virtualProcessSources'],
+    queryFn: () => virtualProcessService.listSources(),
+  })
+}
+
+export function useCreateVirtualProcessSource(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
+  return useMutation({
+    mutationFn: (data: { name: string }) => virtualProcessService.createSource(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources'] }),
+  })
+}
+
+export function useUpdateVirtualProcessSource(_workspaceId?: string | undefined) {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
       virtualProcessService.updateSource(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources', resolvedId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources'] }),
   })
 }
 
-export function useDeleteVirtualProcessSource(workspaceId: string | undefined) {
+export function useDeleteVirtualProcessSource(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
   return useMutation({
     mutationFn: (id: string) => virtualProcessService.deleteSource(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources', resolvedId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessSources'] }),
   })
 }
 
-export function useVirtualProcessCompanies(workspaceId: string | undefined) {
-  const resolvedId = useWorkspaceId(workspaceId)
+export function useVirtualProcessCompanies(_workspaceId?: string | undefined) {
   return useQuery({
-    queryKey: ['virtualProcessCompanies', resolvedId],
-    queryFn: () => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.listCompanyItems(resolvedId)
-    },
-    enabled: !!resolvedId,
+    queryKey: ['virtualProcessCompanies'],
+    queryFn: () => virtualProcessService.listCompanyItems(),
   })
 }
 
-export function useCreateVirtualProcessCompany(workspaceId: string | undefined) {
+export function useCreateVirtualProcessCompany(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
   return useMutation({
-    mutationFn: (data: { name: string; cnpj?: string | null }) => {
-      if (!resolvedId) throw new Error('Workspace ID required')
-      return virtualProcessService.createCompanyItem(resolvedId, data)
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies', resolvedId] }),
+    mutationFn: (data: { name: string; cnpj?: string | null }) => virtualProcessService.createCompanyItem(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies'] }),
   })
 }
 
-export function useUpdateVirtualProcessCompany(workspaceId: string | undefined) {
+export function useUpdateVirtualProcessCompany(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name: string; cnpj?: string | null } }) =>
       virtualProcessService.updateCompanyItem(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies', resolvedId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies'] }),
   })
 }
 
-export function useDeleteVirtualProcessCompany(workspaceId: string | undefined) {
+export function useDeleteVirtualProcessCompany(_workspaceId?: string | undefined) {
   const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
   return useMutation({
     mutationFn: (id: string) => virtualProcessService.deleteCompanyItem(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies', resolvedId] }),
-  })
-}
-
-export function useDeleteVirtualProcessCategory(workspaceId: string | undefined) {
-  const queryClient = useQueryClient()
-  const resolvedId = useWorkspaceId(workspaceId)
-
-  return useMutation({
-    mutationFn: (id: string) => virtualProcessService.deleteCategory(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['virtualProcessCategories', resolvedId] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['virtualProcessCompanies'] }),
   })
 }

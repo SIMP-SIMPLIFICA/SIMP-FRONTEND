@@ -1,21 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
-import type { MeResponse } from "@/hooks/useMe";
+import type { MeResponse, MeUser } from "@/hooks/useMe";
 
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName?: string;
-  avatar?: string;
-  role?: string;
-}
+export type { MeUser as User };
 
 export function useAuth() {
   const token = getAccessToken();
 
-  // Mesma queryFn que useMe → mesmo shape { user: {...} } → cache consistente
   const { data, isLoading, error, isError } = useQuery<MeResponse>({
     queryKey: ["auth", "me"],
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
@@ -24,10 +16,14 @@ export function useAuth() {
     staleTime: 1000 * 60 * 2,
   });
 
+  const user = data?.user as MeUser | undefined;
+
   return {
-    user: data?.user as User | undefined,
+    user,
     isLoading,
-    isAuthenticated: !!data?.user && !isError,
+    isAuthenticated: !!user && !isError,
+    isSuperAdmin: user?.isSuperAdmin ?? false,
+    organizationId: user?.organizationId ?? null,
     error,
   };
 }

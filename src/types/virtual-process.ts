@@ -22,7 +22,7 @@ export interface VirtualProcessDocument {
 
 export interface VirtualProcess {
   id: string
-  workspaceId: string
+  organizationId: string
   processNumber: string
   secretaria: string
   source: string
@@ -51,7 +51,6 @@ export interface VirtualProcessListResponse {
 }
 
 export interface CreateVirtualProcessPayload {
-  workspaceId: string
   processNumber: string
   secretaria: string
   source: string

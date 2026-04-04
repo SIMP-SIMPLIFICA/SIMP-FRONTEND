@@ -2,11 +2,10 @@ import { useMemo, useState } from "react";
 import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { exportToPDF, exportToExcel } from "@/utils/export";
-import { useParams, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useFinanceEntries, useDeleteFinanceEntry, useFinanceAttachments, useDeleteAttachment } from "@/hooks/useFinance";
-import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { format } from "date-fns";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,14 +50,8 @@ function formatDate(iso: string): string {
 
 // --- MAIN COMPONENT ---
 export default function Lancamentos() {
-  const { workspaceId } = useParams();
-  const { data: workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces();
-  const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeWorkspaceName = workspaces?.find((w: any) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
-
-  const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
-  const { mutate: deleteEntry } = useDeleteFinanceEntry(resolvedWorkspaceId);
+  const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries();
+  const { mutate: deleteEntry } = useDeleteFinanceEntry();
 
   const entries = entriesData || [];
 
@@ -191,29 +184,8 @@ export default function Lancamentos() {
   }
 
   // --- RENDER ---
-  if (isLoadingWorkspaces || isLoadingEntries) {
+  if (isLoadingEntries) {
     return <div className="p-8 text-center text-slate-500">Carregando lançamentos...</div>;
-  }
-
-  if (!workspaces || workspaces.length === 0) {
-    return (
-      <div className="flex h-[80vh] flex-col items-center justify-center p-8 text-center">
-        <div className="mb-6 grid h-20 w-20 place-items-center rounded-full bg-blue-50 text-blue-600">
-          <AlertTriangle className="h-10 w-10" />
-        </div>
-        <h1 className="mb-2 text-2xl font-bold tracking-tight text-slate-900">
-          Nenhum Workspace encontrado
-        </h1>
-        <p className="mb-6 max-w-md text-slate-500">
-          Para gerenciar suas receitas e despesas, você precisa ter uma empresa (workspace) cadastrada no sistema.
-        </p>
-        <Button asChild className="h-11 rounded-2xl bg-[#0A5BC4] px-6 hover:bg-[#094FA8]">
-          <Link to="/workspaces">
-            Criar meu Primeiro Workspace
-          </Link>
-        </Button>
-      </div>
-    );
   }
 
   return (
@@ -243,7 +215,7 @@ export default function Lancamentos() {
             <Button
               variant="outline"
               className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-              onClick={() => exportToPDF(filtered, activeWorkspaceName, { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
+              onClick={() => exportToPDF(filtered, "Financeiro", { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
               disabled={filtered.length === 0}
             >
               <FileText className="h-4 w-4" />
@@ -252,7 +224,7 @@ export default function Lancamentos() {
             <Button
               variant="outline"
               className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-              onClick={() => exportToExcel(filtered, activeWorkspaceName, { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
+              onClick={() => exportToExcel(filtered, "Financeiro", { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
               disabled={filtered.length === 0}
             >
               <Download className="h-4 w-4" />

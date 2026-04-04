@@ -2,183 +2,105 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { financeService } from "../lib/api/finance";
 
 import type { FinanceEntry } from "../pages/financeiro/types";
-import { useWorkspaces } from "./useWorkspaces";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function useFinanceEntries(workspaceId: string | undefined, filters?: any) {
-    const { data: workspaces } = useWorkspaces();
-    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-
+export function useFinanceEntries(_workspaceId?: string | undefined, filters?: any) {
     return useQuery({
-        queryKey: ["financeEntries", resolvedWorkspaceId, filters],
-        queryFn: () => {
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.getEntries(resolvedWorkspaceId, filters);
-        },
-        enabled: !!resolvedWorkspaceId,
+        queryKey: ["financeEntries", filters],
+        queryFn: () => financeService.getEntries(filters),
     });
 }
 
-export function useFinanceCategories(workspaceId: string | undefined) {
-    const { data: workspaces } = useWorkspaces();
-    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-
+export function useFinanceCategories(_workspaceId?: string | undefined) {
     return useQuery({
-        queryKey: ["financeCategories", resolvedWorkspaceId],
-        queryFn: () => {
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.getCategories(resolvedWorkspaceId);
-        },
-        enabled: !!resolvedWorkspaceId,
+        queryKey: ["financeCategories"],
+        queryFn: () => financeService.getCategories(),
     });
 }
 
-export function useCreateFinanceEntry(workspaceId: string | undefined) {
+export function useCreateFinanceEntry(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
-        mutationFn: (data: Partial<FinanceEntry> & { categoryId?: string }) => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.createEntry(resolvedWorkspaceId, data);
-        },
+        mutationFn: (data: Partial<FinanceEntry> & { categoryId?: string }) =>
+            financeService.createEntry(data),
         onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeEntries", resolvedWorkspaceId] });
+            queryClient.invalidateQueries({ queryKey: ["financeEntries"] });
         },
     });
 }
 
-export function useUpdateFinanceEntry(workspaceId: string | undefined) {
+export function useUpdateFinanceEntry(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<FinanceEntry> & { categoryId?: string } }) => {
-            return financeService.updateEntry(id, data);
-        },
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeEntries", resolvedWorkspaceId] });
-        },
+        mutationFn: ({ id, data }: { id: string; data: Partial<FinanceEntry> & { categoryId?: string } }) =>
+            financeService.updateEntry(id, data),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeEntries"] }); },
     });
 }
 
-export function useDeleteFinanceEntry(workspaceId: string | undefined) {
+export function useDeleteFinanceEntry(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
-        mutationFn: (id: string) => {
-            return financeService.deleteEntry(id);
-        },
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeEntries", resolvedWorkspaceId] });
-        },
+        mutationFn: (id: string) => financeService.deleteEntry(id),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeEntries"] }); },
     });
 }
 
-export function useCreateFinanceCategory(workspaceId: string | undefined) {
+export function useCreateFinanceCategory(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
-        mutationFn: (data: { name: string; description?: string }) => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.createCategory(resolvedWorkspaceId, data);
-        },
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
-        },
+        mutationFn: (data: { name: string; description?: string }) => financeService.createCategory(data),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeCategories"] }); },
     });
 }
 
-export function useUpdateFinanceCategory(workspaceId: string | undefined) {
+export function useUpdateFinanceCategory(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: { name?: string; description?: string } }) =>
             financeService.updateCategory(id, data),
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeCategories"] }); },
     });
 }
 
-export function useDeleteFinanceCategory(workspaceId: string | undefined) {
+export function useDeleteFinanceCategory(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
         mutationFn: (id: string) => financeService.deleteCategory(id),
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeCategories", resolvedWorkspaceId] });
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeCategories"] }); },
     });
 }
 
-export function useFinanceBankAccounts(workspaceId: string | undefined) {
-    const { data: workspaces } = useWorkspaces();
-    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-
+export function useFinanceBankAccounts(_workspaceId?: string | undefined) {
     return useQuery({
-        queryKey: ["financeBankAccounts", resolvedWorkspaceId],
-        queryFn: () => {
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.getBankAccounts(resolvedWorkspaceId);
-        },
-        enabled: !!resolvedWorkspaceId,
+        queryKey: ["financeBankAccounts"],
+        queryFn: () => financeService.getBankAccounts(),
     });
 }
 
-export function useCreateBankAccount(workspaceId: string | undefined) {
+export function useCreateBankAccount(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
-        mutationFn: (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            if (!resolvedWorkspaceId) throw new Error("Workspace ID is required");
-            return financeService.createBankAccount(resolvedWorkspaceId, data);
-        },
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
-        },
+        mutationFn: (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) =>
+            financeService.createBankAccount(data),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] }); },
     });
 }
 
-export function useUpdateBankAccount(workspaceId: string | undefined) {
+export function useUpdateBankAccount(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number } }) =>
             financeService.updateBankAccount(id, data),
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] }); },
     });
 }
 
-export function useDeleteBankAccount(workspaceId: string | undefined) {
+export function useDeleteBankAccount(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
-    const { data: workspaces } = useWorkspaces();
-
     return useMutation({
         mutationFn: (id: string) => financeService.deleteBankAccount(id),
-        onSuccess: () => {
-            const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts", resolvedWorkspaceId] });
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] }); },
     });
 }
 

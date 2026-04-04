@@ -2,13 +2,35 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
-export type MeResponse = {
-  user: {
+export type MeUser = {
+  id: string;
+  email: string;
+  username?: string;
+  firstName: string;
+  lastName?: string;
+  avatar?: string;
+  organizationId: string | null;
+  isSuperAdmin: boolean;
+  organization?: {
     id: string;
-    email: string;
-    username?: string;
-    roles?: Array<{ role?: { permissions?: string[]; name?: string; displayName?: string } }>;
-  };
+    name: string;
+    slug: string;
+    plan: string;
+    cnpj: string | null;
+    isActive: boolean;
+    createdAt: string;
+  } | null;
+  roles?: Array<{
+    role?: {
+      permissions?: string[];
+      name?: string;
+      displayName?: string;
+    };
+  }>;
+};
+
+export type MeResponse = {
+  user: MeUser;
 };
 
 export function useMe(enabled = true) {

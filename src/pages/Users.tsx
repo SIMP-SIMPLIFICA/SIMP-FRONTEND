@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
-import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle } from "lucide-react";
+import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle, Loader2 } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -154,6 +154,7 @@ export default function Users() {
   const [sessions, setSessions] = useState<ApiUserSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [terminateAllLoading, setTerminateAllLoading] = useState(false);
+  const [terminatingSingleId, setTerminatingSingleId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -297,6 +298,19 @@ export default function Users() {
       setSessions([]);
     } finally {
       setSessionsLoading(false);
+    }
+  }
+
+  async function terminateSingleSession(userId: string, sessionId: string) {
+    setTerminatingSingleId(sessionId);
+    try {
+      await apiRequest(`/api/v1/users/${userId}/sessions/${sessionId}`, { method: "DELETE" });
+      toast({ title: "Sessão encerrada", description: "A sessão foi encerrada com sucesso." });
+      void fetchUserSessions(userId);
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setTerminatingSingleId(null);
     }
   }
 
@@ -526,7 +540,18 @@ export default function Users() {
                                <div className="font-medium text-sm">{s.deviceName || "Dispositivo desconhecido"}</div>
                                <div className="text-xs text-slate-500">{s.ipAddress} • {formatDate(s.lastUsedAt)}</div>
                             </div>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 text-red-600" title="Derrubar"><XCircle className="h-4 w-4" /></Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 text-red-600"
+                              title="Derrubar sessão"
+                              disabled={terminatingSingleId === s.id}
+                              onClick={() => detailsUser && void terminateSingleSession(detailsUser.id, s.id)}
+                            >
+                              {terminatingSingleId === s.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <XCircle className="h-4 w-4" />}
+                            </Button>
                          </div>
                       ))
                      }

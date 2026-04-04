@@ -22,6 +22,8 @@ import {
   Tag,
   CalendarDays,
   StickyNote,
+  ShieldCheck,
+  Building2,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -94,6 +96,11 @@ const NAV_ITEMS: NavItem[] = [
     label: "Meu Perfil",
     to: "/profile",
     icon: <User className="h-5 w-5" />,
+  },
+  {
+    label: "Organização",
+    to: "/organizacao",
+    icon: <Building2 className="h-5 w-5" />,
   },
   {
     label: "Configurações",
@@ -205,7 +212,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     navigate("/login");
   }
 
+  const user = data?.user;
+  const isSuperAdmin = user?.isSuperAdmin ?? false;
+  const orgName = user?.organization?.name ?? null;
+
   const visibleItems = NAV_ITEMS.filter((item) => {
+    // "Organização" só aparece para usuários com org (não super admin)
+    if (item.to === "/organizacao") return !!orgName && !isSuperAdmin;
     if (!item.anyOf) return true;
     if (!data) return false;
     return hasAnyPermission(data, item.anyOf);
@@ -248,8 +261,49 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
         )}
       </div>
 
+      {/* Org badge / Super Admin indicator */}
+      {!collapsed && (
+        <div className="px-4 pb-3 relative z-10">
+          {isSuperAdmin ? (
+            <div className="flex items-center gap-2 rounded-xl bg-yellow-400/15 border border-yellow-400/30 px-3 py-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-yellow-300 shrink-0" />
+              <span className="text-xs font-semibold text-yellow-200 truncate">Super Admin</span>
+            </div>
+          ) : orgName ? (
+            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5">
+              <Building2 className="h-3.5 w-3.5 text-white/60 shrink-0" />
+              <span className="text-xs font-medium text-white/70 truncate">{orgName}</span>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* Nav */}
       <nav className="flex-1 px-3 mt-4 overflow-y-auto no-scrollbar relative z-10">
+        {/* Super Admin section */}
+        {isSuperAdmin && (
+          <div className="mb-3">
+            {!collapsed && (
+              <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-white/40">
+                Super Admin
+              </p>
+            )}
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                cx(BASE_ITEM, isActive ? ACTIVE_ITEM : "bg-transparent")
+              }
+            >
+              <ShieldCheck className="h-5 w-5 shrink-0 text-yellow-300" />
+              {!collapsed && (
+                <span className="text-[15px] font-semibold text-yellow-200">
+                  Painel Admin
+                </span>
+              )}
+            </NavLink>
+          </div>
+        )}
+
         <ul className="space-y-1.5">
           {visibleItems.map((item) => {
             // ── Item with submenu ──────────────────────────────────────────

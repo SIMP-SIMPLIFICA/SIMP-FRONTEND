@@ -13,8 +13,6 @@ import { Check } from "lucide-react";
 
 import type { EntryType } from "./types";
 import { useFinanceEntries } from "@/hooks/useFinance";
-import { useWorkspaces } from "@/hooks/useWorkspaces";
-import { useParams } from "react-router-dom";
 import { exportAggregatedToExcel } from "@/utils/export";
 
 // --- HELPERS ---
@@ -27,12 +25,7 @@ function formatCurrency(cents: number): string {
 
 // --- MAIN COMPONENT ---
 export default function Relatorios() {
-    const { workspaceId } = useParams();
-    const { data: workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces();
-    const resolvedWorkspaceId = workspaceId || workspaces?.[0]?.id;
-    const activeWorkspaceName = workspaces?.find((w: { id: string; name: string }) => w.id === resolvedWorkspaceId)?.name || "Resumo Financeiro";
-
-    const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries(resolvedWorkspaceId);
+    const { data: entriesData, isLoading: isLoadingEntries } = useFinanceEntries();
     const entries = entriesData || [];
 
     const availableMonths = useMemo(() => {
@@ -63,7 +56,7 @@ export default function Relatorios() {
             toast({ title: "Atenção", description: "Não há dados para exportar.", variant: "destructive" });
             return;
         }
-        exportAggregatedToExcel(aggregatedData, activeWorkspaceName, filterMonth);
+        exportAggregatedToExcel(aggregatedData, "Financeiro", filterMonth);
         toast({
             title: "Exportação Concluída",
             description: "O relatório consolidado foi salvo no seu computador.",
@@ -122,7 +115,7 @@ export default function Relatorios() {
     }, [aggregatedData]);
 
     // --- RENDER ---
-    if (isLoadingWorkspaces || isLoadingEntries) {
+    if (isLoadingEntries) {
         return <div className="p-8 text-center text-slate-500">Carregando relatórios...</div>;
     }
 

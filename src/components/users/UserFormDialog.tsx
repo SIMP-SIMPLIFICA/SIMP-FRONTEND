@@ -140,15 +140,18 @@ export function UserFormDialog({
       return;
     }
 
-    // VALIDAÇÃO DE USERNAME (Corrige o erro do Backend)
-    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
-    if (!usernameRegex.test(username)) {
-      toast({ 
-        title: "Nome de usuário inválido", 
-        description: "Use apenas letras, números, underline (_) ou hífen (-). Não use pontos ou espaços.", 
-        variant: "destructive" 
-      });
-      return;
+    // VALIDAÇÃO DE USERNAME (apenas na criação ou se o username foi alterado)
+    const originalUsername = user?.username || "";
+    if (username !== originalUsername) {
+      const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+      if (!usernameRegex.test(username)) {
+        toast({
+          title: "Nome de usuário inválido",
+          description: "Use apenas letras, números, underline (_) ou hífen (-). Não use pontos ou espaços.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     if (!isEditing && !password) {

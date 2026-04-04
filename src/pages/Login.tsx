@@ -24,6 +24,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -34,7 +35,7 @@ export default function Login() {
       const data = await apiRequest<LoginResponse>("/api/v1/auth/login", {
         method: "POST",
         noAuth: true,
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
 
       const accessToken = data.tokens?.accessToken || data.accessToken;
@@ -155,9 +156,18 @@ export default function Login() {
                   </div>
                 </div>
 
-                {/* Esqueci a senha */}
-                <div className="flex items-center justify-end">
-                  {/* TODO: implementar "Lembrar-me" — checkbox existe mas rememberMe não é enviado ao backend nem altera duração da sessão */}
+                {/* Lembrar-me + Esqueci a senha */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      disabled={loading}
+                      className="h-4 w-4 rounded border-slate-300 text-[#0A5BC4] accent-[#0A5BC4]"
+                    />
+                    <span className="text-sm text-slate-600">Lembrar-me por 30 dias</span>
+                  </label>
                   <Link
                     to="/forgot-password"
                     className="text-sm font-medium text-[#0A5BC4] hover:underline"

@@ -1,13 +1,36 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Paperclip, Download, Reply, Trash2, Users, Mail } from "lucide-react";
+import { Paperclip, Download, Reply, Trash2, Users, Mail, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { getAccessToken } from "@/lib/auth";
+import { toast } from "@/hooks/use-toast";
 import type { Message } from "@/types/communication";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+async function downloadAttachment(messageId: string, attachmentId: string, fileName: string, forPreview = false) {
+  const token = getAccessToken();
+  const res = await fetch(
+    `${API_URL}/api/v1/communication/messages/${messageId}/attachments/${attachmentId}/download`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+  );
+  if (!res.ok) throw new Error("Falha ao baixar arquivo");
+  const { url } = await res.json();
+  if (forPreview) {
+    window.open(url, "_blank");
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+  }
+}
 
 type Props = {
   message: Message | null;
@@ -34,6 +57,18 @@ function roleLabel(role: string) {
 }
 
 export function MessageDetail({ message, loading, onReply, onDelete, isDeleting }: Props) {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleAttachment(attachmentId: string, fileName: string, forPreview: boolean) {
+    setDownloadingId(attachmentId);
+    try {
+      await downloadAttachment(message!.id, attachmentId, fileName, forPreview);
+    } catch {
+      toast({ title: "Erro ao baixar anexo", variant: "destructive" });
+    } finally {
+      setDownloadingId(null);
+    }
+  }
   if (loading) {
     return (
       <div className="flex flex-col gap-4 p-6">
@@ -166,27 +201,57 @@ export function MessageDetail({ message, loading, onReply, onDelete, isDeleting 
                 Anexos ({message.attachments.length})
               </p>
               <div className="flex flex-col gap-2">
-                {message.attachments.map((att) => (
-                  <a
-                    key={att.id}
-                    href={`/api/v1/communication/messages/${message.id}/attachments/${att.id}/download`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg border border-slate-200",
-                      "hover:bg-slate-50 hover:border-slate-300 transition-colors group"
-                    )}
-                  >
-                    <div className="h-8 w-8 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
-                      <Paperclip className="h-4 w-4 text-slate-400" />
+                {message.attachments.map((att) => {
+                  const isImage = att.fileType.startsWith("image/");
+                  const isPdf = att.fileType === "application/pdf";
+                  const canPreview = isImage || isPdf;
+                  const isLoading = downloadingId === att.id;
+
+                  return (
+                    <div
+                      key={att.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white"
+                    >
+                      <div className="h-8 w-8 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                        <Paperclip className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">{att.fileName}</p>
+                        <p className="text-xs text-slate-400">{formatFileSize(att.fileSize)}</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {canPreview && (
+                          <button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={() => handleAttachment(att.id, att.fileName, true)}
+                            className={cn(
+                              "text-xs px-2 py-1 rounded text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors",
+                              isLoading && "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            Visualizar
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isLoading}
+                          onClick={() => handleAttachment(att.id, att.fileName, false)}
+                          className={cn(
+                            "p-1.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors",
+                            isLoading && "opacity-50 cursor-not-allowed"
+                          )}
+                          title="Baixar"
+                        >
+                          {isLoading
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Download className="h-4 w-4" />
+                          }
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{att.fileName}</p>
-                      <p className="text-xs text-slate-400">{formatFileSize(att.fileSize)}</p>
-                    </div>
-                    <Download className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" />
-                  </a>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>

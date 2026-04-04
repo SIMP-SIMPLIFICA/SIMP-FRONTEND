@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { PermissionGate } from "@/components/layout/PermissionGate";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { SuperAdminRoute } from "@/components/layout/SuperAdminRoute";
 
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -27,12 +28,27 @@ import ProcessosVirtuais from "@/pages/processos-virtuais/ProcessosVirtuais";
 import ConfiguracoesProcessos from "@/pages/processos-virtuais/Configuracoes";
 import CalendarPage from "@/pages/utilidades/Calendar";
 import NotesPage from "@/pages/utilidades/Notes";
+import AdminPanel from "@/pages/admin/AdminPanel";
+import OrganizacaoPage from "@/pages/OrganizacaoPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
   { path: "/login", element: <Login /> },
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
+
+  // Rotas protegidas — Super Admin
+  {
+    element: <SuperAdminRoute />,
+    children: [
+      {
+        element: <AppLayout />,
+        children: [
+          { path: "/admin", element: <AdminPanel /> },
+        ],
+      },
+    ],
+  },
 
   // Rotas protegidas
   {
@@ -82,6 +98,7 @@ export const router = createBrowserRouter([
           },
 
           { path: "/profile", element: <Profile /> },
+          { path: "/organizacao", element: <OrganizacaoPage /> },
 
           {
             element: <PermissionGate anyOf={["users:read", "users:manage"]} />,

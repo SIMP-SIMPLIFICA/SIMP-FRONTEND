@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 import { useFinanceEntries } from "@/hooks/useFinance";
-import { useParams } from "react-router-dom";
 import type { FinanceEntry } from "./types";
 
 // --- HELPERS ---
@@ -41,8 +40,7 @@ const CategoryIconMap: Record<string, React.ReactNode> = {
 type TimeFilter = "month" | "30d" | "year" | "all";
 
 export default function FinanceiroOverview() {
-  const { workspaceId } = useParams();
-  const { data: entriesData, isLoading } = useFinanceEntries(workspaceId, { limit: 1000 });
+  const { data: entriesData, isLoading } = useFinanceEntries(undefined, { limit: 1000 });
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("month");
   const [activeIndex, setActiveIndex] = useState(0);
 

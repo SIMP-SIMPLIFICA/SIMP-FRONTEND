@@ -4,14 +4,14 @@ import type { FinanceEntry } from "../../pages/financeiro/types";
 // Tipagem para a Categoria que vem do Backend
 export interface FinanceCategory {
     id: string;
-    workspaceId: string;
+    organizationId: string;
     name: string;
     description?: string | null;
 }
 
 export interface BankAccount {
     id: string;
-    workspaceId: string;
+    organizationId: string;
     name: string;
     agency?: string | null;
     accountNumber?: string | null;
@@ -33,7 +33,7 @@ export interface FinanceAttachment {
 
 export const financeService = {
     // Lançamentos
-    getEntries: async (workspaceId: string, params?: { startDate?: string; endDate?: string; type?: string; categoryId?: string }) => {
+    getEntries: async (params?: { startDate?: string; endDate?: string; type?: string; categoryId?: string }) => {
         const query = new URLSearchParams();
         if (params?.startDate) query.append('startDate', params.startDate);
         if (params?.endDate) query.append('endDate', params.endDate);
@@ -41,15 +41,12 @@ export const financeService = {
         if (params?.categoryId && params.categoryId !== 'ALL') query.append('categoryId', params.categoryId);
 
         const queryString = query.toString() ? `?${query.toString()}` : '';
-        const response = await api.get<FinanceEntry[]>(`/finance/workspaces/${workspaceId}/entries${queryString}`);
+        const response = await api.get<FinanceEntry[]>(`/finance/entries${queryString}`);
         return response.data;
     },
 
-    createEntry: async (workspaceId: string, data: Partial<FinanceEntry> & { categoryId?: string }) => {
-        const response = await api.post<FinanceEntry>(`/finance/workspaces/${workspaceId}/entries`, {
-            ...data,
-            workspaceId
-        });
+    createEntry: async (data: Partial<FinanceEntry> & { categoryId?: string }) => {
+        const response = await api.post<FinanceEntry>(`/finance/entries`, data);
         return response.data;
     },
 
@@ -63,17 +60,14 @@ export const financeService = {
         return response.data;
     },
 
-    // Categorias
-    getCategories: async (workspaceId: string) => {
-        const response = await api.get<FinanceCategory[]>(`/finance/workspaces/${workspaceId}/categories`);
+    // Categorias (org-scoped)
+    getCategories: async () => {
+        const response = await api.get<FinanceCategory[]>(`/finance/categories`);
         return response.data;
     },
 
-    createCategory: async (workspaceId: string, data: { name: string; description?: string }) => {
-        const response = await api.post<FinanceCategory>(`/finance/workspaces/${workspaceId}/categories`, {
-            ...data,
-            workspaceId
-        });
+    createCategory: async (data: { name: string; description?: string }) => {
+        const response = await api.post<FinanceCategory>(`/finance/categories`, data);
         return response.data;
     },
 
@@ -86,17 +80,14 @@ export const financeService = {
         await api.delete(`/finance/categories/${id}`);
     },
 
-    // Contas Bancárias
-    getBankAccounts: async (workspaceId: string) => {
-        const response = await api.get<BankAccount[]>(`/finance/workspaces/${workspaceId}/accounts`);
+    // Contas Bancárias (org-scoped)
+    getBankAccounts: async () => {
+        const response = await api.get<BankAccount[]>(`/finance/accounts`);
         return response.data;
     },
 
-    createBankAccount: async (workspaceId: string, data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
-        const response = await api.post<BankAccount>(`/finance/workspaces/${workspaceId}/accounts`, {
-            ...data,
-            workspaceId,
-        });
+    createBankAccount: async (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+        const response = await api.post<BankAccount>(`/finance/accounts`, data);
         return response.data;
     },
 

@@ -3,28 +3,28 @@ import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPa
 
 export interface VirtualProcessCategory {
   id: string
-  workspaceId: string
+  organizationId: string
   name: string
   createdAt: string
 }
 
 export interface VirtualProcessSource {
   id: string
-  workspaceId: string
+  organizationId: string
   name: string
   createdAt: string
 }
 
 export interface VirtualProcessCompany {
   id: string
-  workspaceId: string
+  organizationId: string
   name: string
   cnpj?: string | null
   createdAt: string
 }
 
 export const virtualProcessService = {
-  list: async (workspaceId: string, params?: {
+  list: async (params?: {
     page?: number; limit?: number; search?: string; status?: string;
     secretaria?: string; category?: string; startDate?: string; endDate?: string
   }) => {
@@ -38,7 +38,7 @@ export const virtualProcessService = {
     if (params?.startDate) q.append('startDate', params.startDate)
     if (params?.endDate) q.append('endDate', params.endDate)
     const qs = q.toString() ? `?${q.toString()}` : ''
-    const res = await api.get<VirtualProcessListResponse>(`/virtual-processes/workspaces/${workspaceId}${qs}`)
+    const res = await api.get<VirtualProcessListResponse>(`/virtual-processes/${qs}`)
     return res.data
   },
 
@@ -47,8 +47,8 @@ export const virtualProcessService = {
     return res.data
   },
 
-  create: async (workspaceId: string, data: Omit<CreateVirtualProcessPayload, 'workspaceId'>) => {
-    const res = await api.post<VirtualProcess>(`/virtual-processes/workspaces/${workspaceId}`, { ...data, workspaceId })
+  create: async (data: CreateVirtualProcessPayload) => {
+    const res = await api.post<VirtualProcess>(`/virtual-processes/`, data)
     return res.data
   },
 
@@ -85,13 +85,13 @@ export const virtualProcessService = {
   },
 
   // Categories
-  listCategories: async (workspaceId: string) => {
-    const res = await api.get<VirtualProcessCategory[]>(`/virtual-processes/workspaces/${workspaceId}/categories`)
+  listCategories: async () => {
+    const res = await api.get<VirtualProcessCategory[]>(`/virtual-processes/categories`)
     return res.data
   },
 
-  createCategory: async (workspaceId: string, data: { name: string }) => {
-    const res = await api.post<VirtualProcessCategory>(`/virtual-processes/workspaces/${workspaceId}/categories`, { ...data, workspaceId })
+  createCategory: async (data: { name: string }) => {
+    const res = await api.post<VirtualProcessCategory>(`/virtual-processes/categories`, data)
     return res.data
   },
 
@@ -105,12 +105,12 @@ export const virtualProcessService = {
   },
 
   // Sources (Origens do Recurso)
-  listSources: async (workspaceId: string) => {
-    const res = await api.get<VirtualProcessSource[]>(`/virtual-processes/workspaces/${workspaceId}/sources`)
+  listSources: async () => {
+    const res = await api.get<VirtualProcessSource[]>(`/virtual-processes/sources`)
     return res.data
   },
-  createSource: async (workspaceId: string, data: { name: string }) => {
-    const res = await api.post<VirtualProcessSource>(`/virtual-processes/workspaces/${workspaceId}/sources`, { ...data, workspaceId })
+  createSource: async (data: { name: string }) => {
+    const res = await api.post<VirtualProcessSource>(`/virtual-processes/sources`, data)
     return res.data
   },
   updateSource: async (id: string, data: { name: string }) => {
@@ -122,12 +122,12 @@ export const virtualProcessService = {
   },
 
   // Companies lookup (Empresas Contratadas)
-  listCompanyItems: async (workspaceId: string) => {
-    const res = await api.get<VirtualProcessCompany[]>(`/virtual-processes/workspaces/${workspaceId}/companies`)
+  listCompanyItems: async () => {
+    const res = await api.get<VirtualProcessCompany[]>(`/virtual-processes/companies`)
     return res.data
   },
-  createCompanyItem: async (workspaceId: string, data: { name: string; cnpj?: string | null }) => {
-    const res = await api.post<VirtualProcessCompany>(`/virtual-processes/workspaces/${workspaceId}/companies`, { ...data, workspaceId })
+  createCompanyItem: async (data: { name: string; cnpj?: string | null }) => {
+    const res = await api.post<VirtualProcessCompany>(`/virtual-processes/companies`, data)
     return res.data
   },
   updateCompanyItem: async (id: string, data: { name: string; cnpj?: string | null }) => {
