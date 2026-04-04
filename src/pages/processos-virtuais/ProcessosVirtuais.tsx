@@ -19,6 +19,7 @@ import {
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
 } from '@/hooks/useVirtualProcesses'
+import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
 import type { VirtualProcess } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
@@ -58,18 +59,20 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
     processNumber: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
     startDate: '', endDate: '',
+    bankAccount: '', agency: '', bankName: '',
   })
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
   const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
   const { data: sources = [] } = useVirtualProcessSources(workspaceId)
   const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
+  const { data: bankAccounts = [] } = useFinanceBankAccounts()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', startDate: '', endDate: '' })
+    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', startDate: '', endDate: '', bankAccount: '', agency: '', bankName: '' })
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -87,6 +90,9 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
         companyCnpj: form.companyCnpj.trim() || undefined,
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
+        bankAccount: form.bankAccount.trim() || undefined,
+        agency: form.agency.trim() || undefined,
+        bankName: form.bankName.trim() || undefined,
       })
       toast({ title: 'Processo autuado com sucesso' })
       reset()
@@ -191,6 +197,44 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
                 <Label>Data de Encerramento</Label>
                 <Input type="date" value={form.endDate} onChange={set('endDate')} />
               </div>
+            </div>
+
+            {/* Conta Bancária */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Conta Bancária</Label>
+                <Link to="/financeiro/contas" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Gerenciar contas →</Link>
+              </div>
+              <Select
+                value={form.bankName}
+                onValueChange={v => {
+                  const acc = bankAccounts.find(a => a.name === v)
+                  setForm(f => ({
+                    ...f,
+                    bankName: acc?.name ?? '',
+                    agency: acc?.agency ?? '',
+                    bankAccount: acc?.accountNumber ?? '',
+                  }))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a conta (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.length === 0
+                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma conta cadastrada</div>
+                    : bankAccounts.map(a => (
+                        <SelectItem key={a.id} value={a.name}>
+                          {a.name}{a.agency ? ` — Ag. ${a.agency}` : ''}{a.accountNumber ? ` · Cc ${a.accountNumber}` : ''}
+                        </SelectItem>
+                      ))}
+                </SelectContent>
+              </Select>
+              {form.bankName && (
+                <p className="text-xs text-slate-400">
+                  {[form.bankName, form.agency && `Ag. ${form.agency}`, form.bankAccount && `Cc ${form.bankAccount}`].filter(Boolean).join(' · ')}
+                </p>
+              )}
             </div>
           </form>
         </ScrollArea>
@@ -356,6 +400,14 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
               <div className="col-span-2">
                 <div className="text-xs text-slate-400">Empresa / Interessado</div>
                 <div className="font-medium text-slate-700">{process.companyName}{process.companyCnpj ? ` (${process.companyCnpj})` : ''}</div>
+              </div>
+            )}
+            {process.bankName && (
+              <div className="col-span-2">
+                <div className="text-xs text-slate-400">Conta Bancária</div>
+                <div className="font-medium text-slate-700">
+                  {[process.bankName, process.agency && `Ag. ${process.agency}`, process.bankAccount && `Cc ${process.bankAccount}`].filter(Boolean).join(' · ')}
+                </div>
               </div>
             )}
             {(process.startDate || process.endDate) && (
