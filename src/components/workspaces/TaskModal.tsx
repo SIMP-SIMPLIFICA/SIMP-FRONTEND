@@ -24,6 +24,8 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { type WorkspaceMember } from "@/types/workspace";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { type TaskStatus } from "@/types/task";
 
 interface TaskModalProps {
   taskId: string | null;
@@ -34,6 +36,14 @@ interface TaskModalProps {
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+const STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }> = {
+  TODO:        { label: 'A Fazer',      className: 'bg-slate-100 text-slate-700' },
+  IN_PROGRESS: { label: 'Em Progresso', className: 'bg-blue-100 text-blue-700' },
+  IN_REVIEW:   { label: 'Revisão',      className: 'bg-amber-100 text-amber-700' },
+  DONE:        { label: 'Concluído',    className: 'bg-green-100 text-green-700' },
+  CANCELED:    { label: 'Cancelado',    className: 'bg-red-100 text-red-600' },
+};
 
 export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembers }: TaskModalProps) {
   const queryClient = useQueryClient();
@@ -46,6 +56,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
   
   const [noteText, setNoteText] = useState("");
   const [description, setDescription] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -86,11 +97,9 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
   };
 
   const handleDelete = async () => {
-    if(confirm("Tem certeza que deseja excluir esta tarefa?")) {
-        if (taskId) {
-            await deleteTask(taskId);
-            onClose();
-        }
+    if (taskId) {
+      await deleteTask(taskId);
+      onClose();
     }
   };
 
@@ -112,6 +121,15 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
   if (!isOpen) return null;
 
   return (
+    <>
+    <ConfirmDialog
+      open={confirmDelete}
+      title="Excluir tarefa?"
+      description="Esta ação não pode ser desfeita."
+      confirmLabel="Excluir"
+      onConfirm={() => { setConfirmDelete(false); void handleDelete(); }}
+      onCancel={() => setConfirmDelete(false)}
+    />
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
         {isLoading || !task ? (
@@ -133,17 +151,15 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                         </SelectContent>
                     </Select>
 
-                    <Select defaultValue={task.status} onValueChange={handleStatusChange}>
-                         <SelectTrigger className="w-[120px] h-6 text-xs border-none bg-blue-100 text-blue-700 font-bold">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="TODO">A Fazer</SelectItem>
-                            <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
-                            <SelectItem value="IN_REVIEW">Revisão</SelectItem>
-                            <SelectItem value="DONE">Concluído</SelectItem>
-                            <SelectItem value="CANCELED">Cancelado</SelectItem>
-                        </SelectContent>
+                    <Select value={task.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger className={`h-6 text-xs border-none font-semibold w-auto min-w-[120px] max-w-[160px] ${STATUS_CONFIG[task.status as TaskStatus]?.className ?? ''}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                          <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                  </div>
                  <DialogTitle className="text-xl font-bold">{task.title}</DialogTitle>
@@ -159,7 +175,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                         <CheckCircle className="w-4 h-4 mr-2" /> Concluir
                     </Button>
                  )}
-                 <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
+                 <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setConfirmDelete(true)}>
                     <Trash2 className="w-4 h-4" />
                  </Button>
               </div>
@@ -361,5 +377,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
