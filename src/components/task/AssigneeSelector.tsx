@@ -1,31 +1,14 @@
 import { useState } from 'react';
 import { taskService } from '@/lib/api/tasks';
-import { X, Plus, User as UserIcon, Loader2 } from 'lucide-react'; 
-
-interface User {
-  id: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-  avatar: string | null;
-}
-
-interface Member {
-    userId: string;
-    role: string;
-    user: User;
-}
-
-interface Assignee {
-  userId: string;
-  user: User;
-}
+import { X, Plus, User as UserIcon, Loader2 } from 'lucide-react';
+import { type WorkspaceMember } from '@/types/workspace';
+import { type TaskAssignee } from '@/types/task';
 
 interface AssigneeSelectorProps {
   taskId: string;
-  currentAssignees: Assignee[];
+  currentAssignees: TaskAssignee[];
   onUpdate: () => void;
-  members: Member[];
+  members: WorkspaceMember[];
 }
 
 export function AssigneeSelector({ taskId, currentAssignees, onUpdate, members }: AssigneeSelectorProps) {

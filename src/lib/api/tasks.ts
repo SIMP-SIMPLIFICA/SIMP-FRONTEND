@@ -39,6 +39,14 @@ export const taskService = {
     return response.data;
   },
 
+  deleteNote: async (taskId: string, noteId: string) => {
+    await api.delete(`/tasks/${taskId}/notes/${noteId}`);
+  },
+
+  deleteChecklistItem: async (itemId: string) => {
+    await api.delete(`/tasks/checklist/${itemId}`);
+  },
+
   // --- Status e Delete ---
   delete: async (id: string) => {
     await api.delete(`/tasks/${id}`);

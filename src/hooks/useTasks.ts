@@ -77,12 +77,25 @@ export function useChecklistOperations(taskId: string) {
   });
 
   const toggle = useMutation({
-    mutationFn: ({ itemId, isDone }: { itemId: string; isDone: boolean }) => 
+    mutationFn: ({ itemId, isDone }: { itemId: string; isDone: boolean }) =>
       taskService.updateChecklistItem(itemId, isDone),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task", taskId] }),
   });
 
-  return { add, toggle };
+  const remove = useMutation({
+    mutationFn: (itemId: string) => taskService.deleteChecklistItem(itemId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task", taskId] }),
+  });
+
+  return { add, toggle, remove };
+}
+
+export function useDeleteNote(taskId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (noteId: string) => taskService.deleteNote(taskId, noteId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["task", taskId] }),
+  });
 }
 
 export function useTaskNotes(taskId: string) {

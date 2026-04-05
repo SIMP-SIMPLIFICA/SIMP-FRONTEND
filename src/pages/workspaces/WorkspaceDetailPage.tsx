@@ -9,7 +9,7 @@ import { MembersListModal } from "@/components/workspaces/MembersListModal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Layout, Trash2, Loader2, LogOut } from "lucide-react"; 
-import { type TaskStatus, type Task } from "@/types/task";
+import { type TaskStatus, type TaskPriority, type Task } from "@/types/task";
 import { type Workspace } from "@/types/workspace"; 
 import { useState } from "react";
 import { useMe } from "@/hooks/useMe"; 
@@ -23,12 +23,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const COLUMNS: { id: TaskStatus; label: string }[] = [
-  { id: 'TODO', label: 'A Fazer' },
-  { id: 'IN_PROGRESS', label: 'Em Progresso' },
-  { id: 'IN_REVIEW', label: 'Revisão' },
-  { id: 'DONE', label: 'Concluído' },
+const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
+  { id: 'TODO', label: 'A Fazer', color: 'bg-slate-400' },
+  { id: 'IN_PROGRESS', label: 'Em Progresso', color: 'bg-blue-500' },
+  { id: 'IN_REVIEW', label: 'Revisão', color: 'bg-amber-500' },
+  { id: 'DONE', label: 'Concluído', color: 'bg-green-500' },
+  { id: 'CANCELED', label: 'Cancelado', color: 'bg-red-400' },
 ];
 
 export default function WorkspaceDetailPage() {
@@ -54,14 +57,31 @@ export default function WorkspaceDetailPage() {
 
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("MEDIUM");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const toggleAssignee = (userId: string) => {
+    setNewTaskAssignees(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-    
-    await createTask({ title: newTaskTitle, status: 'TODO', priority: 'MEDIUM' });
-    setNewTaskTitle("");
+    await createTask({
+      title: newTaskTitle,
+      status: 'TODO',
+      priority: newTaskPriority,
+      description: newTaskDescription.trim() || undefined,
+      dueDate: newTaskDueDate || undefined,
+      assigneeIds: newTaskAssignees.length > 0 ? newTaskAssignees : undefined,
+    });
+    setNewTaskTitle(""); setNewTaskDescription(""); setNewTaskPriority("MEDIUM");
+    setNewTaskDueDate(""); setNewTaskAssignees([]);
     setIsNewTaskOpen(false);
   };
 
@@ -151,18 +171,73 @@ export default function WorkspaceDetailPage() {
                     <DialogHeader>
                         <DialogTitle>Criar Nova Tarefa</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleCreateTask} className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Título da Tarefa</Label>
-                            <Input 
-                                value={newTaskTitle} 
+                    <form onSubmit={handleCreateTask} className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label>Título <span className="text-red-500">*</span></Label>
+                            <Input
+                                required
+                                value={newTaskTitle}
                                 onChange={(e) => setNewTaskTitle(e.target.value)}
                                 placeholder="Ex: Atualizar documentação"
                                 autoFocus
                             />
                         </div>
+                        <div className="space-y-1.5">
+                            <Label>Descrição</Label>
+                            <Textarea
+                                value={newTaskDescription}
+                                onChange={(e) => setNewTaskDescription(e.target.value)}
+                                placeholder="Detalhes da tarefa..."
+                                rows={2}
+                                className="resize-none"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <div className="space-y-1.5">
+                                <Label>Prioridade</Label>
+                                <Select value={newTaskPriority} onValueChange={(v) => setNewTaskPriority(v as TaskPriority)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="LOW">Baixa</SelectItem>
+                                        <SelectItem value="MEDIUM">Média</SelectItem>
+                                        <SelectItem value="HIGH">Alta</SelectItem>
+                                        <SelectItem value="URGENT">Urgente</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Data de Entrega</Label>
+                                <Input
+                                    type="date"
+                                    value={newTaskDueDate}
+                                    onChange={(e) => setNewTaskDueDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        {members.length > 0 && (
+                            <div className="space-y-1.5">
+                                <Label>Responsáveis</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {members.map(m => (
+                                        <button
+                                            key={m.userId}
+                                            type="button"
+                                            onClick={() => toggleAssignee(m.userId)}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                                                newTaskAssignees.includes(m.userId)
+                                                    ? 'bg-blue-600 text-white border-blue-600'
+                                                    : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                                            }`}
+                                        >
+                                            {m.user.firstName} {m.user.lastName}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <DialogFooter>
-                            <Button type="submit">Criar</Button>
+                            <Button variant="ghost" type="button" onClick={() => setIsNewTaskOpen(false)}>Cancelar</Button>
+                            <Button type="submit">Criar Tarefa</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -184,7 +259,7 @@ export default function WorkspaceDetailPage() {
                 <div key={col.id} className="w-80 flex flex-col h-full bg-gray-100/50 rounded-lg border border-gray-200">
                   <div className="p-3 font-semibold text-sm flex justify-between items-center border-b bg-gray-50 rounded-t-lg">
                     <span className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${col.id === 'DONE' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                      <span className={`w-2 h-2 rounded-full ${col.color}`} />
                       {col.label}
                     </span>
                     <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{colTasks.length}</Badge>

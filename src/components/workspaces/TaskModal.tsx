@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useTaskDetails, useTaskNotes, useUpdateTask, useDeleteTask, useAttachments } from "@/hooks/useTasks";
+import { useTaskDetails, useTaskNotes, useUpdateTask, useDeleteTask, useAttachments, useDeleteNote } from "@/hooks/useTasks";
 import { Checklist } from "./Checklist";
 import { AssigneeSelector } from "@/components/task/AssigneeSelector";
 import { useQueryClient } from "@tanstack/react-query"; 
@@ -23,22 +23,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { type WorkspaceMember } from "@/types/workspace";
 
 interface TaskModalProps {
   taskId: string | null;
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  workspaceMembers: any[];
+  workspaceMembers: WorkspaceMember[];
 }
 
-const API_URL = "http://localhost:3000"; 
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembers }: TaskModalProps) {
   const queryClient = useQueryClient();
   const { data: task, isLoading } = useTaskDetails(taskId);
   const { mutate: addNote } = useTaskNotes(taskId || "");
+  const { mutate: deleteNote } = useDeleteNote(taskId || "");
   const { mutate: updateTask } = useUpdateTask(workspaceId);
   const { mutateAsync: deleteTask } = useDeleteTask(workspaceId);
   const { upload, remove: removeAttachment } = useAttachments(taskId || "");
@@ -141,6 +142,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                             <SelectItem value="IN_PROGRESS">Em Progresso</SelectItem>
                             <SelectItem value="IN_REVIEW">Revisão</SelectItem>
                             <SelectItem value="DONE">Concluído</SelectItem>
+                            <SelectItem value="CANCELED">Cancelado</SelectItem>
                         </SelectContent>
                     </Select>
                  </div>
@@ -200,17 +202,24 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                                 </h3>
                                 <div className="space-y-4">
                                     {task.notes?.map(note => (
-                                        <div key={note.id} className="flex gap-3 text-sm">
-                                            <Avatar className="w-8 h-8">
+                                        <div key={note.id} className="flex gap-3 text-sm group">
+                                            <Avatar className="w-8 h-8 shrink-0">
                                                 <AvatarImage src={note.author.avatar || undefined} />
                                                 <AvatarFallback>{note.author.firstName?.charAt(0)}</AvatarFallback>
                                             </Avatar>
-                                            <div>
+                                            <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold">{note.author.firstName}</span>
                                                     <span className="text-xs text-muted-foreground">
                                                         {format(new Date(note.createdAt), "dd/MM/yyyy HH:mm")}
                                                     </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => deleteNote(note.id)}
+                                                        className="ml-auto opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
                                                 </div>
                                                 <p className="text-gray-700 mt-1">{note.content}</p>
                                             </div>
@@ -343,8 +352,8 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                   </div>
                   
                   <div className="pt-6 border-t text-xs text-gray-400">
-                      <p>Criado em: {new Date(task.createdAt).toLocaleDateString()}</p>
-                      <p>Atualizado: {new Date(task.updatedAt).toLocaleDateString()}</p>
+                      <p>Criado em: {format(new Date(task.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                      <p>Atualizado: {format(new Date(task.updatedAt), 'dd/MM/yyyy', { locale: ptBR })}</p>
                   </div>
                </div>
             </div>

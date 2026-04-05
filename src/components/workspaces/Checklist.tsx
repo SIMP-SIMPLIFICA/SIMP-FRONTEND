@@ -4,7 +4,7 @@ import { useChecklistOperations } from "@/hooks/useTasks";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ChecklistProps {
@@ -13,7 +13,7 @@ interface ChecklistProps {
 }
 
 export function Checklist({ taskId, items }: ChecklistProps) {
-  const { add, toggle } = useChecklistOperations(taskId);
+  const { add, toggle, remove } = useChecklistOperations(taskId);
   const [newItem, setNewItem] = useState("");
 
   const handleAdd = (e: React.FormEvent) => {
@@ -45,11 +45,11 @@ export function Checklist({ taskId, items }: ChecklistProps) {
       {/* Lista */}
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
-            <Checkbox 
-              id={item.id} 
+          <div key={item.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 group">
+            <Checkbox
+              id={item.id}
               checked={item.isDone}
-              onCheckedChange={(checked: boolean) => 
+              onCheckedChange={(checked: boolean) =>
                 toggle.mutate({ itemId: item.id, isDone: !!checked })
               }
             />
@@ -62,6 +62,14 @@ export function Checklist({ taskId, items }: ChecklistProps) {
             >
               {item.title}
             </label>
+            <button
+              type="button"
+              onClick={() => remove.mutate(item.id)}
+              disabled={remove.isPending}
+              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity shrink-0"
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         ))}
       </div>
