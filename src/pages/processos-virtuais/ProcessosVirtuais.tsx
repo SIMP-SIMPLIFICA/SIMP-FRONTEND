@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
-  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
+  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip, Check,
+  Calendar as CalendarIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,11 +14,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import { toast } from '@/hooks/use-toast'
 import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
+  useCreateVirtualProcessCategory, useCreateVirtualProcessSource, useCreateVirtualProcessCompany,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
@@ -25,9 +29,23 @@ import type { VirtualProcess } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Link } from 'react-router-dom'
 
 // --- helpers ---
+function formatDocument(val: string) {
+  const digits = val.replace(/\D/g, '').slice(0, 14)
+  if (digits.length <= 11) {
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
 const STATUS_COLORS: Record<string, string> = {
   'Tramitando': 'bg-blue-100 text-blue-700',
   'Concluído': 'bg-emerald-100 text-emerald-700',
@@ -51,6 +69,33 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function DatePickerField({ label, date, onChange }: {
+  label: string
+  date: Date | undefined
+  onChange: (d: Date | undefined) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            className={`w-full justify-start text-left font-normal ${!date ? 'text-muted-foreground' : ''}`}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            {date ? format(date, 'dd/MM/yyyy') : 'Selecionar data'}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={date} onSelect={onChange} locale={ptBR} initialFocus />
+        </PopoverContent>
+      </Popover>
+    </div>
+  )
+}
+
 // --- Create Process Dialog ---
 type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; workspaceId: undefined }
 
@@ -58,29 +103,97 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   const [form, setForm] = useState({
     processNumber: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
-    startDate: '', endDate: '',
-    bankAccount: '', agency: '', bankName: '',
+    bankAccountId: '', bankAccount: '', agency: '', bankName: '',
   })
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
+  const { data: processesResponse } = useVirtualProcesses(workspaceId)
   const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
   const { data: sources = [] } = useVirtualProcessSources(workspaceId)
   const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
   const { data: bankAccounts = [] } = useFinanceBankAccounts()
+  const { mutateAsync: createCat } = useCreateVirtualProcessCategory(workspaceId)
+  const { mutateAsync: createSrc } = useCreateVirtualProcessSource(workspaceId)
+  const { mutateAsync: createCmp } = useCreateVirtualProcessCompany(workspaceId)
+
+  // Inline creation state
+  const [isAddingCat, setIsAddingCat] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [savingCat, setSavingCat] = useState(false)
+  const [isAddingSrc, setIsAddingSrc] = useState(false)
+  const [newSrcName, setNewSrcName] = useState('')
+  const [savingSrc, setSavingSrc] = useState(false)
+  const [isAddingCmp, setIsAddingCmp] = useState(false)
+  const [newCmpName, setNewCmpName] = useState('')
+  const [newCmpCnpj, setNewCmpCnpj] = useState('')
+  const [savingCmp, setSavingCmp] = useState(false)
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', startDate: '', endDate: '', bankAccount: '', agency: '', bankName: '' })
+    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
+    setStartDate(undefined); setEndDate(undefined)
+    setIsAddingCat(false); setNewCatName('')
+    setIsAddingSrc(false); setNewSrcName('')
+    setIsAddingCmp(false); setNewCmpName(''); setNewCmpCnpj('')
+  }
+
+  async function handleCreateCat() {
+    if (!newCatName.trim()) return
+    setSavingCat(true)
+    try {
+      await createCat({ name: newCatName.trim() })
+      setForm(f => ({ ...f, category: newCatName.trim() }))
+      setNewCatName(''); setIsAddingCat(false)
+      toast({ title: 'Categoria criada' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message
+      toast({ title: 'Erro ao criar categoria', description: msg, variant: 'destructive' })
+    } finally { setSavingCat(false) }
+  }
+
+  async function handleCreateSrc() {
+    if (!newSrcName.trim()) return
+    setSavingSrc(true)
+    try {
+      await createSrc({ name: newSrcName.trim() })
+      setForm(f => ({ ...f, source: newSrcName.trim() }))
+      setNewSrcName(''); setIsAddingSrc(false)
+      toast({ title: 'Origem criada' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message
+      toast({ title: 'Erro ao criar origem', description: msg, variant: 'destructive' })
+    } finally { setSavingSrc(false) }
+  }
+
+  async function handleCreateCmp() {
+    if (!newCmpName.trim()) return
+    setSavingCmp(true)
+    try {
+      await createCmp({ name: newCmpName.trim(), cnpj: newCmpCnpj.trim() || null })
+      setForm(f => ({ ...f, companyName: newCmpName.trim(), companyCnpj: newCmpCnpj.trim() }))
+      setNewCmpName(''); setNewCmpCnpj(''); setIsAddingCmp(false)
+      toast({ title: 'Empresa criada' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message
+      toast({ title: 'Erro ao criar empresa', description: msg, variant: 'destructive' })
+    } finally { setSavingCmp(false) }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const num = form.processNumber.trim()
+    if ((processesResponse?.data ?? []).some((p: VirtualProcess) => p.processNumber === num)) {
+      toast({ title: 'Número já cadastrado', description: `O processo "${num}" já existe.`, variant: 'destructive' })
+      return
+    }
     setSaving(true)
     try {
       await create({
-        processNumber: form.processNumber.trim(),
+        processNumber: num,
         secretaria: form.secretaria.trim(),
         source: form.source.trim(),
         subject: form.subject.trim(),
@@ -88,8 +201,8 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
         sourceDetail: form.sourceDetail.trim() || undefined,
         companyName: form.companyName.trim() || undefined,
         companyCnpj: form.companyCnpj.trim() || undefined,
-        startDate: form.startDate || undefined,
-        endDate: form.endDate || undefined,
+        startDate: startDate?.toISOString() || undefined,
+        endDate: endDate?.toISOString() || undefined,
         bankAccount: form.bankAccount.trim() || undefined,
         agency: form.agency.trim() || undefined,
         bankName: form.bankName.trim() || undefined,
@@ -114,103 +227,165 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
         </DialogHeader>
         <ScrollArea className="flex-1 overflow-auto">
           <form id="create-process-form" onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Row 1: N° + Secretaria */}
+            <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
                 <Label>N° do Processo <span className="text-red-500">*</span></Label>
                 <Input required placeholder="001/2026" value={form.processNumber} onChange={set('processNumber')} />
-                <p className="text-xs text-slate-400">Formato: NUMERO/ANO</p>
               </div>
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>Categoria <span className="text-red-500">*</span></Label>
-                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
-                </div>
+                <Label>Secretaria <span className="text-red-500">*</span></Label>
+                <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
+              </div>
+            </div>
+
+            {/* Row 2: Categoria */}
+            <div className="space-y-1.5">
+              <Label>Categoria <span className="text-red-500">*</span></Label>
+              <div className="flex gap-2">
                 <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
                   <SelectContent>
                     {categories.length === 0
                       ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
                       : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                <Button type="button" variant="outline" size="icon" title="Nova categoria"
+                  onClick={() => { setIsAddingCat(v => !v); setIsAddingSrc(false); setIsAddingCmp(false) }}
+                  className={isAddingCat ? 'border-blue-500 text-blue-600' : ''}>
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             </div>
+            {isAddingCat && (
+              <div className="flex gap-2 items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <Input placeholder="Nome da categoria..." value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                  className="flex-1 bg-white" autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateCat() } }} />
+                <Button type="button" size="sm" onClick={() => void handleCreateCat()}
+                  disabled={savingCat || !newCatName.trim()} className="bg-blue-600 hover:bg-blue-700 shrink-0">
+                  {savingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Criar
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCat(false)} disabled={savingCat}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
-            <div className="space-y-1.5">
-              <Label>Secretaria <span className="text-red-500">*</span></Label>
-              <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            {/* Row 3: Origem + Detalhe */}
+            <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
-                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
+                <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                <div className="flex gap-2">
+                  <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
+                    <SelectContent>
+                      {sources.length === 0
+                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
+                        : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" title="Nova origem"
+                    onClick={() => { setIsAddingSrc(v => !v); setIsAddingCat(false); setIsAddingCmp(false) }}
+                    className={isAddingSrc ? 'border-violet-500 text-violet-600' : ''}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
-                  <SelectContent>
-                    {sources.length === 0
-                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
-                      : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Detalhe da Origem</Label>
                 <Input placeholder="Número ou referência" value={form.sourceDetail} onChange={set('sourceDetail')} />
               </div>
             </div>
+            {isAddingSrc && (
+              <div className="flex gap-2 items-center p-3 bg-violet-50 border border-violet-200 rounded-lg">
+                <Input placeholder="Nome da origem..." value={newSrcName} onChange={e => setNewSrcName(e.target.value)}
+                  className="flex-1 bg-white" autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateSrc() } }} />
+                <Button type="button" size="sm" onClick={() => void handleCreateSrc()}
+                  disabled={savingSrc || !newSrcName.trim()} className="bg-violet-600 hover:bg-violet-700 shrink-0">
+                  {savingSrc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Criar
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingSrc(false)} disabled={savingSrc}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
 
+            {/* Row 4: Assunto */}
             <div className="space-y-1.5">
               <Label>Assunto <span className="text-red-500">*</span></Label>
               <Textarea required placeholder="Descreva o assunto do processo..." rows={3} value={form.subject} onChange={set('subject')} className="resize-none" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Row 5: Empresa + CNPJ */}
+            <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>Empresa Contratada</Label>
-                  <Link to="/processos-virtuais/configuracoes" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Configurações →</Link>
+                <Label>Empresa Contratada</Label>
+                <div className="flex gap-2">
+                  <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                    <SelectContent>
+                      {companies.length === 0
+                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
+                        : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button type="button" variant="outline" size="icon" title="Nova empresa"
+                    onClick={() => { setIsAddingCmp(v => !v); setIsAddingCat(false); setIsAddingSrc(false) }}
+                    className={isAddingCmp ? 'border-emerald-500 text-emerald-600' : ''}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                  <SelectContent>
-                    {companies.length === 0
-                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
-                      : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>CNPJ / CPF</Label>
-                <Input placeholder="00.000.000/0001-00" value={form.companyCnpj} onChange={set('companyCnpj')} />
+                <Input
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  value={form.companyCnpj}
+                  onChange={e => setForm(f => ({ ...f, companyCnpj: formatDocument(e.target.value) }))}
+                />
               </div>
             </div>
+            {isAddingCmp && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <div className="flex gap-2 items-center">
+                  <Input placeholder="Nome da empresa..." value={newCmpName} onChange={e => setNewCmpName(e.target.value)}
+                    className="flex-1 bg-white" autoFocus />
+                  <Input placeholder="CNPJ (opcional)" value={newCmpCnpj} onChange={e => setNewCmpCnpj(e.target.value)}
+                    className="flex-1 bg-white" />
+                  <Button type="button" size="sm" onClick={() => void handleCreateCmp()}
+                    disabled={savingCmp || !newCmpName.trim()} className="bg-emerald-600 hover:bg-emerald-700 shrink-0">
+                    {savingCmp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    Criar
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCmp(false)} disabled={savingCmp}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Data de Início</Label>
-                <Input type="date" value={form.startDate} onChange={set('startDate')} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Data de Encerramento</Label>
-                <Input type="date" value={form.endDate} onChange={set('endDate')} />
-              </div>
+            {/* Row 6: Datas */}
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <DatePickerField label="Data de Início" date={startDate} onChange={setStartDate} />
+              <DatePickerField label="Data de Encerramento" date={endDate} onChange={setEndDate} />
             </div>
 
-            {/* Conta Bancária */}
+            {/* Row 7: Conta Bancária */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Conta Bancária</Label>
-                <Link to="/financeiro/contas" className="text-xs text-blue-500 hover:underline" onClick={() => onOpenChange(false)}>Gerenciar contas →</Link>
-              </div>
+              <Label>Conta Bancária</Label>
               <Select
-                value={form.bankName}
+                value={form.bankAccountId}
                 onValueChange={v => {
-                  const acc = bankAccounts.find(a => a.name === v)
+                  const acc = bankAccounts.find(a => a.id === v)
                   setForm(f => ({
                     ...f,
+                    bankAccountId: v,
                     bankName: acc?.name ?? '',
                     agency: acc?.agency ?? '',
                     bankAccount: acc?.accountNumber ?? '',
@@ -224,7 +399,7 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
                   {bankAccounts.length === 0
                     ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma conta cadastrada</div>
                     : bankAccounts.map(a => (
-                        <SelectItem key={a.id} value={a.name}>
+                        <SelectItem key={a.id} value={a.id}>
                           {a.name}{a.agency ? ` — Ag. ${a.agency}` : ''}{a.accountNumber ? ` · Cc ${a.accountNumber}` : ''}
                         </SelectItem>
                       ))}

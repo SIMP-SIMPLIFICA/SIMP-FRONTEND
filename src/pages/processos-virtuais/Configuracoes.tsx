@@ -51,8 +51,9 @@ function SimpleFormDialog({ open, onOpenChange, item, label, placeholder, onSave
       await onSave(name.trim(), item?.id)
       toast({ title: item ? `${label} atualizado com sucesso` : `${label} criado com sucesso` })
       onOpenChange(false)
-    } catch {
-      toast({ title: `Erro ao salvar ${label.toLowerCase()}`, variant: 'destructive' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message
+      toast({ title: `Erro ao salvar ${label.toLowerCase()}`, description: msg, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -111,8 +112,9 @@ function CompanyFormDialog({ open, onOpenChange, item, onSave }: CompanyDialogPr
       await onSave({ name: form.name.trim(), cnpj: form.cnpj.trim() || null }, item?.id)
       toast({ title: item ? 'Empresa atualizada com sucesso' : 'Empresa criada com sucesso' })
       onOpenChange(false)
-    } catch {
-      toast({ title: 'Erro ao salvar empresa', variant: 'destructive' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message
+      toast({ title: 'Erro ao salvar empresa', description: msg, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
