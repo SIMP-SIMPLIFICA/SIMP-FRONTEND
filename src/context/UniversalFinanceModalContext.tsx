@@ -30,6 +30,7 @@ export function UniversalFinanceModalProvider({ children }: { children: ReactNod
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useUniversalFinanceModal() {
   const ctx = useContext(UniversalFinanceModalContext);
   if (!ctx) throw new Error("useUniversalFinanceModal must be used inside UniversalFinanceModalProvider");
