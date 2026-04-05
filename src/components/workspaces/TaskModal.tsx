@@ -35,7 +35,6 @@ interface TaskModalProps {
   workspaceMembers: WorkspaceMember[];
 }
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }> = {
   TODO:        { label: 'A Fazer',      className: 'bg-slate-100 text-slate-700' },

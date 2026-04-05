@@ -17,9 +17,10 @@ interface OrgUser {
 
 interface InviteMemberModalProps {
   workspaceId: string;
+  existingMemberIds?: string[];
 }
 
-export function InviteMemberModal({ workspaceId }: InviteMemberModalProps) {
+export function InviteMemberModal({ workspaceId, existingMemberIds = [] }: InviteMemberModalProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState<OrgUser[]>([]);
@@ -42,8 +43,9 @@ export function InviteMemberModal({ workspaceId }: InviteMemberModalProps) {
       setSearching(true);
       try {
         const results = await workspaceService.searchOrgUsers(search.trim());
-        setSuggestions(results);
-        setShowDropdown(results.length > 0);
+        const filtered = results.filter((u) => !existingMemberIds.includes(u.id));
+        setSuggestions(filtered);
+        setShowDropdown(filtered.length > 0);
       } catch {
         setSuggestions([]);
       } finally {
