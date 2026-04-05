@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { workspaceService } from "@/lib/api/workspaces";
-import { useWorkspaceTasks, useCreateTask } from "@/hooks/useTasks";
+import { useWorkspaceTasks, useCreateTask, useUpdateTask } from "@/hooks/useTasks";
 import { TaskCard } from "@/components/workspaces/TaskCard";
 import { TaskModal } from "@/components/workspaces/TaskModal";
 import { InviteMemberModal } from "@/components/workspaces/InviteMemberModal";
@@ -14,6 +14,15 @@ import { type TaskStatus, type TaskPriority, type Task } from "@/types/task";
 import { type Workspace } from "@/types/workspace";
 import { useState } from "react";
 import { useMe } from "@/hooks/useMe";
+import {
+  DndContext,
+  type DragEndEvent,
+  useDroppable,
+  useDraggable,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
@@ -74,6 +83,7 @@ export default function WorkspaceDetailPage() {
 
   const { data: tasks, isLoading: isLoadingTasks } = useWorkspaceTasks(id);
   const { mutateAsync: createTask } = useCreateTask(id!);
+  const { mutateAsync: updateTask } = useUpdateTask(id!);
 
   // Nova tarefa
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
@@ -97,6 +107,18 @@ export default function WorkspaceDetailPage() {
   };
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const taskId = active.id as string;
+    const newStatus = over.id as TaskStatus;
+    const task = tasks?.find((t) => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+    await updateTask({ id: taskId, status: newStatus });
+  };
 
   const toggleAssignee = (userId: string) => {
     setNewTaskAssignees(prev =>
@@ -287,32 +309,20 @@ export default function WorkspaceDetailPage() {
             <Loader2 className="w-8 h-8 animate-spin mr-2" /> Carregando tarefas...
           </div>
         ) : (
-          <div className="flex h-full gap-6 min-w-max">
-            {COLUMNS.map((col) => {
-              const colTasks = tasks?.filter((t) => t.status === col.id) || [];
-              return (
-                <div key={col.id} className="w-80 flex flex-col h-full bg-gray-100/50 rounded-lg border border-gray-200">
-                  <div className="p-3 font-semibold text-sm flex justify-between items-center border-b bg-gray-50 rounded-t-lg">
-                    <span className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${col.color}`} />
-                      {col.label}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{colTasks.length}</Badge>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="flex h-full gap-6 min-w-max">
+              {COLUMNS.map((col) => {
+                const colTasks = tasks?.filter((t) => t.status === col.id) || [];
+                return (
+                  <KanbanColumn key={col.id} id={col.id} label={col.label} color={col.color} count={colTasks.length}>
                     {colTasks.map((task: Task) => (
-                      <TaskCard key={task.id} task={task} onClick={(t) => setSelectedTaskId(t.id)} />
+                      <DraggableTaskCard key={task.id} task={task} onClick={(t) => setSelectedTaskId(t.id)} />
                     ))}
-                    {colTasks.length === 0 && (
-                      <div className="text-center py-8 text-xs text-muted-foreground border-2 border-dashed border-gray-200 rounded-md">
-                        Sem tarefas
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  </KanbanColumn>
+                );
+              })}
+            </div>
+          </DndContext>
         )}
       </div>
 
@@ -331,6 +341,51 @@ export default function WorkspaceDetailPage() {
         onConfirm={confirm.onConfirm}
         onCancel={() => setConfirm(c => ({ ...c, open: false }))}
       />
+    </div>
+  );
+}
+
+function KanbanColumn({
+  id, label, color, count, children,
+}: {
+  id: string; label: string; color: string; count: number; children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div className="w-80 flex flex-col h-full bg-gray-100/50 rounded-lg border border-gray-200">
+      <div className="p-3 font-semibold text-sm flex justify-between items-center border-b bg-gray-50 rounded-t-lg">
+        <span className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full ${color}`} />
+          {label}
+        </span>
+        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{count}</Badge>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar transition-colors ${isOver ? "bg-blue-50/60" : ""}`}
+      >
+        {children}
+        {count === 0 && (
+          <div className="text-center py-8 text-xs text-muted-foreground border-2 border-dashed border-gray-200 rounded-md">
+            Sem tarefas
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DraggableTaskCard({ task, onClick }: { task: Task; onClick: (task: Task) => void }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{ opacity: isDragging ? 0.4 : 1 }}
+      className="touch-none"
+    >
+      <TaskCard task={task} onClick={onClick} />
     </div>
   );
 }

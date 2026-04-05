@@ -28,5 +28,12 @@ export const workspaceService = {
 
   deleteWorkspace: async (workspaceId: string) => {
     await api.delete(`/workspaces/${workspaceId}`);
-  }
+  },
+
+  searchOrgUsers: async (search: string) => {
+    const response = await api.get<{
+      data: { id: string; firstName: string; lastName: string | null; email: string; avatar: string | null }[];
+    }>(`/users?search=${encodeURIComponent(search)}&limit=10`);
+    return response.data.data ?? [];
+  },
 };

@@ -29,7 +29,7 @@ export const taskService = {
   },
 
   updateChecklistItem: async (itemId: string, isDone: boolean) => {
-    const response = await api.put(`/checklist/${itemId}`, { isDone });
+    const response = await api.put(`/tasks/checklist/${itemId}`, { isDone });
     return response.data;
   },
 
