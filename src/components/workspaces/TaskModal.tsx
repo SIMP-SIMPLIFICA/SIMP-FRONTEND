@@ -289,7 +289,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-gray-700 truncate">{file.fileName}</p>
                                                 <a
-                                                    href={(file as any).signedUrl ?? undefined}
+                                                    href={file.signedUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="text-[10px] text-blue-500 hover:underline flex items-center gap-1"

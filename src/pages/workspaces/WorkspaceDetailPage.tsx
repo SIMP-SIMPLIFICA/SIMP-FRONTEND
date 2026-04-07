@@ -218,7 +218,7 @@ export default function WorkspaceDetailPage() {
             </Button>
           )}
 
-          <InviteMemberModal workspaceId={id!} existingMemberIds={members.map((m: any) => m.userId)} />
+          <InviteMemberModal workspaceId={id!} existingMemberIds={members.map((m) => m.userId)} />
 
           <Dialog open={isNewTaskOpen} onOpenChange={(v) => { if (!v) resetForm(); setIsNewTaskOpen(v); }}>
             <DialogTrigger asChild>

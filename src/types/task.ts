@@ -41,6 +41,7 @@ export interface TaskAttachment {
   fileSize: number;
   fileType: string;
   uploadedAt: string;
+  signedUrl?: string;
 }
 
 export interface Task {
