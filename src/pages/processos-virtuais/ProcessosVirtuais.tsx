@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
-  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip, Check,
-  Calendar as CalendarIcon,
+  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
+  Calendar as CalendarIcon, Settings2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,7 +21,6 @@ import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
-  useCreateVirtualProcessCategory, useCreateVirtualProcessSource, useCreateVirtualProcessCompany,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
@@ -29,6 +28,7 @@ import type { VirtualProcess } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
 
 // --- helpers ---
 function formatDocument(val: string) {
@@ -114,21 +114,7 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   const { data: sources = [] } = useVirtualProcessSources(workspaceId)
   const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
   const { data: bankAccounts = [] } = useFinanceBankAccounts()
-  const { mutateAsync: createCat } = useCreateVirtualProcessCategory(workspaceId)
-  const { mutateAsync: createSrc } = useCreateVirtualProcessSource(workspaceId)
-  const { mutateAsync: createCmp } = useCreateVirtualProcessCompany(workspaceId)
-
-  // Inline creation state
-  const [isAddingCat, setIsAddingCat] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [savingCat, setSavingCat] = useState(false)
-  const [isAddingSrc, setIsAddingSrc] = useState(false)
-  const [newSrcName, setNewSrcName] = useState('')
-  const [savingSrc, setSavingSrc] = useState(false)
-  const [isAddingCmp, setIsAddingCmp] = useState(false)
-  const [newCmpName, setNewCmpName] = useState('')
-  const [newCmpCnpj, setNewCmpCnpj] = useState('')
-  const [savingCmp, setSavingCmp] = useState(false)
+  const { open: openProcessModal } = useUniversalProcessModal()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
@@ -136,51 +122,6 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   function reset() {
     setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
     setStartDate(undefined); setEndDate(undefined)
-    setIsAddingCat(false); setNewCatName('')
-    setIsAddingSrc(false); setNewSrcName('')
-    setIsAddingCmp(false); setNewCmpName(''); setNewCmpCnpj('')
-  }
-
-  async function handleCreateCat() {
-    if (!newCatName.trim()) return
-    setSavingCat(true)
-    try {
-      await createCat({ name: newCatName.trim() })
-      setForm(f => ({ ...f, category: newCatName.trim() }))
-      setNewCatName(''); setIsAddingCat(false)
-      toast({ title: 'Categoria criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar categoria', description: msg, variant: 'destructive' })
-    } finally { setSavingCat(false) }
-  }
-
-  async function handleCreateSrc() {
-    if (!newSrcName.trim()) return
-    setSavingSrc(true)
-    try {
-      await createSrc({ name: newSrcName.trim() })
-      setForm(f => ({ ...f, source: newSrcName.trim() }))
-      setNewSrcName(''); setIsAddingSrc(false)
-      toast({ title: 'Origem criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar origem', description: msg, variant: 'destructive' })
-    } finally { setSavingSrc(false) }
-  }
-
-  async function handleCreateCmp() {
-    if (!newCmpName.trim()) return
-    setSavingCmp(true)
-    try {
-      await createCmp({ name: newCmpName.trim(), cnpj: newCmpCnpj.trim() || null })
-      setForm(f => ({ ...f, companyName: newCmpName.trim(), companyCnpj: newCmpCnpj.trim() }))
-      setNewCmpName(''); setNewCmpCnpj(''); setIsAddingCmp(false)
-      toast({ title: 'Empresa criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar empresa', description: msg, variant: 'destructive' })
-    } finally { setSavingCmp(false) }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -241,79 +182,47 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 
             {/* Row 2: Categoria */}
             <div className="space-y-1.5">
-              <Label>Categoria <span className="text-red-500">*</span></Label>
-              <div className="flex gap-2">
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.length === 0
-                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
-                      : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button type="button" variant="outline" size="icon" title="Nova categoria"
-                  onClick={() => { setIsAddingCat(v => !v); setIsAddingSrc(false); setIsAddingCmp(false) }}
-                  className={isAddingCat ? 'border-blue-500 text-blue-600' : ''}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="flex items-center justify-between">
+                <Label>Categoria <span className="text-red-500">*</span></Label>
+                <button type="button" onClick={() => openProcessModal('categorias')}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline" tabIndex={-1}>
+                  <Settings2 className="h-3 w-3" /> Gerenciar categorias
+                </button>
               </div>
+              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  {categories.length === 0
+                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
+                    : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-            {isAddingCat && (
-              <div className="flex gap-2 items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <Input placeholder="Nome da categoria..." value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                  className="flex-1 bg-white" autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateCat() } }} />
-                <Button type="button" size="sm" onClick={() => void handleCreateCat()}
-                  disabled={savingCat || !newCatName.trim()} className="bg-blue-600 hover:bg-blue-700 shrink-0">
-                  {savingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Criar
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCat(false)} disabled={savingCat}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
 
             {/* Row 3: Origem + Detalhe */}
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
-                <div className="flex gap-2">
-                  <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
-                    <SelectContent>
-                      {sources.length === 0
-                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
-                        : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" title="Nova origem"
-                    onClick={() => { setIsAddingSrc(v => !v); setIsAddingCat(false); setIsAddingCmp(false) }}
-                    className={isAddingSrc ? 'border-violet-500 text-violet-600' : ''}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                  <button type="button" onClick={() => openProcessModal('origens')}
+                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 hover:underline" tabIndex={-1}>
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </button>
                 </div>
+                <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {sources.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
+                      : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Detalhe da Origem</Label>
                 <Input placeholder="Número ou referência" value={form.sourceDetail} onChange={set('sourceDetail')} />
               </div>
             </div>
-            {isAddingSrc && (
-              <div className="flex gap-2 items-center p-3 bg-violet-50 border border-violet-200 rounded-lg">
-                <Input placeholder="Nome da origem..." value={newSrcName} onChange={e => setNewSrcName(e.target.value)}
-                  className="flex-1 bg-white" autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateSrc() } }} />
-                <Button type="button" size="sm" onClick={() => void handleCreateSrc()}
-                  disabled={savingSrc || !newSrcName.trim()} className="bg-violet-600 hover:bg-violet-700 shrink-0">
-                  {savingSrc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Criar
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingSrc(false)} disabled={savingSrc}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
 
             {/* Row 4: Assunto */}
             <div className="space-y-1.5">
@@ -324,51 +233,31 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
             {/* Row 5: Empresa + CNPJ */}
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <Label>Empresa Contratada</Label>
-                <div className="flex gap-2">
-                  <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                    <SelectContent>
-                      {companies.length === 0
-                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
-                        : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" title="Nova empresa"
-                    onClick={() => { setIsAddingCmp(v => !v); setIsAddingCat(false); setIsAddingSrc(false) }}
-                    className={isAddingCmp ? 'border-emerald-500 text-emerald-600' : ''}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <Label>Empresa Contratada</Label>
+                  <button type="button" onClick={() => openProcessModal('empresas')}
+                    className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline" tabIndex={-1}>
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </button>
                 </div>
+                <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {companies.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
+                      : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>CNPJ / CPF</Label>
                 <Input
-                  placeholder="000.000.000-00"
                   inputMode="numeric"
                   value={form.companyCnpj}
                   onChange={e => setForm(f => ({ ...f, companyCnpj: formatDocument(e.target.value) }))}
                 />
               </div>
             </div>
-            {isAddingCmp && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <div className="flex gap-2 items-center">
-                  <Input placeholder="Nome da empresa..." value={newCmpName} onChange={e => setNewCmpName(e.target.value)}
-                    className="flex-1 bg-white" autoFocus />
-                  <Input placeholder="CNPJ (opcional)" value={newCmpCnpj} onChange={e => setNewCmpCnpj(e.target.value)}
-                    className="flex-1 bg-white" />
-                  <Button type="button" size="sm" onClick={() => void handleCreateCmp()}
-                    disabled={savingCmp || !newCmpName.trim()} className="bg-emerald-600 hover:bg-emerald-700 shrink-0">
-                    {savingCmp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    Criar
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCmp(false)} disabled={savingCmp}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {/* Row 6: Datas */}
             <div className="grid grid-cols-2 gap-4 items-end">
