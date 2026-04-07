@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useUniversalFinanceModal } from "@/context/UniversalFinanceModalContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -27,7 +27,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
     Paperclip, X, Image as ImageIcon, FileText, Trash2,
-    Loader2, AlertTriangle, Plus, ExternalLink, Check, CalendarIcon,
+    Loader2, AlertTriangle, Plus, Settings2, Check, CalendarIcon,
 } from "lucide-react";
 
 interface EntryFormDialogProps {
@@ -130,6 +130,8 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     const [liquidacaoNumber, setLiquidacaoNumber] = useState("");
     const [issueDate, setIssueDate] = useState<Date | undefined>(undefined);
     const [deliveryDate, setDeliveryDate] = useState<Date | undefined>(undefined);
+
+    const { open: openFinanceModal } = useUniversalFinanceModal();
 
     // Criação inline — categoria
     const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -410,13 +412,14 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Classificação</span>
-                                <Link
-                                    to="/financeiro/categorias"
+                                <button
+                                    type="button"
+                                    onClick={() => openFinanceModal("categorias")}
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                     tabIndex={-1}
                                 >
-                                    Gerenciar categorias <ExternalLink className="h-3 w-3" />
-                                </Link>
+                                    <Settings2 className="h-3 w-3" /> Gerenciar categorias
+                                </button>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
@@ -484,13 +487,14 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <Label>Conta Bancária <span className="text-red-500">*</span></Label>
-                                <Link
-                                    to="/financeiro/contas"
+                                <button
+                                    type="button"
+                                    onClick={() => openFinanceModal("contas")}
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                     tabIndex={-1}
                                 >
-                                    Gerenciar contas <ExternalLink className="h-3 w-3" />
-                                </Link>
+                                    <Settings2 className="h-3 w-3" /> Gerenciar contas
+                                </button>
                             </div>
 
                             <div className="flex gap-2">
