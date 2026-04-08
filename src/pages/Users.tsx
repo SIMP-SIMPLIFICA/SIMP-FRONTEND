@@ -4,6 +4,7 @@ import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTrian
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useMe } from "@/hooks/useMe";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ type ApiUser = {
   twoFactorEnabled: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  organization: { id: string; name: string } | null;
   roles: ApiRoleRef[];
 };
 
@@ -119,6 +121,9 @@ function StatusBadge({ active }: { active: boolean }) {
 
 // --- MAIN COMPONENT ---
 export default function Users() {
+  const { data: meData } = useMe(true);
+  const isSuperAdmin = (meData?.user as any)?.isSuperAdmin ?? false;
+
   const [items, setItems] = useState<ApiUser[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -377,17 +382,18 @@ export default function Users() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="w-[30%]">Usuário</TableHead>
-                  <TableHead className="w-[30%]">Contato</TableHead>
-                  <TableHead className="w-[15%] text-center">Status</TableHead>
-                  <TableHead className="w-[25%] text-center">Ações</TableHead>
+                  <TableHead className="w-[25%]">Usuário</TableHead>
+                  <TableHead className="w-[25%]">Contato</TableHead>
+                  {isSuperAdmin && <TableHead className="w-[18%]">Organização</TableHead>}
+                  <TableHead className="w-[12%] text-center">Status</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Carregando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isSuperAdmin ? 5 : 4} className="text-center py-8 text-slate-500">Carregando...</TableCell></TableRow>
                 ) : filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-slate-500">Nenhum usuário encontrado.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={isSuperAdmin ? 5 : 4} className="text-center py-8 text-slate-500">Nenhum usuário encontrado.</TableCell></TableRow>
                 ) : (
                   filtered.map(u => (
                     <TableRow key={u.id} className="hover:bg-slate-50/50">
@@ -399,6 +405,18 @@ export default function Users() {
                         <div className="text-sm text-slate-700">{u.email}</div>
                         <div className="text-xs text-slate-400">{formatDate(u.createdAt)}</div>
                       </TableCell>
+                      {isSuperAdmin && (
+                        <TableCell>
+                          {u.organization ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex h-2 w-2 rounded-full bg-blue-500 shrink-0" />
+                              <span className="text-sm text-slate-700 truncate max-w-[140px]">{u.organization.name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Sem organização</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="text-center">
                          <StatusBadge active={u.isActive} />
                       </TableCell>
