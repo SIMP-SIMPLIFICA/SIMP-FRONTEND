@@ -76,61 +76,61 @@ type DuplicateRoleBody = {
 
 type UpsertMode = "create" | "edit";
 
+// Fallback catalog mirrors the backend AVAILABLE_PERMISSIONS structure.
+// Keys match the backend (finance, communication, processes, settings, security).
+// super-admin-only permissions (system:admin, audit:*, backup:*) are excluded —
+// the backend also strips them for non-super-admins via getAvailablePermissions.
 const FALLBACK_CATALOG: CatalogData = {
   categories: [
-    { name: "users", displayName: "Gestão de Usuários", permissions: ["users:read", "users:write", "users:delete", "users:manage"] },
-    { name: "roles", displayName: "Gestão de Perfis (Roles)", permissions: ["roles:read", "roles:write", "roles:delete", "roles:manage"] },
-    { name: "financial", displayName: "Módulo Financeiro", permissions: ["finance:read", "finance:write", "finance:approve", "finance:export"] },
-    { name: "system", displayName: "Configurações do Sistema", permissions: ["system:admin", "settings:read", "settings:write", "audit:read", "audit:export"] },
-    { name: "security", displayName: "Segurança & Sessões", permissions: ["sessions:view", "sessions:manage", "backup:create", "backup:restore"] },
-    { name: "processes", displayName: "Processos Virtuais", permissions: ["processes:read", "processes:write", "processes:download", "processes:manage"] }
+    { name: "users",         displayName: "Gestão de Usuários",        permissions: ["users:read", "users:write", "users:delete", "users:manage"] },
+    { name: "roles",         displayName: "Gestão de Perfis (Roles)",   permissions: ["roles:read", "roles:write", "roles:delete", "roles:manage"] },
+    { name: "finance",       displayName: "Módulo Financeiro",          permissions: ["finance:read", "finance:write", "finance:approve", "finance:export"] },
+    { name: "settings",      displayName: "Configurações do Sistema",   permissions: ["settings:read", "settings:write"] },
+    { name: "communication", displayName: "Comunicação e Protocolo",    permissions: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"] },
+    { name: "security",      displayName: "Segurança & Sessões",        permissions: ["sessions:view", "sessions:manage"] },
+    { name: "processes",     displayName: "Processos Virtuais",         permissions: ["processes:read", "processes:write", "processes:download", "processes:manage"] },
   ],
   permissions: [
     // Users
-    { key: "users:read", description: "Visualizar listagem de usuários", category: "users" },
-    { key: "users:write", description: "Criar e editar usuários", category: "users" },
-    { key: "users:delete", description: "Excluir usuários", category: "users" },
-    { key: "users:manage", description: "Controle total de usuários (inclui reset de senha)", category: "users" },
+    { key: "users:read",    description: "Visualizar listagem de usuários",                      category: "users" },
+    { key: "users:write",   description: "Criar e editar usuários",                              category: "users" },
+    { key: "users:delete",  description: "Excluir usuários",                                    category: "users" },
+    { key: "users:manage",  description: "Controle total de usuários (inclui reset de senha)",   category: "users" },
     // Roles
-    { key: "roles:read", description: "Visualizar perfis de acesso", category: "roles" },
-    { key: "roles:write", description: "Criar e editar perfis", category: "roles" },
-    { key: "roles:delete", description: "Excluir perfis", category: "roles" },
-    { key: "roles:manage", description: "Gerenciar permissões avançadas", category: "roles" },
-    // Financial (Exemplo)
-    { key: "finance:read", description: "Visualizar relatórios financeiros", category: "financial" },
-    { key: "finance:write", description: "Lançar despesas e receitas", category: "financial" },
-    { key: "finance:approve", description: "Aprovar transações", category: "financial" },
-    { key: "finance:export", description: "Exportar dados financeiros", category: "financial" },
-    // System
-    { key: "system:admin", description: "Acesso de Super Administrador", category: "system" },
-    { key: "settings:read", description: "Ver configurações globais", category: "system" },
-    { key: "settings:write", description: "Alterar configurações globais", category: "system" },
-    { key: "audit:read", description: "Acessar logs de auditoria", category: "system" },
-    { key: "audit:export", description: "Baixar logs de auditoria", category: "system" },
-    // Security
-    { key: "sessions:view", description: "Ver sessões ativas", category: "security" },
-    { key: "sessions:manage", description: "Derrubar sessões de usuários", category: "security" },
-    { key: "backup:create", description: "Gerar backup manual", category: "security" },
-    { key: "backup:restore", description: "Restaurar sistema", category: "security" },
+    { key: "roles:read",    description: "Visualizar perfis de acesso",          category: "roles" },
+    { key: "roles:write",   description: "Criar e editar perfis",                category: "roles" },
+    { key: "roles:delete",  description: "Excluir perfis",                       category: "roles" },
+    { key: "roles:manage",  description: "Gerenciar permissões avançadas",       category: "roles" },
+    // Finance
+    { key: "finance:read",    description: "Visualizar relatórios financeiros",  category: "finance" },
+    { key: "finance:write",   description: "Lançar despesas e receitas",         category: "finance" },
+    { key: "finance:approve", description: "Aprovar transações",                 category: "finance" },
+    { key: "finance:export",  description: "Exportar dados financeiros",         category: "finance" },
+    // Settings (org-level only — system:admin, audit:* are super-admin-only)
+    { key: "settings:read",   description: "Ver configurações globais",          category: "settings" },
+    { key: "settings:write",  description: "Alterar configurações globais",      category: "settings" },
+    // Communication
+    { key: "documents:read",    description: "Visualizar documentos e processos",                 category: "communication" },
+    { key: "documents:create",  description: "Criar novos documentos (Memorandos, Ofícios)",      category: "communication" },
+    { key: "documents:manage",  description: "Gerenciar todos os documentos (Editar/Excluir)",    category: "communication" },
+    { key: "documents:sign",    description: "Assinar documentos digitalmente",                   category: "communication" },
+    { key: "documents:send",    description: "Enviar documentos (Protocolar)",                    category: "communication" },
+    // Security (backup:* is super-admin-only)
+    { key: "sessions:view",    description: "Ver sessões ativas",                category: "security" },
+    { key: "sessions:manage",  description: "Derrubar sessões de usuários",      category: "security" },
     // Processes
-    { key: "processes:read", description: "Visualizar processos virtuais", category: "processes" },
-    { key: "processes:write", description: "Criar e editar processos", category: "processes" },
-    { key: "processes:download", description: "Baixar documentos de processos", category: "processes" },
-    { key: "processes:manage", description: "Gerenciar todos os processos", category: "processes" },
-    // Profile
-    { key: "profile:read", description: "Ver próprio perfil", category: "other" },
-    { key: "profile:write", description: "Editar próprio perfil", category: "other" },
-  ]
+    { key: "processes:read",      description: "Visualizar processos virtuais",           category: "processes" },
+    { key: "processes:write",     description: "Criar e editar processos",                category: "processes" },
+    { key: "processes:download",  description: "Baixar documentos de processos",          category: "processes" },
+    { key: "processes:manage",    description: "Gerenciar todos os processos",            category: "processes" },
+  ],
 };
 
-// Maps backend category keys → module key required to be enabled
-// Backend uses: finance, communication, processes
-// Fallback catalog uses slightly different names — cover both
+// Maps category key → module that must be enabled for the category to show.
+// Categories not listed here (users, roles, settings, security) are always visible.
 const CATEGORY_MODULE_MAP: Record<string, string> = {
   finance:       "finance",
-  financial:     "finance",       // fallback catalog alias
   communication: "communication",
-  documents:     "communication", // fallback catalog alias
   processes:     "virtual_processes",
 };
 
