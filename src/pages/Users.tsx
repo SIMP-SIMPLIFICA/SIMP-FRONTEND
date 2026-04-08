@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import { Search, Power, Eye, XCircle, Plus, Pencil, Trash2, KeyRound, AlertTriangle, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
@@ -20,6 +21,13 @@ import {
 } from "@/components/ui/table";
 
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -124,6 +132,15 @@ export default function Users() {
   const { data: meData } = useMe(true);
   const isSuperAdmin = (meData?.user as any)?.isSuperAdmin ?? false;
 
+  const { data: orgsData } = useQuery({
+    queryKey: ["organizations"],
+    queryFn: () => apiRequest<{ data: { id: string; name: string; slug: string }[] }>("/api/v1/organizations"),
+    enabled: isSuperAdmin,
+  });
+  const orgs = orgsData?.data ?? [];
+
+  const [orgFilter, setOrgFilter] = useState<string>("");
+
   const [items, setItems] = useState<ApiUser[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -175,7 +192,9 @@ export default function Users() {
   async function fetchUsers(p: number) {
     setLoading(true);
     try {
-      const res = await apiRequest<UsersResponse>(`/api/v1/users?page=${p}&limit=${limit}`);
+      const params = new URLSearchParams({ page: String(p), limit: String(limit) });
+      if (orgFilter) params.set("organizationId", orgFilter);
+      const res = await apiRequest<UsersResponse>(`/api/v1/users?${params.toString()}`);
       setItems(res.data);
       setPagination(res.pagination);
     } catch (err: any) {
@@ -333,9 +352,8 @@ export default function Users() {
   }
 
   // --- EFFECTS ---
-  useEffect(() => {
-    void fetchUsers(page);
-  }, [page]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void fetchUsers(page); }, [page, orgFilter]);
 
   return (
     <div className="space-y-5">
@@ -348,7 +366,23 @@ export default function Users() {
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative w-full sm:w-[320px]">
+          {isSuperAdmin && (
+            <Select
+              value={orgFilter || "all"}
+              onValueChange={(v) => { setOrgFilter(v === "all" ? "" : v); setPage(1); }}
+            >
+              <SelectTrigger className="h-11 rounded-2xl w-full sm:w-[200px]">
+                <SelectValue placeholder="Organização" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as organizações</SelectItem>
+                {orgs.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>{org.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative w-full sm:w-[280px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={query}
