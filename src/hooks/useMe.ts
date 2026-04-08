@@ -27,6 +27,7 @@ export type MeUser = {
       displayName?: string;
     };
   }>;
+  enabledModules?: string[];
 };
 
 export type MeResponse = {

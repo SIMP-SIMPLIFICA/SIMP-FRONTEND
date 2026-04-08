@@ -24,6 +24,7 @@ export function useAuth() {
     isAuthenticated: !!user && !isError,
     isSuperAdmin: user?.isSuperAdmin ?? false,
     organizationId: user?.organizationId ?? null,
+    enabledModules: user?.enabledModules ?? [],
     error,
   };
 }

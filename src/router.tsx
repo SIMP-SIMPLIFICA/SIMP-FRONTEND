@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import { PermissionGate } from "@/components/layout/PermissionGate";
+import { ModuleGate } from "@/components/layout/ModuleGate";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { SuperAdminRoute } from "@/components/layout/SuperAdminRoute";
@@ -29,6 +30,8 @@ import ConfiguracoesProcessos from "@/pages/processos-virtuais/Configuracoes";
 import CalendarPage from "@/pages/utilidades/Calendar";
 import NotesPage from "@/pages/utilidades/Notes";
 import AdminPanel from "@/pages/admin/AdminPanel";
+import AdminNewOrganizationPage from "@/pages/admin/AdminNewOrganizationPage";
+import AdminOrganizationDetailPage from "@/pages/admin/AdminOrganizationDetailPage";
 import OrganizacaoPage from "@/pages/OrganizacaoPage";
 
 export const router = createBrowserRouter([
@@ -44,7 +47,9 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { path: "/admin", element: <AdminPanel /> },
+          { path: "/admin",                        element: <AdminPanel /> },
+          { path: "/admin/organizations/new",      element: <AdminNewOrganizationPage /> },
+          { path: "/admin/organizations/:id",      element: <AdminOrganizationDetailPage /> },
         ],
       },
     ],
@@ -60,36 +65,55 @@ export const router = createBrowserRouter([
           { path: "/", element: <Dashboard /> },
 
           {
-            element: <PermissionGate anyOf={["finance:read", "finance:write", "finance:approve", "finance:export"]} />,
-            children: [
-              { path: "/financeiro", element: <FinanceiroOverview /> },
-              { path: "/financeiro/lancamentos", element: <Lancamentos /> },
-              { path: "/financeiro/relatorios", element: <Relatorios /> },
-              { path: "/financeiro/inteligencia", element: <Inteligencia /> },
-              { path: "/financeiro/contas", element: <ContasBancarias /> },
-              { path: "/financeiro/categorias", element: <Categorias /> },
-            ],
+            element: <ModuleGate module="finance" />,
+            children: [{
+              element: <PermissionGate anyOf={["finance:read", "finance:write", "finance:approve", "finance:export"]} />,
+              children: [
+                { path: "/financeiro", element: <FinanceiroOverview /> },
+                { path: "/financeiro/lancamentos", element: <Lancamentos /> },
+                { path: "/financeiro/relatorios", element: <Relatorios /> },
+                { path: "/financeiro/inteligencia", element: <Inteligencia /> },
+                { path: "/financeiro/contas", element: <ContasBancarias /> },
+                { path: "/financeiro/categorias", element: <Categorias /> },
+              ],
+            }],
           },
 
           { path: "/workspaces", element: <WorkspacesPage /> },
           { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
 
           {
-            element: <PermissionGate anyOf={["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"]} />,
+            element: <ModuleGate module="communication" />,
+            children: [{
+              element: <PermissionGate anyOf={["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"]} />,
+              children: [
+                { path: "/communication", element: <Communication /> },
+              ],
+            }],
+          },
+          {
+            element: <ModuleGate module="virtual_processes" />,
+            children: [{
+              element: <PermissionGate anyOf={["processes:read", "processes:write", "processes:manage", "processes:download"]} />,
+              children: [
+                { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
+                { path: "/processos-virtuais/configuracoes", element: <ConfiguracoesProcessos /> },
+              ],
+            }],
+          },
+          {
+            element: <ModuleGate module="calendar" />,
             children: [
-              { path: "/communication", element: <Communication /> },
+              { path: "/utilidades", element: <CalendarPage /> },
+              { path: "/utilidades/calendario", element: <CalendarPage /> },
             ],
           },
           {
-            element: <PermissionGate anyOf={["processes:read", "processes:write", "processes:manage", "processes:download"]} />,
+            element: <ModuleGate module="notes" />,
             children: [
-              { path: "/processos-virtuais", element: <ProcessosVirtuais /> },
-              { path: "/processos-virtuais/configuracoes", element: <ConfiguracoesProcessos /> },
+              { path: "/utilidades/notas", element: <NotesPage /> },
             ],
           },
-          { path: "/utilidades", element: <CalendarPage /> },
-          { path: "/utilidades/calendario", element: <CalendarPage /> },
-          { path: "/utilidades/notas", element: <NotesPage /> },
 
           { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
           {

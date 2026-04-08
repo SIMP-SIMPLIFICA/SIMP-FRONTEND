@@ -28,13 +28,14 @@ import { clearAccessToken } from "@/lib/auth";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-type NavChild = { label: string; to: string };
+type NavChild = { label: string; to: string; module?: string };
 
 type NavItem = {
   label: string;
   to: string;
   icon: React.ReactNode;
   anyOf?: string[];
+  module?: string;
   children?: NavChild[];
 };
 
@@ -59,6 +60,7 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Financeiro",
         to: "/financeiro",
         icon: <BarChart3 className="h-4 w-4" />,
+        module: "finance",
         anyOf: ["finance:read", "finance:write", "finance:approve", "finance:export"],
         children: [
           { label: "Lançamentos", to: "/financeiro/lancamentos" },
@@ -77,6 +79,7 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Comunicação",
         to: "/communication",
         icon: <FileText className="h-4 w-4" />,
+        module: "communication",
         anyOf: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"],
       },
     ],
@@ -88,6 +91,7 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Processos Virtuais",
         to: "/processos-virtuais",
         icon: <FolderArchive className="h-4 w-4" />,
+        module: "virtual_processes",
         anyOf: ["processes:read", "processes:write", "processes:manage", "processes:download"],
         children: [
           { label: "Processos", to: "/processos-virtuais" },
@@ -109,8 +113,8 @@ const NAV_SECTIONS: NavSection[] = [
         to: "/utilidades",
         icon: <Wrench className="h-4 w-4" />,
         children: [
-          { label: "Calendário", to: "/utilidades/calendario" },
-          { label: "Anotações", to: "/utilidades/notas" },
+          { label: "Calendário", to: "/utilidades/calendario", module: "calendar" },
+          { label: "Anotações", to: "/utilidades/notas", module: "notes" },
         ],
       },
     ],
@@ -275,13 +279,30 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   const displayName = rawUser ? getDisplayName(rawUser) : "Usuário";
   const userEmail = rawUser?.email ?? "";
 
+  const enabledModules: string[] = (rawUser as any)?.enabledModules ?? [];
+
   function filterItems(items: NavItem[]): NavItem[] {
-    return items.filter((item) => {
-      if (item.to === "/organizacao") return !!orgName && !isSuperAdmin;
-      if (!item.anyOf) return true;
-      if (!data) return false;
-      return hasAnyPermission(data, item.anyOf);
-    });
+    return items
+      .map((item) => {
+        if (item.to === "/organizacao") return (!!orgName && !isSuperAdmin) ? item : null;
+        // Module check (super admin bypasses)
+        if (!isSuperAdmin && item.module && !enabledModules.includes(item.module)) return null;
+        // Permission check
+        if (item.anyOf && !isSuperAdmin) {
+          if (!data) return null;
+          if (!hasAnyPermission(data, item.anyOf)) return null;
+        }
+        // Filter children by module
+        if (item.children) {
+          const visibleChildren = item.children.filter(
+            (c) => !c.module || isSuperAdmin || enabledModules.includes(c.module)
+          );
+          if (visibleChildren.length === 0) return null;
+          return { ...item, children: visibleChildren };
+        }
+        return item;
+      })
+      .filter(Boolean) as NavItem[];
   }
 
   // -------------------------------------------------------------------------

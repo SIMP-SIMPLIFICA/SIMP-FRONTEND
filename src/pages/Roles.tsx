@@ -3,6 +3,7 @@ import { Search, Plus, RefreshCw, Shield, AlertTriangle, Layers, Lock, Settings 
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,17 @@ const FALLBACK_CATALOG: CatalogData = {
   ]
 };
 
+// Maps backend category keys → module key required to be enabled
+// Backend uses: finance, communication, processes
+// Fallback catalog uses slightly different names — cover both
+const CATEGORY_MODULE_MAP: Record<string, string> = {
+  finance:       "finance",
+  financial:     "finance",       // fallback catalog alias
+  communication: "communication",
+  documents:     "communication", // fallback catalog alias
+  processes:     "virtual_processes",
+};
+
 // --- Helpers ---
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -151,6 +163,7 @@ function isValidRoleName(name: string): boolean {
 }
 
 export default function Roles() {
+  const { isSuperAdmin, enabledModules } = useAuth();
   const [items, setItems] = useState<ApiRole[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -206,9 +219,15 @@ export default function Roles() {
   const filteredCatalogCategories = useMemo(() => {
     const q = permSearch.trim().toLowerCase();
 
-    if (!q) return catalog.categories;
+    const moduleVisible = catalog.categories.filter((cat) => {
+      const requiredModule = CATEGORY_MODULE_MAP[cat.name];
+      if (!requiredModule) return true;
+      return isSuperAdmin || enabledModules.includes(requiredModule);
+    });
 
-    return catalog.categories.map(cat => {
+    if (!q) return moduleVisible;
+
+    return moduleVisible.map(cat => {
       const matchingPerms = cat.permissions.filter(permKey => {
         const pDef = catalog.permissions.find(p => p.key === permKey);
         if (!pDef) return permKey.includes(q);
@@ -220,7 +239,7 @@ export default function Roles() {
         permissions: matchingPerms
       };
     }).filter(cat => cat.permissions.length > 0);
-  }, [catalog, permSearch]);
+  }, [catalog, permSearch, isSuperAdmin, enabledModules]);
 
   // --- API Actions ---
 
