@@ -13,7 +13,6 @@ import {
   User,
   FileText,
   FolderArchive,
-  Settings,
   X,
   Wrench,
   ShieldCheck,
@@ -63,6 +62,7 @@ const NAV_SECTIONS: NavSection[] = [
         module: "finance",
         anyOf: ["finance:read", "finance:write", "finance:approve", "finance:export"],
         children: [
+          { label: "Visão Geral", to: "/financeiro" },
           { label: "Lançamentos", to: "/financeiro/lancamentos" },
           { label: "Contas Bancárias", to: "/financeiro/contas" },
           { label: "Categorias", to: "/financeiro/categorias" },
@@ -132,12 +132,7 @@ const NAV_SECTIONS: NavSection[] = [
         to: "/organizacao",
         icon: <Building2 className="h-4 w-4" />,
       },
-      {
-        label: "Configurações",
-        to: "/configuracoes",
-        icon: <Settings className="h-4 w-4" />,
-        anyOf: ["settings:read", "settings:write", "system:admin"],
-      },
+
       {
         label: "Usuários",
         to: "/usuarios",

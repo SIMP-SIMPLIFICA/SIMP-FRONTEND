@@ -5,9 +5,11 @@ import type { FinanceEntry } from "../pages/financeiro/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useFinanceEntries(_workspaceId?: string | undefined, filters?: any) {
+    const { enabled, ...apiFilters } = filters ?? {};
     return useQuery({
-        queryKey: ["financeEntries", filters],
-        queryFn: () => financeService.getEntries(filters),
+        queryKey: ["financeEntries", apiFilters],
+        queryFn: () => financeService.getEntries(apiFilters),
+        enabled: enabled !== false,
     });
 }
 
