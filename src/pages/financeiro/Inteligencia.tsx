@@ -1,194 +1,197 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo } from "react";
-import { Sparkles, Brain, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Sparkles, TrendingUp, TrendingDown, AlertCircle, Activity } from "lucide-react";
+import {
+    ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer, ReferenceLine, ReferenceArea,
+} from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
 import { useFinanceEntries } from "@/hooks/useFinance";
-import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { format, subMonths, startOfMonth, isSameMonth, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { FinanceEntry } from "./types";
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function fmtBRL(cents: number) {
+    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+}
+
+function fmtShort(cents: number) {
+    if (cents >= 100_000_000) return `R$ ${(cents / 100_000_000).toFixed(1)}M`;
+    if (cents >= 100_000) return `R$ ${(cents / 100_000).toFixed(0)}k`;
+    return fmtBRL(cents);
+}
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+type MonthBucket = { name: string; date: Date; income: number; expense: number };
+
+type ChartPoint = {
+    name: string;
+    // histórico (linhas sólidas) — null nos meses projetados
+    receitas: number | null;
+    despesas: number | null;
+    // projeção (linhas tracejadas) — null nos meses históricos exceto o atual (ponto de conexão)
+    projReceitas: number | null;
+    projDespesas: number | null;
+    isProjected: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Tooltip customizado
+// ---------------------------------------------------------------------------
+function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+
+    const isProj = payload[0]?.payload?.isProjected;
+
+    return (
+        <div className="bg-white border border-slate-200 shadow-xl rounded-2xl p-4 min-w-[200px]">
+            <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                {isProj && <span className="text-indigo-400">◈</span>}
+                {label}
+                {isProj && <span className="text-indigo-400 ml-1">(projetado)</span>}
+            </p>
+            {payload.map((entry: any) => {
+                if (entry.value == null) return null;
+                const name = entry.name === "receitas" || entry.name === "projReceitas"
+                    ? "Receitas" : "Despesas";
+                const color = entry.color;
+                return (
+                    <div key={entry.dataKey} className="flex items-center justify-between gap-6 text-xs mb-1">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <span className="text-slate-500">{name}</span>
+                        </div>
+                        <span className="font-semibold text-slate-900">{fmtBRL(entry.value)}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Componente principal
+// ---------------------------------------------------------------------------
 export default function Inteligencia() {
-    const { workspaceId } = useParams();
-    const { data: entriesData, isLoading } = useFinanceEntries(workspaceId, { limit: 1000 });
-    const entries = entriesData || [];
+    const { data: entriesData, isLoading } = useFinanceEntries(undefined, { limit: 1000 });
+    const entries: FinanceEntry[] = entriesData || [];
 
-    // --- COMPUTE INSIGHTS ---
-    const {
-        forecastData,
-        topCategoryName,
-        topCategoryValue,
-        topCategoryMOM,
-        currentMonthIncome,
-        currentMonthExpense,
-    } = useMemo(() => {
-        if (!entries || entries.length === 0) {
-            return {
-                forecastData: [], topCategoryName: "N/A", topCategoryValue: 0, topCategoryMOM: 0, currentMonthIncome: 0, currentMonthExpense: 0
-            };
-        }
-
+    const insights = useMemo(() => {
         const now = new Date();
-        const currentMonthStart = startOfMonth(now);
-        const lastMonthStart = startOfMonth(subMonths(now, 1));
 
-        // 1. Group by month (last 6 months + current)
-        const histData = new Map<string, { name: string; receitas: number; despesas: number; date: Date }>();
-        for (let i = 5; i >= 0; i--) {
-            const d = subMonths(now, i);
-            const key = format(d, "yyyy-MM");
-            histData.set(key, {
-                name: format(d, "MMM", { locale: ptBR }),
-                receitas: 0,
-                despesas: 0,
-                date: d
-            });
-        }
+        // Montar buckets dos últimos 6 meses (0 = atual, 5 = mais antigo)
+        const buckets: MonthBucket[] = Array.from({ length: 6 }, (_, i) => {
+            const d = subMonths(now, 5 - i);
+            return { name: format(d, "MMM/yy", { locale: ptBR }), date: startOfMonth(d), income: 0, expense: 0 };
+        });
 
-        // 2. Aggregate entries
-        let currentMonthInc = 0;
-        let currentMonthExp = 0;
-        const currentMonthCatMap = new Map<string, number>();
-        const lastMonthCatMap = new Map<string, number>();
+        // Categoria com maior gasto — mês atual e mês anterior
+        const currentStart = startOfMonth(now);
+        const prevStart = startOfMonth(subMonths(now, 1));
+        const catCurrent = new Map<string, number>();
+        const catPrev = new Map<string, number>();
 
         entries.forEach((e: FinanceEntry) => {
-            const entryDate = parseISO(e.occurredAt);
-            const key = format(entryDate, "yyyy-MM");
-
-            if (histData.has(key)) {
-                const monthNode = histData.get(key)!;
-                if (e.type === "INCOME") monthNode.receitas += e.amountCents;
-                else monthNode.despesas += e.amountCents;
+            const d = parseISO(e.occurredAt);
+            const bucket = buckets.find(b => isSameMonth(d, b.date));
+            if (bucket) {
+                if (e.type === "INCOME") bucket.income += e.amountCents;
+                else bucket.expense += e.amountCents;
             }
-
-            if (isSameMonth(entryDate, currentMonthStart)) {
-                if (e.type === "INCOME") currentMonthInc += e.amountCents;
-                else {
-                    currentMonthExp += e.amountCents;
-                    currentMonthCatMap.set(e.categoryName, (currentMonthCatMap.get(e.categoryName) || 0) + e.amountCents);
-                }
-            }
-
-            if (isSameMonth(entryDate, lastMonthStart)) {
-                if (e.type === "EXPENSE") {
-                    lastMonthCatMap.set(e.categoryName, (lastMonthCatMap.get(e.categoryName) || 0) + e.amountCents);
-                }
+            if (e.type === "EXPENSE") {
+                if (isSameMonth(d, currentStart)) catCurrent.set(e.categoryName, (catCurrent.get(e.categoryName) ?? 0) + e.amountCents);
+                if (isSameMonth(d, prevStart)) catPrev.set(e.categoryName, (catPrev.get(e.categoryName) ?? 0) + e.amountCents);
             }
         });
 
-        // 3. Find Top Category in Current Month
-        let topName = "N/A";
-        let topVal = 0;
-        currentMonthCatMap.forEach((val, cat) => {
-            if (val > topVal) {
-                topVal = val;
-                topName = cat;
-            }
-        });
+        // Top categoria mês atual
+        let topCatName = "N/A";
+        let topCatValue = 0;
+        catCurrent.forEach((val, name) => { if (val > topCatValue) { topCatValue = val; topCatName = name; } });
+        const topCatPrev = catPrev.get(topCatName) ?? 0;
+        const topCatMOM = topCatPrev === 0 ? 100 : ((topCatValue - topCatPrev) / topCatPrev) * 100;
 
-        // Calculate MOM for Top Category
-        let topMOM = 0;
-        if (topName !== "N/A") {
-            const lastMonthVal = lastMonthCatMap.get(topName) || 0;
-            if (lastMonthVal === 0) {
-                topMOM = 100;
-            } else {
-                topMOM = ((topVal - lastMonthVal) / lastMonthVal) * 100;
-            }
-        }
+        // Saúde orçamentária — mês atual
+        const current = buckets[5];
+        const isHealthy = current.income >= current.expense;
+        const commitPct = current.income > 0 ? Math.round((current.expense / current.income) * 100) : 100;
 
-        // 4. Build Forecast Data (Average of historical active months)
-        let sumInc = 0; let sumExp = 0; let count = 0;
-        const finalChartData = Array.from(histData.values()).map(d => {
-            sumInc += d.receitas;
-            sumExp += d.despesas;
-            if (d.receitas > 0 || d.despesas > 0) count++;
+        // Tendência de gastos — comparar últimos 3 meses completos (buckets 2,3,4 = 3,2,1 meses atrás)
+        const m3 = buckets[2]; // 3 meses atrás
+        const m2 = buckets[3]; // 2 meses atrás
+        const m1 = buckets[4]; // mês anterior (mais recente completo)
+        const trendExpense = m3.expense > 0
+            ? ((m1.expense - m3.expense) / m3.expense) * 100
+            : 0;
+        const trendIncome = m3.income > 0
+            ? ((m1.income - m3.income) / m3.income) * 100
+            : 0;
+
+        // ── Projeção determinística (linear extrapolation dos últimos 3 meses completos) ──
+        // Slope = diferença média por mês
+        const incSlope = (m1.income - m3.income) / 2;
+        const expSlope = (m1.expense - m3.expense) / 2;
+
+        // Base = média ponderada (peso: 1, 2, 3)
+        const wIncBase = (m3.income * 1 + m2.income * 2 + m1.income * 3) / 6;
+        const wExpBase = (m3.expense * 1 + m2.expense * 2 + m1.expense * 3) / 6;
+
+        // Projected values: start from weighted base, apply slope
+        const proj = [1, 2, 3].map(i => ({
+            income: Math.max(0, Math.round(wIncBase + incSlope * i)),
+            expense: Math.max(0, Math.round(wExpBase + expSlope * i)),
+        }));
+
+        // ── Montar dados do gráfico ──
+        // Os 6 buckets históricos como linhas sólidas
+        const chartData: ChartPoint[] = buckets.map((b, idx) => {
+            const isCurrentMonth = idx === 5;
             return {
-                name: isSameMonth(d.date, now) ? `${d.name} (Atual)` : d.name,
-                receitas: d.receitas,
-                despesas: d.despesas,
-                isProj: false
+                name: b.name,
+                receitas: b.income,
+                despesas: b.expense,
+                // Mês atual: preencher também as colunas proj para criar ponto de conexão
+                projReceitas: isCurrentMonth ? b.income : null,
+                projDespesas: isCurrentMonth ? b.expense : null,
+                isProjected: false,
             };
         });
 
-        const avgInc = count > 0 ? sumInc / count : 0;
-        const avgExp = count > 0 ? sumExp / count : 0;
-
-        // Apply progressive organic simulated variance to the forecast to avoid "flatlining"
-        let currentProjInc = avgInc;
-        let currentProjExp = avgExp;
-
-        for (let i = 1; i <= 3; i++) {
-            const projDate = subMonths(now, -i);
-
-            // Introduce a subtle organic variation (+1% to +4% month over month) for a realistic curve
-            const incomeVariance = 1 + (Math.random() * 0.03 + 0.01);
-            const expVariance = 1 + (Math.random() * 0.04 + 0.01);
-
-            currentProjInc *= incomeVariance;
-            currentProjExp *= expVariance;
-
-            finalChartData.push({
-                name: `${format(projDate, "MMM", { locale: ptBR })} (Proj)`,
-                receitas: Math.round(currentProjInc),
-                despesas: Math.round(currentProjExp),
-                isProj: true
+        // Adicionar 3 meses projetados
+        proj.forEach((p, i) => {
+            const d = subMonths(now, -1 - i);
+            chartData.push({
+                name: format(d, "MMM/yy", { locale: ptBR }),
+                receitas: null,
+                despesas: null,
+                projReceitas: p.income,
+                projDespesas: p.expense,
+                isProjected: true,
             });
-        }
+        });
 
         return {
-            forecastData: finalChartData,
-            topCategoryName: topName,
-            topCategoryValue: topVal,
-            topCategoryMOM: topMOM,
-            currentMonthIncome: currentMonthInc,
-            currentMonthExpense: currentMonthExp,
+            chartData,
+            topCatName,
+            topCatValue,
+            topCatMOM,
+            isHealthy,
+            commitPct,
+            currentIncome: current.income,
+            currentExpense: current.expense,
+            trendExpense,
+            trendIncome,
+            currentMonthLabel: buckets[5].name,
         };
     }, [entries]);
 
-    const isPositiveBalance = currentMonthIncome >= currentMonthExpense;
-    const commitmentPercentage = currentMonthIncome > 0 ? Math.round((currentMonthExpense / currentMonthIncome) * 100) : 100;
-
-    function formatValue(c: number) {
-        return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(c / 100);
-    }
-
-    // Chart Formatters
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="bg-white p-3 border border-slate-200 shadow-xl rounded-2xl">
-                    <p className="text-sm font-semibold text-slate-800 mb-2">{label}</p>
-                    {payload.map((entry: any, index: number) => {
-                        // Skip rendering both if it's the connection point (Current month has both)
-                        if (entry.dataKey.includes("Proj") && payload.find((p: any) => p.dataKey === entry.dataKey.replace("Proj", ""))) return null;
-
-                        let name = entry.name;
-                        if (entry.dataKey === "receitasProj") name = "Receitas Previstas";
-                        if (entry.dataKey === "despesasProj") name = "Despesas Previstas";
-
-                        return (
-                            <div key={index} className="flex items-center justify-between gap-6 text-xs font-medium mb-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                    <span className="text-slate-500">{name}:</span>
-                                </div>
-                                <span className="text-slate-900">{formatValue(entry.value)}</span>
-                            </div>
-                        )
-                    })}
-                </div>
-            );
-        }
-        return null;
-    };
-
-    // --- RENDER ---
     if (isLoading) {
         return (
             <div className="flex h-full items-center justify-center p-12 text-slate-500">
@@ -198,182 +201,259 @@ export default function Inteligencia() {
         );
     }
 
+    const {
+        chartData, topCatName, topCatValue, topCatMOM,
+        isHealthy, commitPct, currentIncome, currentExpense,
+        trendExpense, trendIncome, currentMonthLabel,
+    } = insights;
+
+    const noData = currentIncome === 0 && currentExpense === 0;
+
     return (
-        <div className="space-y-6 h-full flex flex-col">
+        <div className="space-y-6">
             {/* HEADER */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between shrink-0">
+            <div className="flex items-start justify-between">
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-semibold text-slate-900">Inteligência Financeira</h1>
-                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-indigo-200">
+                        <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 border-indigo-200">
                             <Sparkles className="h-3 w-3 mr-1" /> Beta
                         </Badge>
                     </div>
                     <p className="mt-1 text-sm text-slate-500">
-                        Insights automáticos baseados no fluxo de caixa atual do município.
+                        Insights automáticos e projeção baseada no histórico de fluxo de caixa.
                     </p>
                 </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {/* AUTOMATED INSIGHTS CARDS */}
-
-                <Card className="rounded-3xl border-slate-200 shadow-sm border-l-4 border-l-orange-500 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                        <AlertCircle className="w-24 h-24" />
-                    </div>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                            <AlertCircle className="h-4 w-4 text-orange-500" /> Alerta de Gasto
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-slate-800 font-medium mb-1">Cuidado com <span className="text-orange-600 font-bold">{topCategoryName}</span></p>
-                        <p className="text-sm text-slate-600">
-                            Esta categoria já consumiu <strong className="text-slate-900">{formatValue(topCategoryValue)}</strong> deste mês. Isso representa {topCategoryMOM === 0 ? "o mesmo valor gasto no" : `um ${topCategoryMOM > 0 ? "aumento" : "declínio"} de`} <strong className="text-orange-600">{Math.abs(Math.round(topCategoryMOM))}%</strong> em relação ao mês anterior (MOM).
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className={`rounded-3xl border-slate-200 shadow-sm border-l-4 overflow-hidden relative ${isPositiveBalance ? 'border-l-emerald-500' : 'border-l-red-500'}`}>
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                        <TrendingUp className="w-24 h-24" />
-                    </div>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                            {isPositiveBalance
-                                ? <><TrendingUp className="h-4 w-4 text-emerald-500" /> Folga Orçamentária</>
-                                : <><TrendingDown className="h-4 w-4 text-red-500" /> Risco de Déficit</>
-                            }
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isPositiveBalance ? (
-                            <>
-                                <p className="text-slate-800 font-medium mb-1">Comprometimento Saudável</p>
-                                <p className="text-sm text-slate-600">
-                                    Até agora você comprometeu apenas <strong className="text-emerald-600">{commitmentPercentage}%</strong> da receita arrecadada no mês atual ({formatValue(currentMonthIncome)}). O saldo restante confere margem de segurança.
-                                </p>
-                            </>
-                        ) : (
-                            <>
-                                <p className="text-slate-800 font-medium mb-1">Déficit Mapeado</p>
-                                <p className="text-sm text-slate-600">
-                                    Atenção: Suas despesas ultrapassaram as receitas. Você gastou o equivalente a <strong className="text-red-600">{commitmentPercentage}%</strong> de toda a arrecadação mensal ({formatValue(currentMonthIncome)}).
-                                </p>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl border-slate-200 shadow-sm border-l-4 border-l-indigo-500 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                        <Brain className="w-32 h-32" />
-                    </div>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                            <Brain className="h-4 w-4 text-indigo-500" /> Análise de Padrão (Em Breve)
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-slate-800 font-medium mb-1">Detecção de Anomalias</p>
-                        <p className="text-sm text-slate-600">
-                            O módulo analítico preditivo ainda está coletando base histórica suficiente. Em breve, enviaremos relatórios quinzenais avaliando a saúde e legalidade do fluxo orçamentário.
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* FORECAST CHART (Full Width) */}
-                <Card className="rounded-3xl border-slate-200 shadow-sm md:col-span-2 lg:col-span-3 overflow-hidden">
-                    <CardHeader className="border-b bg-slate-50/50 pb-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <div>
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-indigo-600" />
-                                    Projeção Orçamentária (6 Meses)
+            {noData ? (
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
+                    <Activity className="h-12 w-12 opacity-30" />
+                    <p className="text-base">Nenhum lançamento encontrado para gerar insights.</p>
+                </div>
+            ) : (
+                <>
+                    {/* CARDS */}
+                    <div className="grid gap-6 md:grid-cols-3">
+                        {/* Card 1 — Alerta de Gasto */}
+                        <Card className="rounded-3xl border-slate-200 shadow-sm border-l-4 border-l-orange-500">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                                    <AlertCircle className="h-4 w-4 text-orange-500" />
+                                    Maior Despesa do Mês
                                 </CardTitle>
-                                <p className="text-sm text-slate-500 mt-1">Modelo preditivo baseado no histórico de arrecadação e despesas fixas.</p>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-slate-900 font-semibold mb-1 truncate" title={topCatName}>
+                                    {topCatName}
+                                </p>
+                                <p className="text-2xl font-bold text-slate-900 mb-2">{fmtBRL(topCatValue)}</p>
+                                <div className="flex items-center gap-1.5 text-sm">
+                                    {topCatMOM > 0 ? (
+                                        <TrendingUp className="h-4 w-4 text-orange-500 shrink-0" />
+                                    ) : (
+                                        <TrendingDown className="h-4 w-4 text-emerald-500 shrink-0" />
+                                    )}
+                                    <span className={topCatMOM > 0 ? "text-orange-600" : "text-emerald-600"}>
+                                        {topCatMOM > 0 ? "+" : ""}{Math.round(topCatMOM)}% vs mês anterior
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card 2 — Saúde Orçamentária */}
+                        <Card className={`rounded-3xl border-slate-200 shadow-sm border-l-4 ${isHealthy ? "border-l-emerald-500" : "border-l-red-500"}`}>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                                    {isHealthy
+                                        ? <TrendingUp className="h-4 w-4 text-emerald-500" />
+                                        : <TrendingDown className="h-4 w-4 text-red-500" />}
+                                    {isHealthy ? "Folga Orçamentária" : "Risco de Déficit"}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-slate-900 font-semibold mb-1">
+                                    {isHealthy ? "Comprometimento Saudável" : "Déficit Mapeado"}
+                                </p>
+                                <div className="flex items-baseline gap-2 mb-2">
+                                    <span className={`text-3xl font-bold ${isHealthy ? "text-emerald-600" : "text-red-600"}`}>
+                                        {commitPct}%
+                                    </span>
+                                    <span className="text-sm text-slate-400">da receita comprometido</span>
+                                </div>
+                                {/* Progress bar */}
+                                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${commitPct > 100 ? "bg-red-500" : commitPct > 80 ? "bg-orange-400" : "bg-emerald-500"}`}
+                                        style={{ width: `${Math.min(commitPct, 100)}%` }}
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1.5">
+                                    Receita: {fmtBRL(currentIncome)} · Despesa: {fmtBRL(currentExpense)}
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        {/* Card 3 — Tendência de Gastos (3 meses) */}
+                        <Card className={`rounded-3xl border-slate-200 shadow-sm border-l-4 ${trendExpense > 5 ? "border-l-red-400" : trendExpense < -5 ? "border-l-emerald-400" : "border-l-slate-300"}`}>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                                    <Activity className="h-4 w-4 text-indigo-500" />
+                                    Tendência (3 meses)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-slate-900 font-semibold mb-3">
+                                    {trendExpense > 5 ? "Gastos em Alta" : trendExpense < -5 ? "Gastos em Queda" : "Gastos Estáveis"}
+                                </p>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                            <span className="text-slate-500">Receitas</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1 font-medium ${trendIncome >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                            {trendIncome >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                                            {trendIncome >= 0 ? "+" : ""}{Math.round(trendIncome)}%
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                            <span className="h-2 w-2 rounded-full bg-red-400" />
+                                            <span className="text-slate-500">Despesas</span>
+                                        </div>
+                                        <div className={`flex items-center gap-1 font-medium ${trendExpense <= 0 ? "text-emerald-600" : "text-orange-500"}`}>
+                                            {trendExpense > 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                                            {trendExpense >= 0 ? "+" : ""}{Math.round(trendExpense)}%
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-3">Comparando mês -3 com mês -1</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* GRÁFICO DE PROJEÇÃO */}
+                    <Card className="rounded-3xl border-slate-200 shadow-sm">
+                        <CardHeader className="border-b bg-slate-50/50 pb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                <div>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <TrendingUp className="h-5 w-5 text-indigo-600" />
+                                        Histórico + Projeção (9 meses)
+                                    </CardTitle>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        6 meses reais · 3 meses projetados por extrapolação linear ponderada
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-500">
+                                    <div className="flex items-center gap-2">
+                                        <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#10b981" strokeWidth="2.5" /></svg>
+                                        Receitas
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#f87171" strokeWidth="2.5" /></svg>
+                                        Despesas
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#10b981" strokeWidth="2" strokeDasharray="5 3" /></svg>
+                                        Projeção
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 sm:mt-0 text-sm font-medium shrink-0">
-                                <div className="flex items-center gap-2 whitespace-nowrap"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm"></div> Receitas Estimadas</div>
-                                <div className="flex items-center gap-2 whitespace-nowrap"><div className="w-3 h-3 rounded-full bg-red-400 shadow-sm"></div> Despesas Estimadas</div>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="w-full h-[280px] mt-2">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={forecastData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <ResponsiveContainer width="100%" height={320}>
+                                <ComposedChart data={chartData} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+
+                                    {/* Área de projeção com fundo diferente */}
+                                    <ReferenceArea
+                                        x1={currentMonthLabel}
+                                        fill="#eef2ff"
+                                        fillOpacity={0.5}
+                                    />
+
+                                    <ReferenceLine
+                                        x={currentMonthLabel}
+                                        stroke="#818cf8"
+                                        strokeWidth={1.5}
+                                        strokeDasharray="4 3"
+                                        label={{ value: "Hoje", position: "insideTopRight", fill: "#818cf8", fontSize: 11, fontWeight: 600 }}
+                                    />
+
                                     <XAxis
                                         dataKey="name"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#64748b', fontSize: 12 }}
+                                        tick={{ fill: "#64748b", fontSize: 12 }}
                                         dy={10}
                                     />
                                     <YAxis
                                         axisLine={false}
                                         tickLine={false}
-                                        width={80}
-                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                                        tickFormatter={(val) => {
-                                            if (val >= 100000000) return `R$ ${(val / 100000000).toFixed(1)}M`;
-                                            if (val >= 100000) return `R$ ${(val / 100000).toFixed(1)}k`;
-                                            return `R$ ${(val / 100).toFixed(0)}`;
-                                        }}
-                                        dx={-10}
+                                        width={75}
+                                        tick={{ fill: "#94a3b8", fontSize: 11 }}
+                                        tickFormatter={fmtShort}
+                                        dx={-6}
                                     />
-                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '5 5' }} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#e2e8f0", strokeWidth: 2 }} />
 
-                                    {/* ACTUAL DATA */}
+                                    {/* Linhas sólidas — dados reais */}
                                     <Line
                                         type="monotone"
                                         dataKey="receitas"
-                                        name="Receitas"
+                                        name="receitas"
                                         stroke="#10b981"
                                         strokeWidth={3}
-                                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#10b981' }}
-                                        activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
+                                        dot={{ r: 4, fill: "#fff", stroke: "#10b981", strokeWidth: 2 }}
+                                        activeDot={{ r: 6, fill: "#10b981", strokeWidth: 0 }}
+                                        connectNulls={false}
                                     />
                                     <Line
                                         type="monotone"
                                         dataKey="despesas"
-                                        name="Despesas"
+                                        name="despesas"
                                         stroke="#f87171"
                                         strokeWidth={3}
-                                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#f87171' }}
-                                        activeDot={{ r: 6, strokeWidth: 0, fill: '#f87171' }}
+                                        dot={{ r: 4, fill: "#fff", stroke: "#f87171", strokeWidth: 2 }}
+                                        activeDot={{ r: 6, fill: "#f87171", strokeWidth: 0 }}
+                                        connectNulls={false}
                                     />
 
-                                    {/* FORECAST DATA (Dotted) */}
+                                    {/* Linhas tracejadas — projeção */}
                                     <Line
                                         type="monotone"
-                                        dataKey="receitasProj"
-                                        name="Receitas Estimadas"
+                                        dataKey="projReceitas"
+                                        name="projReceitas"
                                         stroke="#10b981"
-                                        strokeWidth={3}
-                                        strokeDasharray="5 5"
-                                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#10b981', strokeOpacity: 0.6 }}
-                                        activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }}
+                                        strokeWidth={2}
+                                        strokeDasharray="6 4"
+                                        strokeOpacity={0.7}
+                                        dot={{ r: 3, fill: "#fff", stroke: "#10b981", strokeWidth: 1.5 }}
+                                        activeDot={{ r: 5, fill: "#10b981", strokeWidth: 0 }}
+                                        connectNulls={false}
+                                        legendType="none"
                                     />
                                     <Line
                                         type="monotone"
-                                        dataKey="despesasProj"
-                                        name="Despesas Estimadas"
+                                        dataKey="projDespesas"
+                                        name="projDespesas"
                                         stroke="#f87171"
-                                        strokeWidth={3}
-                                        strokeDasharray="5 5"
-                                        dot={{ r: 4, strokeWidth: 2, fill: '#fff', stroke: '#f87171', strokeOpacity: 0.6 }}
-                                        activeDot={{ r: 6, strokeWidth: 0, fill: '#f87171' }}
+                                        strokeWidth={2}
+                                        strokeDasharray="6 4"
+                                        strokeOpacity={0.7}
+                                        dot={{ r: 3, fill: "#fff", stroke: "#f87171", strokeWidth: 1.5 }}
+                                        activeDot={{ r: 5, fill: "#f87171", strokeWidth: 0 }}
+                                        connectNulls={false}
+                                        legendType="none"
                                     />
-                                </LineChart>
+                                </ComposedChart>
                             </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-            </div>
+                        </CardContent>
+                    </Card>
+                </>
+            )}
         </div>
     );
 }
