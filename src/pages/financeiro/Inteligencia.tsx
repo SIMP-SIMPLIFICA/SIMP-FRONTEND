@@ -137,7 +137,10 @@ function AlertRow({ alert }: { alert: DiagAlert }) {
     );
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+type TooltipEntry = { dataKey: string; value: number | null; color: string; name: string; payload: ChartPoint };
+type TooltipProps = { active?: boolean; payload?: TooltipEntry[]; label?: string };
+
+function CustomTooltip({ active, payload, label }: TooltipProps) {
     if (!active || !payload?.length) return null;
     const isProj = payload[0]?.payload?.isProjected;
     return (
@@ -146,7 +149,7 @@ function CustomTooltip({ active, payload, label }: any) {
                 {isProj && <span className="text-indigo-400 text-[10px] font-bold uppercase tracking-wider">ETS ·</span>}
                 {label}
             </p>
-            {payload.map((entry: any) => {
+            {payload.map((entry: TooltipEntry) => {
                 if (entry.value == null) return null;
                 const isReceita = entry.dataKey === "receitas" || entry.dataKey === "projReceitas";
                 return (
