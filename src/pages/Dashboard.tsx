@@ -42,35 +42,33 @@ type StatCardProps = {
 
 function StatCard({ title, value, delta, deltaPositive, icon, loading }: StatCardProps) {
   return (
-    <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase truncate">
-            {title}
+    <Card className="rounded-3xl border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-medium text-slate-500">{title}</div>
+          <div className="h-8 w-8 rounded-full bg-slate-100 grid place-items-center text-slate-600 shrink-0">
+            {icon}
           </div>
-          {loading ? (
-            <Skeleton className="mt-4 h-7 w-28" />
-          ) : (
-            <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums leading-tight truncate">
-              {value}
-            </div>
-          )}
-          {delta && !loading && (
-            <div className="mt-2 flex items-center gap-1 text-sm">
-              {deltaPositive ? (
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
-              )}
-              <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
-                {delta}
-              </span>
-            </div>
-          )}
         </div>
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700">
-          {icon}
-        </div>
+        {loading ? (
+          <Skeleton className="h-8 w-32" />
+        ) : (
+          <div className="text-3xl font-bold text-slate-900 tracking-tight leading-tight">
+            {value}
+          </div>
+        )}
+        {delta && !loading && (
+          <div className="mt-2 flex items-center gap-1 text-sm">
+            {deltaPositive ? (
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+            )}
+            <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
+              {delta}
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   );
