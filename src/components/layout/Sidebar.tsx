@@ -272,14 +272,18 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     setFlyout({ item, top: rect.top });
   }
 
-  const rawUser = data?.user as unknown as UserInfo & { isSuperAdmin?: boolean; organization?: { name: string } };
+  const rawUser = data?.user as unknown as UserInfo & {
+    isSuperAdmin?: boolean;
+    organization?: { name: string };
+    enabledModules?: string[];
+  };
   const isSuperAdmin = rawUser?.isSuperAdmin ?? false;
   const orgName = rawUser?.organization?.name ?? null;
   const initials = rawUser ? getInitials(rawUser) : "??";
   const displayName = rawUser ? getDisplayName(rawUser) : "Usuário";
   const userEmail = rawUser?.email ?? "";
 
-  const enabledModules: string[] = (rawUser as any)?.enabledModules ?? [];
+  const enabledModules: string[] = rawUser?.enabledModules ?? [];
 
   function filterItems(items: NavItem[]): NavItem[] {
     return items
