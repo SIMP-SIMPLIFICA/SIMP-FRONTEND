@@ -67,7 +67,7 @@ const NAV_SECTIONS: NavSection[] = [
           { label: "Contas Bancárias", to: "/financeiro/contas" },
           { label: "Categorias", to: "/financeiro/categorias" },
           { label: "Relatórios", to: "/financeiro/relatorios" },
-          { label: "Inteligência", to: "/financeiro/inteligencia" },
+          { label: "Diagnóstico", to: "/financeiro/inteligencia" },
         ],
       },
       {
