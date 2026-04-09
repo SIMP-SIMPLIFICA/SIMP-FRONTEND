@@ -61,11 +61,11 @@ type ApiRoleRef = {
 
 type ApiUser = {
   id: string;
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  avatar: string;
+  email: string | null;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatar: string | null;
   isActive: boolean;
   isVerified: boolean;
   twoFactorEnabled: boolean;
@@ -102,7 +102,7 @@ function fullName(u: ApiUser): string {
   const a = (u.firstName ?? "").trim();
   const b = (u.lastName ?? "").trim();
   const name = `${a} ${b}`.trim();
-  return name || u.username || u.email;
+  return name || u.username || u.email || "—";
 }
 
 function formatDate(iso?: string | null): string {
@@ -183,17 +183,17 @@ export default function Users() {
     if (!q) return items;
     return items.filter((u) => {
       const name = fullName(u).toLowerCase();
-      const email = u.email.toLowerCase();
-      const username = u.username.toLowerCase();
+      const email = (u.email ?? "").toLowerCase();
+      const username = (u.username ?? "").toLowerCase();
       return name.includes(q) || email.includes(q) || username.includes(q);
     });
   }, [items, query]);
 
-  async function fetchUsers(p: number) {
+  async function fetchUsers(p: number, orgId: string) {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: String(limit) });
-      if (orgFilter) params.set("organizationId", orgFilter);
+      if (orgId) params.set("organizationId", orgId);
       const res = await apiRequest<UsersResponse>(`/api/v1/users?${params.toString()}`);
       setItems(res.data);
       setPagination(res.pagination);
@@ -228,7 +228,7 @@ export default function Users() {
       await apiRequest(`/api/v1/users/${deleteUser.id}`, { method: "DELETE" });
       toast({ title: "Sucesso", description: "Usuário removido." });
       setDeleteOpen(false);
-      void fetchUsers(page);
+      void fetchUsers(page, orgFilter);
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -293,7 +293,7 @@ export default function Users() {
       });
       toast({ title: "Sucesso", description: `Usuário ${next ? "ativado" : "inativado"}.` });
       setStatusDialogOpen(false);
-      void fetchUsers(page);
+      void fetchUsers(page, orgFilter);
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
@@ -352,8 +352,7 @@ export default function Users() {
   }
 
   // --- EFFECTS ---
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { void fetchUsers(page); }, [page, orgFilter]);
+  useEffect(() => { void fetchUsers(page, orgFilter); }, [page, orgFilter]);
 
   return (
     <div className="space-y-5">
@@ -489,7 +488,7 @@ export default function Users() {
         open={formOpen} 
         onOpenChange={setFormOpen} 
         user={editingUser} 
-        onSuccess={() => void fetchUsers(page)} 
+        onSuccess={() => void fetchUsers(page, orgFilter)}
       />
 
       {/* Delete Confirmation */}

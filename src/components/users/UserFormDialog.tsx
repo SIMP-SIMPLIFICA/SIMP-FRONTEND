@@ -26,10 +26,10 @@ type UserRoleRef = {
 
 type ApiUser = {
   id: string;
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
+  email: string | null;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
   isActive: boolean;
   roles: { role: UserRoleRef }[];
 };
