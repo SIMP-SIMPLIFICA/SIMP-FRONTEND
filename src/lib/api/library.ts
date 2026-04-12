@@ -1,5 +1,4 @@
 import { api } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
 
 export type DocumentCategory = {
   id: string;
