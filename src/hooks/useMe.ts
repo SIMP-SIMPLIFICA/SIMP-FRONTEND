@@ -11,6 +11,7 @@ export type MeUser = {
   avatar?: string;
   organizationId: string | null;
   isSuperAdmin: boolean;
+  clearanceLevel?: number;
   organization?: {
     id: string;
     name: string;

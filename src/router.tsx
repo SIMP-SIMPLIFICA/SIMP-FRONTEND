@@ -33,6 +33,7 @@ import AdminPanel from "@/pages/admin/AdminPanel";
 import AdminNewOrganizationPage from "@/pages/admin/AdminNewOrganizationPage";
 import AdminOrganizationDetailPage from "@/pages/admin/AdminOrganizationDetailPage";
 import OrganizacaoPage from "@/pages/OrganizacaoPage";
+import LibraryPage from "@/pages/library/LibraryPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -115,7 +116,10 @@ export const router = createBrowserRouter([
             ],
           },
 
-          { path: "/biblioteca", element: <Placeholder title="Biblioteca" /> },
+          {
+            element: <PermissionGate anyOf={["library:read"]} />,
+            children: [{ path: "/biblioteca", element: <LibraryPage /> }],
+          },
           {
             element: <PermissionGate anyOf={["settings:read", "settings:write", "system:admin"]} />,
             children: [{ path: "/configuracoes", element: <Placeholder title="Configurações" /> }],
