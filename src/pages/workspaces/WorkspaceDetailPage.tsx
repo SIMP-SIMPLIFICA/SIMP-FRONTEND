@@ -41,7 +41,7 @@ const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
   { id: 'IN_PROGRESS', label: 'Em Progresso', color: 'bg-blue-500' },
   { id: 'IN_REVIEW', label: 'Revisão', color: 'bg-amber-500' },
   { id: 'DONE', label: 'Concluído', color: 'bg-green-500' },
-  { id: 'CANCELED', label: 'Cancelado', color: 'bg-red-400' },
+  { id: 'EXPIRED', label: 'Expiradas', color: 'bg-red-400' },
 ];
 
 function DatePickerField({ date, onChange }: {
