@@ -89,6 +89,7 @@ const FALLBACK_CATALOG: CatalogData = {
     { name: "communication", displayName: "Comunicação e Protocolo",    permissions: ["documents:read", "documents:create", "documents:manage", "documents:sign", "documents:send"] },
     { name: "security",      displayName: "Segurança & Sessões",        permissions: ["sessions:view", "sessions:manage"] },
     { name: "processes",     displayName: "Processos Virtuais",         permissions: ["processes:read", "processes:write", "processes:download", "processes:manage"] },
+    { name: "covenants",     displayName: "Convênios, Emendas e Transferências", permissions: ["covenants:read", "covenants:write", "covenants:delete"] },
   ],
   permissions: [
     // Users
@@ -123,6 +124,9 @@ const FALLBACK_CATALOG: CatalogData = {
     { key: "processes:write",     description: "Criar e editar processos",                category: "processes" },
     { key: "processes:download",  description: "Baixar documentos de processos",          category: "processes" },
     { key: "processes:manage",    description: "Gerenciar todos os processos",            category: "processes" },
+    { key: "covenants:read",   description: "Visualizar convênios e transferências", category: "covenants" },
+    { key: "covenants:write",  description: "Criar e editar convênios",             category: "covenants" },
+    { key: "covenants:delete", description: "Excluir convênios",                    category: "covenants" },
   ],
 };
 
@@ -132,6 +136,7 @@ const CATEGORY_MODULE_MAP: Record<string, string> = {
   finance:       "finance",
   communication: "communication",
   processes:     "virtual_processes",
+  covenants:     "covenants",
 };
 
 // --- Helpers ---

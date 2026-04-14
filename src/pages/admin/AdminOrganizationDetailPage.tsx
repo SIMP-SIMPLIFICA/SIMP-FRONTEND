@@ -55,6 +55,7 @@ const MODULE_LABELS: Record<string, string> = {
   calendar:          "Calendário",
   notes:             "Notas",
   departments:       "Departamentos",
+  covenants:         "Convênios",
 };
 
 // ---------------------------------------------------------------------------

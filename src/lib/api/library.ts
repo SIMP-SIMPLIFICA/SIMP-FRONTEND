@@ -38,10 +38,11 @@ export type LibraryLogsResponse = {
 };
 
 export const libraryService = {
-  list: async (params: { search?: string; categoryId?: string; page?: number; limit?: number } = {}) => {
+  list: async (params: { search?: string; categoryId?: string; covenantId?: string; page?: number; limit?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.search)     qs.set("search",     params.search);
     if (params.categoryId) qs.set("categoryId", params.categoryId);
+    if (params.covenantId) qs.set("covenantId", params.covenantId);
     if (params.page)       qs.set("page",       String(params.page));
     if (params.limit)      qs.set("limit",      String(params.limit));
     const response = await api.get<LibraryListResponse>(`/api/v1/library?${qs}`);
@@ -62,7 +63,8 @@ export const libraryService = {
     await api.delete(`/api/v1/library/categories/${id}`);
   },
 
-  upload: async (formData: FormData) => {
+  upload: async (formData: FormData, covenantId?: string) => {
+    if (covenantId) formData.append("covenantId", covenantId);
     const response = await api.post<LibraryDocument>("/api/v1/library/upload", formData);
     return response.data;
   },
@@ -75,7 +77,7 @@ export const libraryService = {
   downloadZip: async (documentIds: string[]): Promise<void> => {
     let response;
     try {
-      response = await api.post("/api/v1/library/download-zip", { documentIds }, {
+      response = await (api as unknown as { post: (url: string, data: unknown, config: unknown) => Promise<{ data: unknown }> }).post("/api/v1/library/download-zip", { documentIds }, {
         responseType: "blob",
         headers: { Accept: "application/zip" },
       });
