@@ -284,10 +284,10 @@ export function MessageDetail({ message, loading, onReply, onDelete, isDeleting 
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                          {getInitials(reply.creator.firstName, reply.creator.lastName)}
+                          {reply.creator ? getInitials(reply.creator.firstName, reply.creator.lastName) : "?"}
                         </div>
                         <span className="text-sm font-medium text-slate-900">
-                          {reply.creator.firstName} {reply.creator.lastName}
+                          {reply.creator ? `${reply.creator.firstName} ${reply.creator.lastName}` : "Usuário"}
                         </span>
                       </div>
                       {reply.sentAt && (
