@@ -34,6 +34,7 @@ export type MessageReplyRecipient = {
 export type MessageReply = {
   id: string;
   title: string;
+  content?: string | null;
   sentAt: string | null;
   creator: MessageUser;
   recipients: MessageReplyRecipient[];

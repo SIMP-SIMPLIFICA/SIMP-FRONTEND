@@ -95,11 +95,11 @@ export function MessageList({ tab, messages, loading, selectedId, onSelect }: Pr
               </div>
 
               {/* Content */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center justify-between gap-2 mb-0.5">
                   <span
                     className={cn(
-                      "text-sm truncate",
+                      "text-sm truncate min-w-0",
                       isUnread ? "font-semibold text-slate-900" : "font-medium text-slate-700"
                     )}
                   >
@@ -109,13 +109,13 @@ export function MessageList({ tab, messages, loading, selectedId, onSelect }: Pr
                     {formatTime(date)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                   {isUnread && (
                     <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
                   )}
                   <p
                     className={cn(
-                      "text-xs truncate",
+                      "text-xs truncate min-w-0 flex-1",
                       isUnread ? "text-slate-800 font-medium" : "text-slate-500"
                     )}
                   >

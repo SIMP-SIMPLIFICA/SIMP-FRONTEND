@@ -171,6 +171,7 @@ export default function Communication() {
             onReply={handleReply}
             onDelete={(id) => deleteMutation.mutate(id)}
             isDeleting={deleteMutation.isPending}
+            onNavigateToParent={(id) => setSelectedId(id)}
           />
         </div>
       </div>
