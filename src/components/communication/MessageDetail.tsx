@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Paperclip, Download, Reply, Trash2, Users, Mail, Loader2 } from "lucide-react";
+import { Paperclip, Download, Reply, Trash2, Users, Mail, Loader2, CheckCheck, Clock, CornerDownRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -162,10 +162,10 @@ export function MessageDetail({ message, loading, onReply, onDelete, isDeleting 
         {message.recipients.length > 0 && (
           <div className="flex items-start gap-2 text-xs text-slate-500">
             <Users className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-col gap-1">
               {message.recipients.map((r) => (
-                <div key={r.id} className="flex items-center gap-1">
-                  <span className="text-slate-700">
+                <div key={r.id} className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-slate-700 font-medium">
                     {r.user.firstName} {r.user.lastName}
                   </span>
                   {roleLabel(r.role) && (
@@ -173,9 +173,18 @@ export function MessageDetail({ message, loading, onReply, onDelete, isDeleting 
                       {roleLabel(r.role)}
                     </Badge>
                   )}
-                  {r.readAt && (
-                    <span className="text-emerald-500" title={`Lido em ${format(new Date(r.readAt), "dd/MM/yyyy HH:mm")}`}>
-                      ✓
+                  {r.readAt ? (
+                    <span className="text-emerald-600 flex items-center gap-1">
+                      <CheckCheck className="h-3.5 w-3.5" />
+                      <span>
+                        Visualizado em{" "}
+                        {format(new Date(r.readAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Aguardando leitura
                     </span>
                   )}
                 </div>
@@ -252,6 +261,44 @@ export function MessageDetail({ message, loading, onReply, onDelete, isDeleting 
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Thread de respostas */}
+        {message.replies && message.replies.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                <CornerDownRight className="h-3.5 w-3.5" />
+                Respostas ({message.replies.length})
+              </p>
+              <div className="flex flex-col gap-3">
+                {message.replies.map((reply) => (
+                  <div
+                    key={reply.id}
+                    className="border border-slate-200 rounded-xl p-4 bg-slate-50 flex flex-col gap-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                          {getInitials(reply.creator.firstName, reply.creator.lastName)}
+                        </div>
+                        <span className="text-sm font-medium text-slate-900">
+                          {reply.creator.firstName} {reply.creator.lastName}
+                        </span>
+                      </div>
+                      {reply.sentAt && (
+                        <span className="text-xs text-slate-400 shrink-0">
+                          {format(new Date(reply.sentAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-slate-600">{reply.title}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </>
