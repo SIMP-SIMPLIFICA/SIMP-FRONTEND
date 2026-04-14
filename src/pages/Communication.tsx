@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SquarePen, Inbox, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,8 @@ export default function Communication() {
     creatorName: string;
   } | null>(null);
 
+  const [searchParams] = useSearchParams();
+
   // --- Queries ---
   const inboxQuery = useQuery<MessageListItem[]>({
     queryKey: ["communication", "inbox"],
@@ -44,6 +47,15 @@ export default function Communication() {
     enabled: !!selectedId,
     staleTime: 0,
   });
+
+  // Deep linking: ?msgId=<id> auto-selects the message on page load
+  useEffect(() => {
+    const msgId = searchParams.get("msgId");
+    if (msgId && msgId !== selectedId) {
+      setSelectedId(msgId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Mutations ---
   const deleteMutation = useMutation({
