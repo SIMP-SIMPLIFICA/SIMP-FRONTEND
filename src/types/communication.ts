@@ -6,6 +6,8 @@ export type MessageUser = {
   jobTitle?: string | null;
 };
 
+export type MessageStatus = "DRAFT" | "SENT" | "READ" | "ARCHIVED";
+
 export type MessageAttachment = {
   id: string;
   fileName: string;
@@ -24,12 +26,17 @@ export type MessageRecipient = {
   user: MessageUser;
 };
 
+export type MessageReplyRecipient = {
+  userId: string;
+  readAt: string | null;
+};
+
 export type MessageReply = {
   id: string;
   title: string;
   sentAt: string | null;
   creator: MessageUser;
-  recipients: Array<{ userId: string; readAt: string | null }>;
+  recipients: MessageReplyRecipient[];
 };
 
 export type MessageReplyTo = {
@@ -43,7 +50,7 @@ export type Message = {
   id: string;
   title: string;
   content: string;
-  status: "DRAFT" | "SENT" | "READ" | "ARCHIVED";
+  status: MessageStatus;
   sentAt: string | null;
   readAt: string | null;
   replyToId: string | null;
@@ -60,7 +67,7 @@ export type Message = {
 export type MessageListItem = {
   id: string;
   title: string;
-  status: "DRAFT" | "SENT" | "READ" | "ARCHIVED";
+  status: MessageStatus;
   sentAt: string | null;
   replyToId: string | null;
   creator: MessageUser;
