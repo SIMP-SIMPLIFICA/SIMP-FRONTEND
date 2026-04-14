@@ -24,6 +24,21 @@ export type MessageRecipient = {
   user: MessageUser;
 };
 
+export type MessageReply = {
+  id: string;
+  title: string;
+  sentAt: string | null;
+  creator: MessageUser;
+  recipients: Array<{ userId: string; readAt: string | null }>;
+};
+
+export type MessageReplyTo = {
+  id: string;
+  title: string;
+  sentAt: string | null;
+  creator: MessageUser;
+};
+
 export type Message = {
   id: string;
   title: string;
@@ -31,6 +46,9 @@ export type Message = {
   status: "DRAFT" | "SENT" | "READ" | "ARCHIVED";
   sentAt: string | null;
   readAt: string | null;
+  replyToId: string | null;
+  replyTo: MessageReplyTo | null;
+  replies: MessageReply[];
   createdAt: string;
   creator: MessageUser;
   recipients: MessageRecipient[];
@@ -44,6 +62,7 @@ export type MessageListItem = {
   title: string;
   status: "DRAFT" | "SENT" | "READ" | "ARCHIVED";
   sentAt: string | null;
+  replyToId: string | null;
   creator: MessageUser;
   recipients?: MessageRecipient[];
   isRead?: boolean;
