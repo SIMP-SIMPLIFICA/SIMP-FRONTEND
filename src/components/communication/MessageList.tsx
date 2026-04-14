@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Inbox, Send, Circle } from "lucide-react";
+import { Inbox, Send, Circle, CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -121,6 +121,12 @@ export function MessageList({ tab, messages, loading, selectedId, onSelect }: Pr
                   >
                     {msg.title}
                   </p>
+                  {tab === "sent" && msg.replyToId && (
+                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 leading-none">
+                      <CornerDownRight className="h-2.5 w-2.5" />
+                      Resposta
+                    </span>
+                  )}
                 </div>
               </div>
             </button>
