@@ -17,6 +17,8 @@ import {
   Wrench,
   ShieldCheck,
   Building2,
+  Handshake,
+  Hash,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -102,6 +104,20 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Biblioteca",
         to: "/biblioteca",
         icon: <BookOpen className="h-4 w-4" />,
+      },
+      {
+        label: "Convênios",
+        to: "/convenios",
+        icon: <Handshake className="h-4 w-4" />,
+        module: "covenants",
+        anyOf: ["covenants:read", "covenants:write", "covenants:delete"],
+      },
+      {
+        label: "Protocolos",
+        to: "/protocolos",
+        icon: <Hash className="h-4 w-4" />,
+        module: "protocols",
+        anyOf: ["protocols:read", "protocols:write", "protocols:admin"],
       },
     ],
   },

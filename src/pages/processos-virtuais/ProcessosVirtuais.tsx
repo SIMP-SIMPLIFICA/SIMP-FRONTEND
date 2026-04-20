@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
   AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
-  Calendar as CalendarIcon, Settings2,
+  Calendar as CalendarIcon, Settings2, Handshake,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -511,6 +511,54 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
               ))}
             </div>
           </div>
+
+          {/* Convênios Vinculados */}
+          {(process.covenants ?? []).length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                Convênios Vinculados
+              </div>
+              <div className="space-y-2">
+                {(process.covenants ?? []).map(cv => {
+                  const statusColors: Record<string, string> = {
+                    EM_ANALISE:       'bg-amber-100 text-amber-700',
+                    APROVADO:         'bg-blue-100 text-blue-700',
+                    EM_EXECUCAO:      'bg-emerald-100 text-emerald-700',
+                    PRESTACAO_CONTAS: 'bg-violet-100 text-violet-700',
+                    CONCLUIDO:        'bg-slate-100 text-slate-600',
+                    DEVOLVIDO:        'bg-red-100 text-red-600',
+                  }
+                  const statusLabels: Record<string, string> = {
+                    EM_ANALISE:       'Em Análise',
+                    APROVADO:         'Aprovado',
+                    EM_EXECUCAO:      'Em Execução',
+                    PRESTACAO_CONTAS: 'Prestação de Contas',
+                    CONCLUIDO:        'Concluído',
+                    DEVOLVIDO:        'Devolvido',
+                  }
+                  return (
+                    <div key={cv.id} className="flex items-start gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <Handshake className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-medium text-slate-800">{cv.number}</span>
+                          {cv.covenantType && (
+                            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {cv.covenantType.name}
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[cv.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                            {statusLabels[cv.status] ?? cv.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{cv.processObject}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Documents */}
           <div>

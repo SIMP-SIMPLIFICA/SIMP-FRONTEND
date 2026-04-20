@@ -294,6 +294,7 @@ export default function CovenantsPage() {
 
       {/* ── Create dialog ── */}
       <CovenantFormDialog
+        key={editing?.id ?? 'new'}
         open={formOpen}
         onOpenChange={closeForm}
         covenant={editing}

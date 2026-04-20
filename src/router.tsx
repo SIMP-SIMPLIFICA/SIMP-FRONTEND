@@ -33,7 +33,9 @@ import AdminPanel from "@/pages/admin/AdminPanel";
 import AdminNewOrganizationPage from "@/pages/admin/AdminNewOrganizationPage";
 import AdminOrganizationDetailPage from "@/pages/admin/AdminOrganizationDetailPage";
 import OrganizacaoPage from "@/pages/OrganizacaoPage";
-import LibraryPage from "@/pages/library/LibraryPage";
+import LibraryPage from "@/pages/library/LibraryPage"
+import CovenantsPage from "@/pages/convenios/CovenantsPage";
+import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -119,6 +121,24 @@ export const router = createBrowserRouter([
           {
             element: <PermissionGate anyOf={["library:read"]} />,
             children: [{ path: "/biblioteca", element: <LibraryPage /> }],
+          },
+          {
+            element: <ModuleGate module="covenants" />,
+            children: [{
+              element: <PermissionGate anyOf={["covenants:read", "covenants:write", "covenants:delete"]} />,
+              children: [
+                { path: "/convenios", element: <CovenantsPage /> },
+              ],
+            }],
+          },
+          {
+            element: <ModuleGate module="protocols" />,
+            children: [{
+              element: <PermissionGate anyOf={["protocols:read", "protocols:write", "protocols:admin"]} />,
+              children: [
+                { path: "/protocolos", element: <OfficialProtocolsPage /> },
+              ],
+            }],
           },
           {
             element: <PermissionGate anyOf={["settings:read", "settings:write", "system:admin"]} />,

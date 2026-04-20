@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -131,7 +131,6 @@ function CreateEntityDialog({
 }) {
   const [name, setName] = useState('')
   const [cnpj, setCnpj] = useState('')
-  useEffect(() => { if (open) { setName(''); setCnpj('') } }, [open])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -176,7 +175,6 @@ function CreateTypeDialog({
   onSave: (name: string) => void; isSaving: boolean
 }) {
   const [name, setName] = useState('')
-  useEffect(() => { if (open) setName('') }, [open])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -235,7 +233,30 @@ interface Props {
 }
 
 export default function CovenantFormDialog({ open, onOpenChange, covenant }: Props) {
-  const [form, setForm] = useState<FormState>(EMPTY)
+  const [form, setForm] = useState<FormState>(() => {
+    if (covenant) {
+      return {
+        number:             covenant.number,
+        typeId:             covenant.typeId        ?? '',
+        proponentId:        covenant.proponentId   ?? '',
+        convenenteId:       covenant.convenenteId  ?? '',
+        concedenteId:       covenant.concedenteId  ?? '',
+        processObject:      covenant.processObject,
+        budgetaryAction:    covenant.budgetaryAction ?? '',
+        status:             covenant.status,
+        executionStartDate: covenant.executionStartDate ? new Date(covenant.executionStartDate) : undefined,
+        validityStartDate:  covenant.validityStartDate  ? new Date(covenant.validityStartDate)  : undefined,
+        validityEndDate:    covenant.validityEndDate    ? new Date(covenant.validityEndDate)    : undefined,
+        termDays:           covenant.termDays != null ? String(covenant.termDays) : '',
+        transferValue:      covenant.transferValue    != null ? formatCurrencyInput(String(Number(covenant.transferValue)))  : '',
+        counterpartValue:   covenant.counterpartValue != null ? formatCurrencyInput(String(Number(covenant.counterpartValue))) : '',
+        bankName:    covenant.bankName    ?? '',
+        bankAgency:  covenant.bankAgency  ?? '',
+        bankAccount: covenant.bankAccount ?? '',
+      }
+    }
+    return EMPTY
+  })
 
   const [typeDialogOpen,       setTypeDialogOpen]       = useState(false)
   const [proponentDialogOpen,  setProponentDialogOpen]  = useState(false)
@@ -256,38 +277,13 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
 
   const isBusy = createCovenant.isPending || updateCovenant.isPending
 
-  useEffect(() => {
-    if (covenant) {
-      setForm({
-        number:             covenant.number,
-        typeId:             covenant.typeId        ?? '',
-        proponentId:        covenant.proponentId   ?? '',
-        convenenteId:       covenant.convenenteId  ?? '',
-        concedenteId:       covenant.concedenteId  ?? '',
-        processObject:      covenant.processObject,
-        budgetaryAction:    covenant.budgetaryAction ?? '',
-        status:             covenant.status,
-        executionStartDate: covenant.executionStartDate ? new Date(covenant.executionStartDate) : undefined,
-        validityStartDate:  covenant.validityStartDate  ? new Date(covenant.validityStartDate)  : undefined,
-        validityEndDate:    covenant.validityEndDate    ? new Date(covenant.validityEndDate)    : undefined,
-        termDays:           covenant.termDays != null ? String(covenant.termDays) : '',
-        transferValue:      covenant.transferValue    != null ? formatCurrencyInput(String(Number(covenant.transferValue)))  : '',
-        counterpartValue:   covenant.counterpartValue != null ? formatCurrencyInput(String(Number(covenant.counterpartValue))) : '',
-        bankName:    covenant.bankName    ?? '',
-        bankAgency:  covenant.bankAgency  ?? '',
-        bankAccount: covenant.bankAccount ?? '',
-      })
-    } else {
-      setForm(EMPTY)
-    }
-  }, [covenant, open])
-
-  // Auto-calculate termDays
-  useEffect(() => {
+  // Auto-calculate termDays from validity dates (derived — no effect needed)
+  const autoTermDays = useMemo(() => {
     if (form.validityStartDate && form.validityEndDate) {
       const days = differenceInDays(form.validityEndDate, form.validityStartDate)
-      if (days >= 0) setForm(prev => ({ ...prev, termDays: String(days) }))
+      return days >= 0 ? String(days) : ''
     }
+    return ''
   }, [form.validityStartDate, form.validityEndDate])
 
   function set(field: keyof FormState, value: string | Date | undefined) {
@@ -344,7 +340,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
       executionStartDate: form.executionStartDate?.toISOString(),
       validityStartDate:  form.validityStartDate?.toISOString(),
       validityEndDate:    form.validityEndDate?.toISOString(),
-      termDays:           form.termDays ? Number(form.termDays) : undefined,
+      termDays:           autoTermDays ? Number(autoTermDays) : undefined,
       transferValue:      currencyToNumber(form.transferValue),
       counterpartValue:   currencyToNumber(form.counterpartValue),
       bankName:    form.bankName    || undefined,
@@ -395,9 +391,9 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
                   />
                 </div>
 
-                {/* Proponente */}
+                {/* Empresa / Contratada */}
                 <EntitySelectField
-                  label="Proponente"
+                  label="Empresa / Contratada"
                   value={form.proponentId}
                   onChange={v => set('proponentId', v === '__none__' ? '' : v)}
                   items={companies}
@@ -469,7 +465,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
                     <Input id="termDays" readOnly
                       placeholder="Calculado automaticamente"
                       className="bg-slate-50 cursor-not-allowed text-slate-500"
-                      value={form.termDays} />
+                      value={autoTermDays} />
                     {(!form.validityStartDate || !form.validityEndDate) && (
                       <p className="text-xs text-slate-400">Preencha Vigência Início e Fim</p>
                     )}
@@ -540,25 +536,33 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
         </DialogContent>
       </Dialog>
 
-      <CreateTypeDialog
-        open={typeDialogOpen} onOpenChange={setTypeDialogOpen}
-        onSave={handleCreateType} isSaving={createType.isPending}
-      />
-      <CreateEntityDialog
-        open={proponentDialogOpen} onOpenChange={setProponentDialogOpen}
-        title="Nova Empresa (Proponente)"
-        onSave={handleCreateProponent} isSaving={createCompany.isPending}
-      />
-      <CreateEntityDialog
-        open={convenenteDialogOpen} onOpenChange={setConvenenteDialogOpen}
-        title="Novo Convenente"
-        onSave={handleCreateConvenente} isSaving={createConvenente.isPending}
-      />
-      <CreateEntityDialog
-        open={concedenteDialogOpen} onOpenChange={setConcedenteDialogOpen}
-        title="Novo Concedente"
-        onSave={handleCreateConcedente} isSaving={createConcedente.isPending}
-      />
+      {typeDialogOpen && (
+        <CreateTypeDialog
+          open={typeDialogOpen} onOpenChange={setTypeDialogOpen}
+          onSave={handleCreateType} isSaving={createType.isPending}
+        />
+      )}
+      {proponentDialogOpen && (
+        <CreateEntityDialog
+          open={proponentDialogOpen} onOpenChange={setProponentDialogOpen}
+          title="Nova Empresa / Contratada"
+          onSave={handleCreateProponent} isSaving={createCompany.isPending}
+        />
+      )}
+      {convenenteDialogOpen && (
+        <CreateEntityDialog
+          open={convenenteDialogOpen} onOpenChange={setConvenenteDialogOpen}
+          title="Novo Convenente"
+          onSave={handleCreateConvenente} isSaving={createConvenente.isPending}
+        />
+      )}
+      {concedenteDialogOpen && (
+        <CreateEntityDialog
+          open={concedenteDialogOpen} onOpenChange={setConcedenteDialogOpen}
+          title="Novo Concedente"
+          onSave={handleCreateConcedente} isSaving={createConcedente.isPending}
+        />
+      )}
     </>
   )
 }

@@ -3,6 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,12 +18,13 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   CalendarIcon, FileText, Upload, Loader2, FolderArchive,
-  ExternalLink, X, Download, Paperclip, Building2,
+  ExternalLink, Download, Paperclip, Building2, Link2, Link2Off, Search,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from '@/hooks/use-toast'
-import { useUpdateCovenant } from '@/hooks/useCovenants'
+import { useUpdateCovenant, useLinkProcess, useUnlinkProcess } from '@/hooks/useCovenants'
+import { useVirtualProcesses } from '@/hooks/useVirtualProcesses'
 import { covenantService } from '@/lib/api/covenants'
 import { libraryService } from '@/lib/api/library'
 import type { Covenant, CovenantStatus, UpdateCovenantDTO } from '@/lib/api/covenants'
@@ -207,10 +211,10 @@ function DadosGeraisTab({ covenant, onSaved }: { covenant: CovenantDetail; onSav
         </div>
       </section>
 
-      {/* Linha 2: Proponente */}
+      {/* Linha 2: Empresa / Contratada */}
       <section className="p-5 border-b border-slate-100">
         <div className="space-y-1.5">
-          <Label className="text-xs text-slate-500 uppercase tracking-wide">Proponente</Label>
+          <Label className="text-xs text-slate-500 uppercase tracking-wide">Empresa / Contratada</Label>
           <div className="h-9 flex items-center px-3 border rounded-md bg-slate-50 text-sm text-slate-700">
             {covenant.proponent?.name ?? '—'}
           </div>
@@ -288,58 +292,200 @@ function DadosGeraisTab({ covenant, onSaved }: { covenant: CovenantDetail; onSav
   )
 }
 
-// ── Tab: Processos Vinculados ─────────────────────────────────────────────────
+// ── Link Process Dialog ───────────────────────────────────────────────────────
 
-function ProcessosTab({ processes }: { processes: LinkedProcess[] }) {
-  if (processes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400">
-        <FolderArchive className="h-8 w-8" />
-        <p className="text-sm">Nenhum processo virtual vinculado a este convênio.</p>
-        <p className="text-xs text-slate-300">Vincule processos através do módulo de Processos Virtuais.</p>
-      </div>
-    )
+function LinkProcessDialog({
+  open, onOpenChange, covenantId, linkedIds,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  covenantId: string
+  linkedIds: Set<string>
+}) {
+  const [search, setSearch] = useState('')
+  const linkMutation = useLinkProcess(covenantId)
+
+  const { data, isFetching } = useVirtualProcesses(undefined, {
+    search: search || undefined,
+    limit: 20,
+  })
+
+  const processes = data?.data ?? []
+
+  async function handleLink(processId: string) {
+    try {
+      await linkMutation.mutateAsync(processId)
+      toast({ title: 'Processo vinculado com sucesso.' })
+    } catch {
+      toast({ title: 'Erro ao vincular processo.', variant: 'destructive' })
+    }
   }
 
   return (
-    <div className="divide-y divide-slate-100">
-      {processes.map(vp => (
-        <div key={vp.id} className="p-5 hover:bg-slate-50 transition-colors">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  {vp.processNumber}
-                </span>
-                <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                  {vp.status}
-                </span>
-              </div>
-              <p className="text-sm text-slate-700 line-clamp-2">{vp.subject}</p>
-            </div>
-            <a
-              href={`/processos-virtuais`}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 shrink-0"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Ver processo
-            </a>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Vincular Processo Virtual</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <Input
+              placeholder="Buscar por número ou assunto…"
+              className="pl-8 h-9 text-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
-          {vp.documents.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {vp.documents.map(doc => (
-                <span
-                  key={doc.id}
-                  className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
-                >
-                  <Paperclip className="h-3 w-3" />
-                  {doc.fileName}
-                </span>
-              ))}
-            </div>
-          )}
+          <ScrollArea className="h-72 border rounded-md">
+            {isFetching ? (
+              <div className="flex items-center justify-center py-10 text-slate-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : processes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+                <FolderArchive className="h-6 w-6" />
+                <p className="text-sm">Nenhum processo encontrado.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {processes.map(vp => {
+                  const already = linkedIds.has(vp.id)
+                  return (
+                    <div key={vp.id} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                            {vp.processNumber}
+                          </span>
+                          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                            {vp.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-0.5 line-clamp-1">{vp.subject}</p>
+                      </div>
+                      {already ? (
+                        <span className="text-xs text-slate-400 shrink-0 pt-1">Já vinculado</span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs shrink-0"
+                          disabled={linkMutation.isPending}
+                          onClick={() => handleLink(vp.id)}
+                        >
+                          <Link2 className="h-3 w-3 mr-1" />
+                          Vincular
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </ScrollArea>
         </div>
-      ))}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Tab: Processos Vinculados ─────────────────────────────────────────────────
+
+function ProcessosTab({ processes, covenantId }: { processes: LinkedProcess[]; covenantId: string }) {
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false)
+  const unlinkMutation = useUnlinkProcess(covenantId)
+  const linkedIds = new Set(processes.map(p => p.id))
+
+  async function handleUnlink(processId: string) {
+    try {
+      await unlinkMutation.mutateAsync(processId)
+      toast({ title: 'Processo desvinculado.' })
+    } catch {
+      toast({ title: 'Erro ao desvincular processo.', variant: 'destructive' })
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+        <span className="text-xs text-slate-500">
+          {processes.length} {processes.length === 1 ? 'processo vinculado' : 'processos vinculados'}
+        </span>
+        <Button
+          size="sm" variant="outline" className="h-7 text-xs gap-1.5"
+          onClick={() => setLinkDialogOpen(true)}
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          Vincular Processo
+        </Button>
+      </div>
+
+      {processes.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 py-16 text-slate-400">
+          <FolderArchive className="h-8 w-8" />
+          <p className="text-sm">Nenhum processo virtual vinculado a este convênio.</p>
+          <p className="text-xs text-slate-300">Clique em "Vincular Processo" para associar.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {processes.map(vp => (
+            <div key={vp.id} className="p-5 hover:bg-slate-50 transition-colors">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      {vp.processNumber}
+                    </span>
+                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                      {vp.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-700 line-clamp-2">{vp.subject}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <a
+                    href="/processos-virtuais"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ver
+                  </a>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-7 w-7 text-slate-400 hover:text-red-500"
+                    title="Desvincular processo"
+                    disabled={unlinkMutation.isPending}
+                    onClick={() => handleUnlink(vp.id)}
+                  >
+                    <Link2Off className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              {vp.documents.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {vp.documents.map(doc => (
+                    <span
+                      key={doc.id}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                      {doc.fileName}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <LinkProcessDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        covenantId={covenantId}
+        linkedIds={linkedIds}
+      />
     </div>
   )
 }
@@ -525,33 +671,27 @@ export default function CovenantDetailSheet({ covenantId, open, onOpenChange }: 
       >
         {/* Header */}
         <SheetHeader className="px-6 py-4 border-b border-slate-200 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              {isLoading ? (
-                <div className="space-y-1.5">
-                  <Skeleton className="h-5 w-64" />
-                  <Skeleton className="h-4 w-40" />
+          <div className="min-w-0 pr-8">
+            {isLoading ? (
+              <div className="space-y-1.5">
+                <Skeleton className="h-5 w-64" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+            ) : detail ? (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <SheetTitle className="font-mono text-base font-semibold text-slate-900">
+                    {detail.number}
+                  </SheetTitle>
+                  {statusCfg && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCfg.className}`}>
+                      {statusCfg.label}
+                    </span>
+                  )}
                 </div>
-              ) : detail ? (
-                <>
-                  <div className="flex items-center gap-2 mb-1">
-                    <SheetTitle className="font-mono text-base font-semibold text-slate-900">
-                      {detail.number}
-                    </SheetTitle>
-                    {statusCfg && (
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusCfg.className}`}>
-                        {statusCfg.label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-500 truncate">{detail.proponent?.name ?? '—'}</p>
-                </>
-              ) : null}
-            </div>
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
-              onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-            </Button>
+                <p className="text-sm text-slate-500 truncate">{detail.proponent?.name ? `Empresa: ${detail.proponent.name}` : '—'}</p>
+              </>
+            ) : null}
           </div>
         </SheetHeader>
 
@@ -590,7 +730,7 @@ export default function CovenantDetailSheet({ covenantId, open, onOpenChange }: 
 
             <TabsContent value="processos" className="flex-1 overflow-hidden mt-0">
               <ScrollArea className="h-full">
-                <ProcessosTab processes={detail.virtualProcesses} />
+                <ProcessosTab processes={detail.virtualProcesses} covenantId={detail.id} />
               </ScrollArea>
             </TabsContent>
 

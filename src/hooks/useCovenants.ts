@@ -87,3 +87,21 @@ export function useCreateConcedente() {
     onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['concedentes'] }) },
   })
 }
+
+// ── Process link / unlink hooks ───────────────────────────────────────────────
+
+export function useLinkProcess(covenantId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (processId: string) => covenantService.linkProcess(covenantId, processId),
+    onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['covenant', covenantId] }) },
+  })
+}
+
+export function useUnlinkProcess(covenantId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (processId: string) => covenantService.unlinkProcess(covenantId, processId),
+    onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['covenant', covenantId] }) },
+  })
+}

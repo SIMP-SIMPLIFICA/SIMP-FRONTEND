@@ -170,4 +170,12 @@ export const covenantService = {
   deleteConcedente: async (id: string) => {
     await api.delete(`/covenants/concedentes/${id}`)
   },
+
+  // ── Process link / unlink ──────────────────────────────────────────────────
+  linkProcess: async (covenantId: string, processId: string) => {
+    await api.post(`/covenants/${covenantId}/processes`, { processId })
+  },
+  unlinkProcess: async (covenantId: string, processId: string) => {
+    await api.delete(`/covenants/${covenantId}/processes/${processId}`)
+  },
 }

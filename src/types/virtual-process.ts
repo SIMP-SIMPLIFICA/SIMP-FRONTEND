@@ -42,6 +42,7 @@ export interface VirtualProcess {
   createdById: string
   creator?: { id: string; firstName: string; lastName: string; avatar?: string | null }
   documents?: VirtualProcessDocument[]
+  covenants?: Array<{ id: string; number: string; status: string; processObject: string; covenantType?: { id: string; name: string } | null }>
   _count?: { documents: number }
 }
 
