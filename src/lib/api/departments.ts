@@ -30,7 +30,7 @@ export interface CreateDepartmentDTO {
 export interface UpdateDepartmentDTO {
   name?: string
   code?: string
-  description?: string
+  description?: string | null
   isActive?: boolean
 }
 

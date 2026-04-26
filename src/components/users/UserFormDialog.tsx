@@ -43,8 +43,9 @@ type CreateUserBody = {
   password?: string;
   firstName: string;
   lastName: string;
-  roles?: string[]; // IDs das roles
+  roles?: string[];
   isActive?: boolean;
+  departmentId?: string | null;
 };
 
 type UpdateUserBody = {
@@ -207,6 +208,7 @@ export function UserFormDialog({
           password,
           isActive,
           roles: Array.from(selectedRoles),
+          departmentId: departmentId || null,
         };
 
         await apiRequest("/api/v1/users", {

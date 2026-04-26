@@ -38,26 +38,11 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
   const createMut = useCreateDepartment()
   const updateMut = useUpdateDepartment()
 
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [description, setDescription] = useState('')
-  const [isActive, setIsActive] = useState(true)
-
-  useEffect(() => {
-    if (open) {
-      if (editing) {
-        setName(editing.name)
-        setCode(editing.code)
-        setDescription(editing.description ?? '')
-        setIsActive(editing.isActive)
-      } else {
-        setName('')
-        setCode('')
-        setDescription('')
-        setIsActive(true)
-      }
-    }
-  }, [open, editing])
+  // Inicializa direto das props — o `key` no pai garante remount a cada abertura
+  const [name, setName] = useState(editing?.name ?? '')
+  const [code, setCode] = useState(editing?.code ?? '')
+  const [description, setDescription] = useState(editing?.description ?? '')
+  const [isActive, setIsActive] = useState(editing?.isActive ?? true)
 
   const isPending = createMut.isPending || updateMut.isPending
 
@@ -69,8 +54,12 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
     }
     try {
       if (isEditing && editing) {
-        const data: UpdateDepartmentDTO = { name: name.trim(), code: code.trim().toUpperCase(), isActive }
-        if (description.trim()) data.description = description.trim()
+        const data: UpdateDepartmentDTO = {
+          name:        name.trim(),
+          code:        code.trim().toUpperCase(),
+          isActive,
+          description: description.trim() || null,
+        }
         await updateMut.mutateAsync({ id: editing.id, data })
         toast({ title: 'Departamento atualizado.' })
       } else {
@@ -180,6 +169,7 @@ export default function DepartmentsPage() {
   const [page, setPage]               = useState(1)
   const [dialogOpen, setDialogOpen]   = useState(false)
   const [editing, setEditing]         = useState<Department | null>(null)
+  const [dialogKey, setDialogKey]     = useState(0)
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
 
   useEffect(() => {
@@ -192,11 +182,13 @@ export default function DepartmentsPage() {
 
   function openCreate() {
     setEditing(null)
+    setDialogKey(k => k + 1)
     setDialogOpen(true)
   }
 
   function openEdit(dept: Department) {
     setEditing(dept)
+    setDialogKey(k => k + 1)
     setDialogOpen(true)
   }
 
@@ -358,6 +350,7 @@ export default function DepartmentsPage() {
 
       {/* Create/Edit Dialog */}
       <DepartmentFormDialog
+        key={dialogKey}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         editing={editing}
