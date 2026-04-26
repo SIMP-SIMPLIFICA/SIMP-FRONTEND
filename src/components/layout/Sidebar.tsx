@@ -76,6 +76,8 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Workspaces",
         to: "/workspaces",
         icon: <Briefcase className="h-4 w-4" />,
+        module: "tasks",
+        anyOf: ["tasks:read", "tasks:write", "tasks:manage"],
       },
       {
         label: "Comunicação",
@@ -104,6 +106,8 @@ const NAV_SECTIONS: NavSection[] = [
         label: "Biblioteca",
         to: "/biblioteca",
         icon: <BookOpen className="h-4 w-4" />,
+        module: "library",
+        anyOf: ["library:read"],
       },
       {
         label: "Convênios",
@@ -160,6 +164,12 @@ const NAV_SECTIONS: NavSection[] = [
         to: "/roles",
         icon: <Shield className="h-4 w-4" />,
         anyOf: ["roles:read", "roles:manage"],
+      },
+      {
+        label: "Departamentos",
+        to: "/departamentos",
+        icon: <Building2 className="h-4 w-4" />,
+        anyOf: ["departments:read", "departments:write", "departments:delete"],
       },
     ],
   },

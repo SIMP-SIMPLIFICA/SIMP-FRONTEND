@@ -12,9 +12,8 @@ import {
   CheckCircle2, Copy, Paperclip, Loader2, Clock, FileText,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { useMe } from '@/hooks/useMe'
-import { hasAnyPermission } from '@/lib/permissions'
 import { useGenerateProtocol, useUpdateProtocolStatus } from '@/hooks/useProtocols'
+import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { libraryService } from '@/lib/api/library'
 import type { OfficialDocument, DocumentCategory } from '@/lib/api/protocols'
 
@@ -164,8 +163,8 @@ interface Props {
 }
 
 export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
-  const { data: me } = useMe()
-  const isAdmin = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
+  const { data: deptData } = useDepartmentOptions()
+  const departments = (deptData?.data ?? []).filter(d => d.isActive)
 
   const [form, setForm]       = useState<FormState>(EMPTY)
   const [generated, setGenerated] = useState<OfficialDocument | null>(null)
@@ -224,7 +223,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={v => !v && handleClose()}>
-      <DialogContent className="max-w-lg overflow-hidden p-0 gap-0 flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-2xl w-[95vw] overflow-hidden p-0 gap-0 flex flex-col max-h-[90vh]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle>
             {generated ? 'Número Gerado com Sucesso' : 'Gerar Novo Número Oficial'}
@@ -252,7 +251,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                   <Label className="text-sm font-medium">
                     Categoria do Documento <span className="text-red-500">*</span>
                   </Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {([
                       { value: 'COMUNICACAO', title: 'Comunicação', desc: 'Ofícios, Memorandos, CIs', color: 'blue' },
                       { value: 'NORMATIVO',   title: 'Ato Normativo', desc: 'Leis, Decretos, Portarias', color: 'indigo' },
@@ -285,7 +284,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                 {form.documentCategory === 'COMUNICACAO' && (
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Tipo de Numeração</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {([
                         { value: 'SEQUENTIAL', label: 'Sequencial', desc: 'Nº 001, 002, 003…' },
                         { value: 'RANDOM',     label: 'Aleatório',  desc: 'Código único não sequencial' },
@@ -339,13 +338,24 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                         <FileText className="h-3.5 w-3.5 shrink-0" />
                         Numeração Centralizada — Geral do Município
                       </div>
+                    ) : departments.length > 0 ? (
+                      <Select value={form.sector} onValueChange={v => set('sector', v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecionar setor..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map(d => (
+                            <SelectItem key={d.id} value={d.code}>
+                              {d.code} — {d.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ) : (
                       <Input
                         placeholder="Ex: SAÚDE, OBRAS, ADMINISTRAÇÃO…"
                         value={form.sector}
                         onChange={e => set('sector', e.target.value.toUpperCase())}
-                        readOnly={!isAdmin}
-                        className={!isAdmin ? 'bg-slate-50 cursor-default' : ''}
                         required
                       />
                     )}

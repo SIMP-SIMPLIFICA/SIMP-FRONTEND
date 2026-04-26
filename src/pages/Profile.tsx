@@ -129,7 +129,6 @@ export default function Profile() {
       const res = await apiRequest<SessionResponse>("/api/v1/auth/sessions");
       setSessions(res.sessions || []);
     } catch (err) {
-      console.error(err);
     } finally {
       setSessionsLoading(false);
     }

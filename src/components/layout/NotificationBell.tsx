@@ -191,8 +191,8 @@ export function NotificationBell() {
       const res = await api.get<{ data: Notification[]; unreadCount: number }>("/notifications")
       setNotifications(res.data.data)
       setUnreadCount(res.data.unreadCount)
-    } catch (err) {
-      console.error("Erro ao buscar notificações", err)
+    } catch {
+      // silent — retry on next poll
     }
   }
 
@@ -207,7 +207,7 @@ export function NotificationBell() {
     const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
     const es = new EventSource(`${API_URL}/notifications/stream?token=${token}`)
 
-    es.onopen = () => console.log("✅ [SSE] Conectado às notificações")
+    es.onopen = () => {}
 
     es.onmessage = (event) => {
       if (!event.data || event.data.startsWith("retry")) return
@@ -225,13 +225,12 @@ export function NotificationBell() {
             </ToastAction>
           ) : undefined,
         })
-      } catch (e) {
-        console.error("Erro ao processar notificação SSE", e)
+      } catch {
+        // malformed SSE payload — ignore
       }
     }
 
-    es.onerror = (err) => {
-      console.error("❌ [SSE] Erro na conexão", err)
+    es.onerror = () => {
       es.close()
     }
 
@@ -254,7 +253,7 @@ export function NotificationBell() {
         prev.map((x) => (x.id === n.id ? { ...x, read: true } : x))
       )
       setUnreadCount((prev) => Math.max(0, prev - 1))
-      api.patch(`/notifications/${n.id}/read`, {}).catch(console.error)
+      api.patch(`/notifications/${n.id}/read`, {}).catch(() => {})
     }
     if (n.link) {
       setIsOpen(false)
@@ -268,7 +267,7 @@ export function NotificationBell() {
     const target = notifications.find((n) => n.id === id)
     if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1))
     setNotifications((prev) => prev.filter((n) => n.id !== id))
-    api.delete(`/notifications/${id}`).catch(console.error)
+    api.delete(`/notifications/${id}`).catch(() => {})
   }
 
   const handleMarkAllRead = async () => {
@@ -280,7 +279,7 @@ export function NotificationBell() {
   /** Atualiza preferências de forma otimista: aplica local e bate no backend em background. */
   const handlePrefChange = (patch: Partial<Preferences>) => {
     setPrefs((prev) => ({ ...prev, ...patch }))
-    api.patch("/notifications/preferences", patch).catch(console.error)
+    api.patch("/notifications/preferences", patch).catch(() => {})
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────

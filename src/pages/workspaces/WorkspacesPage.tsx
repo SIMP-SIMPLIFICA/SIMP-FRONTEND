@@ -34,7 +34,6 @@ export default function WorkspacesPage() {
       setName("");
       setDesc("");
     } catch (error) {
-      console.error("Erro ao criar", error);
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight,
+  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { useProtocols, useUpdateProtocolStatus } from '@/hooks/useProtocols'
+import { libraryService } from '@/lib/api/library'
 import type { OfficialDocument, DocumentCategory, DocumentStatus } from '@/lib/api/protocols'
 import GenerateProtocolModal from './GenerateProtocolModal'
 
@@ -132,6 +133,15 @@ export default function OfficialProtocolsPage() {
   const [cancelTarget, setCancelTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
 
+  async function handleDownloadAttachment(libraryDocumentId: string) {
+    try {
+      const { url } = await libraryService.download(libraryDocumentId)
+      window.open(url, '_blank')
+    } catch {
+      toast({ title: 'Erro ao baixar documento.', variant: 'destructive' })
+    }
+  }
+
   const { data, isLoading } = useProtocols({
     page,
     limit: 25,
@@ -147,7 +157,7 @@ export default function OfficialProtocolsPage() {
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   return (
-    <div className="flex flex-col h-full gap-0">
+    <div className="flex flex-col h-full gap-0 max-w-screen-2xl mx-auto w-full">
       {/* ── Page header ── */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-white shrink-0">
         <div className="flex items-center gap-3">
@@ -218,16 +228,16 @@ export default function OfficialProtocolsPage() {
 
       {/* ── Table ── */}
       <ScrollArea className="flex-1">
-        <div className="min-w-[900px]">
+        <div className="min-w-[600px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
                 <th className="px-4 py-3 text-left font-semibold">Número</th>
-                <th className="px-4 py-3 text-left font-semibold">Categoria / Tipo</th>
+                <th className="px-4 py-3 text-left font-semibold hidden sm:table-cell">Categoria / Tipo</th>
                 <th className="px-4 py-3 text-left font-semibold">Assunto</th>
-                <th className="px-4 py-3 text-left font-semibold">Setor</th>
-                <th className="px-4 py-3 text-left font-semibold">Criado por</th>
-                <th className="px-4 py-3 text-left font-semibold">Data</th>
+                <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Setor</th>
+                <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">Criado por</th>
+                <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Data</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 {isAdmin && <th className="px-4 py-3 text-left font-semibold">Ações</th>}
               </tr>
@@ -254,7 +264,7 @@ export default function OfficialProtocolsPage() {
                           {doc.formattedNumber}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden sm:table-cell">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-xs text-slate-400">{CATEGORY_LABELS[doc.documentCategory]}</span>
                           <span className="text-sm font-medium text-slate-700">{doc.documentType}</span>
@@ -266,22 +276,42 @@ export default function OfficialProtocolsPage() {
                           <p className="text-xs text-slate-400 mt-0.5">Para: {doc.recipient}</p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
                           {doc.sector}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {doc.creator
-                          ? `${doc.creator.firstName} ${doc.creator.lastName}`
-                          : '—'}
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm text-slate-700">
+                            {doc.creator
+                              ? `${doc.creator.firstName} ${doc.creator.lastName}`
+                              : '—'}
+                          </span>
+                          {doc.sector && (
+                            <span className="inline-flex w-fit items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-600 tracking-wide">
+                              {doc.sector}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap hidden md:table-cell">
                         {formatDate(doc.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <StatusBadge status={doc.status} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={doc.status} />
+                            {doc.libraryDocumentId && (
+                              <button
+                                onClick={() => handleDownloadAttachment(doc.libraryDocumentId!)}
+                                title="Baixar PDF vinculado"
+                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                              >
+                                <Paperclip className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                           {doc.cancelReason && (
                             <p className="text-xs text-slate-400 line-clamp-1" title={doc.cancelReason}>
                               {doc.cancelReason}

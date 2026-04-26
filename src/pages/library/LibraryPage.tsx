@@ -1,14 +1,17 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Upload, History, LayoutGrid, List, FileText,
-  Download, Trash2, Loader2, ShieldCheck, ChevronLeft, ChevronRight, Lock, Tag
+  Download, Trash2, Loader2, ShieldCheck, ChevronLeft, ChevronRight, Lock, Tag, AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { useMe } from "@/hooks/useMe";
 import { hasPermission } from "@/lib/permissions";
@@ -38,15 +41,21 @@ export default function LibraryPage() {
   const qc = useQueryClient();
 
   const [view, setView] = useState<ViewMode>("list");
-  const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); setSelected(new Set()); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [zipping, setZipping] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["library", "categories"],
@@ -77,12 +86,6 @@ export default function LibraryPage() {
     },
   });
 
-  const handleSearch = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    setPage(1);
-    setSelected(new Set());
-  }, [searchInput]);
 
   function toggleSelect(id: string) {
     setSelected(prev => {
@@ -135,7 +138,7 @@ export default function LibraryPage() {
   const allSelected = docs.length > 0 && selected.size === docs.length;
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 min-h-screen">
+    <div className="flex flex-col h-full bg-slate-50 min-h-screen max-w-screen-2xl mx-auto w-full">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -167,23 +170,15 @@ export default function LibraryPage() {
 
         {/* Search + view toggle */}
         <div className="flex items-center gap-3 mt-4 flex-wrap">
-          <form onSubmit={handleSearch} className="flex-1 min-w-[240px] relative">
+          <div className="flex-1 min-w-[240px] relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              placeholder="Buscar por título ou conteúdo (OCR)..."
-              className="pl-9 pr-20"
+              placeholder="Buscar por título..."
+              className="pl-9"
             />
-            <Button
-              type="submit"
-              size="sm"
-              variant="ghost"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs"
-            >
-              Buscar
-            </Button>
-          </form>
+          </div>
 
           {categories.length > 0 && (
             <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v === "all" ? "" : v); setPage(1); setSelected(new Set()); }}>
@@ -220,7 +215,7 @@ export default function LibraryPage() {
         {search && (
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
             Resultados para: <span className="font-medium text-slate-700">"{search}"</span>
-            <button onClick={() => { setSearch(""); setSearchInput(""); setPage(1); }} className="text-xs text-red-500 hover:underline">
+            <button onClick={() => setSearchInput("")} className="text-xs text-red-500 hover:underline">
               Limpar
             </button>
           </div>
@@ -322,7 +317,7 @@ export default function LibraryPage() {
                           )}
                           {canDelete && (
                             <button
-                              onClick={() => deleteMutation.mutate(doc.id)}
+                              onClick={() => setConfirmDeleteId(doc.id)}
                               className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
                               title="Remover"
                             >
@@ -438,6 +433,34 @@ export default function LibraryPage() {
           </div>
         </div>
       )}
+
+      {/* Delete confirmation */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={v => !v && setConfirmDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-red-100">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">Remover Documento?</DialogTitle>
+            <DialogDescription className="text-center text-sm">
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleteMutation.isPending}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => { if (confirmDeleteId) { deleteMutation.mutate(confirmDeleteId); setConfirmDeleteId(null); } }}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Remover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modals */}
       <UploadDocumentModal

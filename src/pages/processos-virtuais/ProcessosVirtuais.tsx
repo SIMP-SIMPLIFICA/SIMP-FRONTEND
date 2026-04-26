@@ -23,6 +23,7 @@ import {
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
+import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
 import type { VirtualProcess } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
@@ -97,9 +98,9 @@ function DatePickerField({ label, date, onChange }: {
 }
 
 // --- Create Process Dialog ---
-type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; workspaceId: undefined }
+type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void }
 
-function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogProps) {
+function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [form, setForm] = useState({
     processNumber: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
@@ -108,12 +109,14 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [saving, setSaving] = useState(false)
-  const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
-  const { data: processesResponse } = useVirtualProcesses(workspaceId)
-  const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
-  const { data: sources = [] } = useVirtualProcessSources(workspaceId)
-  const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
+  const { mutateAsync: create } = useCreateVirtualProcess(undefined)
+  const { data: processesResponse } = useVirtualProcesses(undefined)
+  const { data: categories = [] } = useVirtualProcessCategories(undefined)
+  const { data: sources = [] } = useVirtualProcessSources(undefined)
+  const { data: companies = [] } = useVirtualProcessCompanies(undefined)
   const { data: bankAccounts = [] } = useFinanceBankAccounts()
+  const { data: deptData } = useDepartmentOptions()
+  const departments = (deptData?.data ?? []).filter(d => d.isActive)
   const { open: openProcessModal } = useUniversalProcessModal()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -176,7 +179,26 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
               </div>
               <div className="space-y-1.5">
                 <Label>Secretaria <span className="text-red-500">*</span></Label>
-                <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
+                {departments.length > 0 ? (
+                  <Select
+                    value={form.secretaria}
+                    onValueChange={v => setForm(f => ({ ...f, secretaria: v }))}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar secretaria..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(d => (
+                        <SelectItem key={d.id} value={d.name}>
+                          {d.code} — {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
+                )}
               </div>
             </div>
 
@@ -315,14 +337,14 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 }
 
 // --- Upload Document Dialog ---
-type UploadDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; processId: string | null; workspaceId: undefined }
+type UploadDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; processId: string | null }
 
-function UploadDocumentDialog({ open, onOpenChange, processId, workspaceId }: UploadDialogProps) {
+function UploadDocumentDialog({ open, onOpenChange, processId }: UploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
   const [uploading, setUploading] = useState(false)
-  const { mutateAsync: upload } = useUploadProcessDocument(processId, workspaceId)
+  const { mutateAsync: upload } = useUploadProcessDocument(processId, undefined)
 
   function handleClose() { setFile(null); setTag(''); setDescription(''); onOpenChange(false) }
 
@@ -387,12 +409,12 @@ function UploadDocumentDialog({ open, onOpenChange, processId, workspaceId }: Up
 }
 
 // --- Process Detail Panel ---
-type DetailPanelProps = { processId: string; onClose: () => void; workspaceId: undefined }
+type DetailPanelProps = { processId: string; onClose: () => void }
 
-function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProps) {
+function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
   const { data, isLoading, refetch } = useVirtualProcessDetail(processId)
-  const { mutate: updateStatus } = useUpdateProcessStatus(workspaceId)
-  const { mutate: deleteDoc, isPending: deletingDoc } = useDeleteProcessDocument(processId, workspaceId)
+  const { mutate: updateStatus } = useUpdateProcessStatus(undefined)
+  const { mutate: deleteDoc, isPending: deletingDoc } = useDeleteProcessDocument(processId, undefined)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
 
@@ -615,7 +637,7 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
         </div>
       </ScrollArea>
 
-      <UploadDocumentDialog open={uploadOpen} onOpenChange={v => { setUploadOpen(v); if (!v) refetch() }} processId={processId} workspaceId={workspaceId} />
+      <UploadDocumentDialog open={uploadOpen} onOpenChange={v => { setUploadOpen(v); if (!v) refetch() }} processId={processId} />
 
       {/* Delete doc confirm */}
       <Dialog open={!!deletingDocId} onOpenChange={v => !v && setDeletingDocId(null)}>
@@ -716,7 +738,8 @@ export default function ProcessosVirtuais() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden -m-6">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden -m-6 justify-center">
+      <div className="flex w-full max-w-screen-2xl">
       {/* Left panel — list */}
       <div className={`flex flex-col border-r border-slate-200 bg-white ${selectedId ? 'hidden lg:flex lg:w-[420px] shrink-0' : 'flex-1'}`}>
         {/* Header */}
@@ -809,7 +832,7 @@ export default function ProcessosVirtuais() {
       {/* Right panel — detail */}
       {selectedId ? (
         <div className="flex-1 flex flex-col bg-white overflow-hidden">
-          <ProcessDetailPanel processId={selectedId} onClose={() => setSelectedId(null)} workspaceId={undefined} />
+          <ProcessDetailPanel processId={selectedId} onClose={() => setSelectedId(null)} />
           {/* Delete button in detail header area */}
           <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
             <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 gap-1.5 text-xs" onClick={() => setDeletingProcessId(selectedId)}>
@@ -828,7 +851,7 @@ export default function ProcessosVirtuais() {
       )}
 
       {/* Create dialog */}
-      <CreateProcessDialog open={createOpen} onOpenChange={setCreateOpen} workspaceId={undefined} />
+      <CreateProcessDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {/* Delete process confirm */}
       <Dialog open={!!deletingProcessId} onOpenChange={v => !v && setDeletingProcessId(null)}>
@@ -851,6 +874,7 @@ export default function ProcessosVirtuais() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>{/* /max-w-screen-2xl */}
     </div>
   )
 }

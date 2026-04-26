@@ -36,6 +36,7 @@ import OrganizacaoPage from "@/pages/OrganizacaoPage";
 import LibraryPage from "@/pages/library/LibraryPage"
 import CovenantsPage from "@/pages/convenios/CovenantsPage";
 import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
+import DepartmentsPage from "@/pages/Departments";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -82,8 +83,16 @@ export const router = createBrowserRouter([
             }],
           },
 
-          { path: "/workspaces", element: <WorkspacesPage /> },
-          { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
+          {
+            element: <ModuleGate module="tasks" />,
+            children: [{
+              element: <PermissionGate anyOf={["tasks:read", "tasks:write", "tasks:manage"]} />,
+              children: [
+                { path: "/workspaces", element: <WorkspacesPage /> },
+                { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
+              ],
+            }],
+          },
 
           {
             element: <ModuleGate module="communication" />,
@@ -119,8 +128,11 @@ export const router = createBrowserRouter([
           },
 
           {
-            element: <PermissionGate anyOf={["library:read"]} />,
-            children: [{ path: "/biblioteca", element: <LibraryPage /> }],
+            element: <ModuleGate module="library" />,
+            children: [{
+              element: <PermissionGate anyOf={["library:read"]} />,
+              children: [{ path: "/biblioteca", element: <LibraryPage /> }],
+            }],
           },
           {
             element: <ModuleGate module="covenants" />,
@@ -155,6 +167,10 @@ export const router = createBrowserRouter([
           {
             element: <PermissionGate anyOf={["roles:read", "roles:manage"]} />,
             children: [{ path: "/roles", element: <Roles /> }],
+          },
+          {
+            element: <PermissionGate anyOf={["departments:read", "departments:write", "departments:delete"]} />,
+            children: [{ path: "/departamentos", element: <DepartmentsPage /> }],
           },
         ],
       },

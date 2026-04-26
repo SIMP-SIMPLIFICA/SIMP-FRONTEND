@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Handshake, ChevronRight, Loader2, AlertTriangle, Trash2,
+  Search, Plus, Handshake, ChevronRight, Loader2, AlertTriangle, Trash2, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,6 +16,8 @@ import { useCovenants, useDeleteCovenant, useCovenantTypes } from '@/hooks/useCo
 import type { Covenant, CovenantStatus } from '@/lib/api/covenants'
 import CovenantFormDialog from './CovenantFormDialog'
 import CovenantDetailSheet from './CovenantDetailSheet'
+import { useMe } from '@/hooks/useMe'
+import { hasAnyPermission } from '@/lib/permissions'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
 
@@ -50,11 +55,13 @@ function formatDate(iso?: string | null) {
 function RowSkeleton() {
   return (
     <tr className="border-b border-slate-100">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <td key={i} className="px-4 py-3">
-          <Skeleton className="h-4 w-full" />
-        </td>
-      ))}
+      <td className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3 hidden sm:table-cell"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
+      <td className="px-4 py-3"><Skeleton className="h-4 w-8" /></td>
     </tr>
   )
 }
@@ -62,6 +69,9 @@ function RowSkeleton() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CovenantsPage() {
+  const { data: me } = useMe()
+  const canDelete = hasAnyPermission(me, ['covenants:delete']) || !!me?.user?.isSuperAdmin
+
   const [search, setSearch]       = useState('')
   const [statusFilter, setStatus] = useState<CovenantStatus | 'ALL'>('ALL')
   const [typeFilter, setType]     = useState<string>('')
@@ -71,7 +81,8 @@ export default function CovenantsPage() {
   const [editing, setEditing]               = useState<Covenant | null>(null)
   const [sheetId, setSheetId]               = useState<string | null>(null)
   const [sheetOpen, setSheetOpen]           = useState(false)
-  const [deletingId, setDeletingId]         = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting]             = useState(false)
 
   const { data, isLoading, isError } = useCovenants({
     page,
@@ -84,16 +95,24 @@ export default function CovenantsPage() {
 
   const deleteMutation = useDeleteCovenant()
 
-  async function handleDelete(id: string) {
-    setDeletingId(id)
+  async function handleConfirmDelete() {
+    if (!confirmDeleteId) return
+    setDeleting(true)
     try {
-      await deleteMutation.mutateAsync(id)
+      await deleteMutation.mutateAsync(confirmDeleteId)
       toast({ title: 'Convênio excluído com sucesso.' })
+      setConfirmDeleteId(null)
     } catch {
       toast({ title: 'Erro ao excluir convênio.', variant: 'destructive' })
     } finally {
-      setDeletingId(null)
+      setDeleting(false)
     }
+  }
+
+  function openEdit(e: React.MouseEvent, covenant: Covenant) {
+    e.stopPropagation()
+    setEditing(covenant)
+    setFormOpen(true)
   }
 
   function openDetail(covenant: Covenant) {
@@ -110,7 +129,7 @@ export default function CovenantsPage() {
   const meta      = data?.meta
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full max-w-screen-2xl mx-auto w-full">
       {/* ── Header ── */}
       <div className="border-b border-slate-200 bg-white px-6 py-4">
         <nav className="mb-1 flex items-center gap-1 text-xs text-slate-400">
@@ -204,9 +223,9 @@ export default function CovenantsPage() {
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="px-4 py-3 text-left font-medium text-slate-600">Número</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-600">Proponente</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Tipo</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-600">Valor</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-600">Vigência</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell">Tipo</th>
+                  <th className="px-4 py-3 text-right font-medium text-slate-600 hidden sm:table-cell">Valor</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">Vigência</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-600">Status</th>
                   <th className="px-4 py-3 text-right font-medium text-slate-600"></th>
                 </tr>
@@ -234,31 +253,41 @@ export default function CovenantsPage() {
                         <td className="px-4 py-3 text-slate-800 max-w-[220px] truncate">
                           {covenant.proponent?.name ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap hidden md:table-cell">
                           {covenant.covenantType?.name ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium text-slate-800 whitespace-nowrap">
+                        <td className="px-4 py-3 text-right font-medium text-slate-800 whitespace-nowrap hidden sm:table-cell">
                           {formatCurrency(covenant.transferValue)}
                         </td>
-                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap hidden lg:table-cell">
                           {formatDate(covenant.validityEndDate)}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={covenant.status} />
                         </td>
                         <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-slate-400 hover:text-red-500"
-                            disabled={deletingId === covenant.id}
-                            onClick={() => handleDelete(covenant.id)}
-                          >
-                            {deletingId === covenant.id
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : <Trash2 className="h-3.5 w-3.5" />
-                            }
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-slate-400 hover:text-blue-600"
+                              title="Editar"
+                              onClick={e => openEdit(e, covenant)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            {canDelete && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-red-500"
+                                title="Excluir"
+                                onClick={e => { e.stopPropagation(); setConfirmDeleteId(covenant.id) }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -292,7 +321,7 @@ export default function CovenantsPage() {
         )}
       </div>
 
-      {/* ── Create dialog ── */}
+      {/* ── Create/Edit dialog ── */}
       <CovenantFormDialog
         key={editing?.id ?? 'new'}
         open={formOpen}
@@ -306,6 +335,30 @@ export default function CovenantsPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />
+
+      {/* ── Delete confirmation ── */}
+      <Dialog open={!!confirmDeleteId} onOpenChange={v => !v && setConfirmDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-red-100">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">Excluir Convênio?</DialogTitle>
+            <DialogDescription className="text-center text-sm">
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

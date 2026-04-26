@@ -322,7 +322,6 @@ export default function Roles() {
       });
 
     } catch (err: unknown) {
-      console.warn("⚠️ Usando catálogo local (fallback). Motivo:", err);
       // 🔥 FALLBACK ORGANIZADO 🔥
       setCatalog(FALLBACK_CATALOG);
     } finally {

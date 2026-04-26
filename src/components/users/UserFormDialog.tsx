@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useDepartmentOptions } from "@/hooks/useDepartments";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,7 @@ type ApiUser = {
   firstName: string | null;
   lastName: string | null;
   isActive: boolean;
+  departmentId?: string | null;
   roles: { role: UserRoleRef }[];
 };
 
@@ -50,6 +53,7 @@ type UpdateUserBody = {
   firstName?: string;
   lastName?: string;
   isActive?: boolean;
+  departmentId?: string | null;
 };
 
 interface UserFormDialogProps {
@@ -74,7 +78,10 @@ export function UserFormDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [departmentId, setDepartmentId] = useState<string>("");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+
+  const { data: deptData } = useDepartmentOptions();
 
   // Estados de UI
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +101,7 @@ export function UserFormDialog({
         setUsername(user.username || "");
         setEmail(user.email || "");
         setIsActive(user.isActive);
+        setDepartmentId(user.departmentId || "");
         setPassword("");
         setSelectedRoles(new Set(user.roles.map((r) => r.role.id)));
         void fetchRoles();
@@ -105,6 +113,7 @@ export function UserFormDialog({
         setEmail("");
         setPassword("");
         setIsActive(true);
+        setDepartmentId("");
         setSelectedRoles(new Set());
         void fetchRoles();
       }
@@ -117,7 +126,6 @@ export function UserFormDialog({
       const res = await apiRequest<{ data: UserRoleRef[] }>("/api/v1/roles?limit=100");
       setAvailableRoles(res.data);
     } catch (error) {
-      console.error("Erro ao carregar roles", error);
     } finally {
       setLoadingRoles(false);
     }
@@ -164,7 +172,7 @@ export function UserFormDialog({
 
       if (isEditing && user) {
         // --- ATUALIZAR ---
-        const body: UpdateUserBody = { firstName, lastName, username, email, isActive };
+        const body: UpdateUserBody = { firstName, lastName, username, email, isActive, departmentId: departmentId || null };
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
           body: JSON.stringify(body),
@@ -306,6 +314,26 @@ export function UserFormDialog({
               </div>
             </div>
           )}
+
+          {/* Departamento */}
+          <div className="space-y-2">
+            <Label>Departamento / Secretaria</Label>
+            <Select value={departmentId} onValueChange={setDepartmentId} disabled={submitting}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Sem departamento</SelectItem>
+                {(deptData?.data ?? [])
+                  .filter(d => d.isActive)
+                  .map(d => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.code} — {d.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Status */}
           <div className="flex items-center space-x-2 py-2">

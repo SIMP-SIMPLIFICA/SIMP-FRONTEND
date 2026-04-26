@@ -60,7 +60,6 @@ export async function apiRequest<T = unknown>(
   }
 
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {
-    console.warn(`⚠️ [API] 401 detectado em ${path}. Tentando refresh...`);
     
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -87,7 +86,6 @@ export async function apiRequest<T = unknown>(
           const newRefresh = refreshData.refreshToken || refreshData.tokens?.refreshToken;
 
           if (newAccess) {
-            console.log("✅ [API] Token renovado com sucesso!");
             setAuthTokens(newAccess, newRefresh);
             processQueue(null, newAccess);
             isRefreshing = false;
@@ -95,7 +93,6 @@ export async function apiRequest<T = unknown>(
           }
         }
       } catch (refreshErr) {
-        console.error("❌ [API] Falha no refresh:", refreshErr);
       }
     }
 
