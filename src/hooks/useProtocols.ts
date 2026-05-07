@@ -33,3 +33,11 @@ export function useUpdateProtocolStatus() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['protocols'] }) },
   })
 }
+
+export function useDeleteProtocol() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => protocolService.delete(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['protocols'] }) },
+  })
+}

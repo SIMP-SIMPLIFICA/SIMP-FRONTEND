@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip,
+  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip, CheckCircle2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -123,6 +123,15 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
 export default function OfficialProtocolsPage() {
   const { data: me } = useMe()
   const isAdmin = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
+  const currentUserId = me?.user?.id
+
+  // Coluna de ações visível para qualquer usuário com permissão de escrita
+  const showActionsColumn = isAdmin || hasAnyPermission(me, ['protocols:write'])
+
+  // Por linha: admin vê tudo, criador vê apenas o próprio
+  function canActOnDoc(doc: OfficialDocument) {
+    return isAdmin || doc.creatorId === currentUserId
+  }
 
   const currentYear = new Date().getFullYear()
   const [search, setSearch]               = useState('')
@@ -132,6 +141,21 @@ export default function OfficialProtocolsPage() {
   const [page, setPage]                   = useState(1)
   const [cancelTarget, setCancelTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
+  const [emitting, setEmitting]           = useState<string | null>(null)
+
+  const emitMutation = useUpdateProtocolStatus()
+
+  async function handleEmit(doc: OfficialDocument) {
+    setEmitting(doc.id)
+    try {
+      await emitMutation.mutateAsync({ id: doc.id, data: { status: 'EMITIDO' } })
+      toast({ title: 'Documento marcado como Emitido.' })
+    } catch {
+      toast({ title: 'Erro ao emitir documento.', variant: 'destructive' })
+    } finally {
+      setEmitting(null)
+    }
+  }
 
   async function handleDownloadAttachment(libraryDocumentId: string) {
     try {
@@ -239,7 +263,7 @@ export default function OfficialProtocolsPage() {
                 <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">Criado por</th>
                 <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Data</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
-                {isAdmin && <th className="px-4 py-3 text-left font-semibold">Ações</th>}
+                {showActionsColumn && <th className="px-4 py-3 text-left font-semibold">Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -248,7 +272,7 @@ export default function OfficialProtocolsPage() {
                 : docs.length === 0
                   ? (
                     <tr>
-                      <td colSpan={isAdmin ? 8 : 7} className="px-4 py-16 text-center text-slate-400">
+                      <td colSpan={showActionsColumn ? 8 : 7} className="px-4 py-16 text-center text-slate-400">
                         <Hash className="h-8 w-8 mx-auto mb-2 opacity-30" />
                         <p className="text-sm">Nenhum documento encontrado.</p>
                       </td>
@@ -319,19 +343,38 @@ export default function OfficialProtocolsPage() {
                           )}
                         </div>
                       </td>
-                      {isAdmin && (
+                      {showActionsColumn && (
                         <td className="px-4 py-3">
-                          {doc.status !== 'CANCELADO' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 gap-1"
-                              onClick={() => setCancelTarget(doc)}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                              Cancelar
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {/* Criador ou admin podem emitir documentos RESERVADO */}
+                            {canActOnDoc(doc) && doc.status === 'RESERVADO' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 gap-1"
+                                disabled={emitting === doc.id}
+                                onClick={() => handleEmit(doc)}
+                              >
+                                {emitting === doc.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <CheckCircle2 className="h-3.5 w-3.5" />
+                                }
+                                Emitir
+                              </Button>
+                            )}
+                            {/* Apenas admin pode cancelar */}
+                            {isAdmin && doc.status !== 'CANCELADO' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 gap-1"
+                                onClick={() => setCancelTarget(doc)}
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Cancelar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>

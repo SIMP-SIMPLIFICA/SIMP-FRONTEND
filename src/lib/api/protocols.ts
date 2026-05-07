@@ -89,4 +89,8 @@ export const protocolService = {
     const res = await api.patch<OfficialDocument>(`/protocols/${id}/status`, data)
     return res.data
   },
+
+  delete: async (id: string) => {
+    await api.delete(`/protocols/${id}`)
+  },
 }
