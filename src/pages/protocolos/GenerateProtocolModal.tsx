@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   CheckCircle2, Copy, Paperclip, Loader2, Clock, FileText,
 } from 'lucide-react'
@@ -236,14 +235,14 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         {generated ? (
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <div className="px-6 py-4">
               <SuccessScreen doc={generated} onClose={handleClose} />
             </div>
-          </ScrollArea>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto">
               <div className="px-6 py-5 space-y-5">
 
                 {/* Campo 1: Categoria */}
@@ -402,7 +401,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                   </>
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="flex justify-end gap-3 px-6 py-4 border-t">
               <Button type="button" variant="outline" onClick={handleClose}

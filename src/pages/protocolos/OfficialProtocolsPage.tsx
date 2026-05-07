@@ -82,8 +82,8 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
 
   return (
     <Dialog open={!!doc} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md flex flex-col max-h-[90vh] overflow-hidden p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-red-100">
             <AlertTriangle className="h-5 w-5 text-red-600" />
           </div>
@@ -92,17 +92,19 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
             {doc?.formattedNumber}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-1.5 py-2">
-          <Label>Justificativa <span className="text-red-500">*</span></Label>
-          <Textarea
-            rows={3}
-            placeholder="Descreva o motivo do cancelamento…"
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            className="resize-none"
-          />
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-1.5">
+            <Label>Justificativa <span className="text-red-500">*</span></Label>
+            <Textarea
+              rows={3}
+              placeholder="Descreva o motivo do cancelamento…"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="resize-none"
+            />
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={updateStatus.isPending}>Cancelar</Button>
           <Button
             variant="destructive"
@@ -362,8 +364,8 @@ export default function OfficialProtocolsPage() {
                                 Emitir
                               </Button>
                             )}
-                            {/* Apenas admin pode cancelar */}
-                            {isAdmin && doc.status !== 'CANCELADO' && (
+                            {/* Criador ou admin podem cancelar */}
+                            {canActOnDoc(doc) && doc.status !== 'CANCELADO' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
