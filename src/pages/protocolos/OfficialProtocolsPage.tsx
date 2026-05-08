@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip, CheckCircle2,
+  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip, CheckCircle2, Eye,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,7 @@ import { useProtocols, useUpdateProtocolStatus } from '@/hooks/useProtocols'
 import { libraryService } from '@/lib/api/library'
 import type { OfficialDocument, DocumentCategory, DocumentStatus } from '@/lib/api/protocols'
 import GenerateProtocolModal from './GenerateProtocolModal'
+import ProtocolDetailsDialog from './ProtocolDetailsDialog'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ export default function OfficialProtocolsPage() {
   const [yearFilter, setYearFilter]       = useState<number>(currentYear)
   const [page, setPage]                   = useState(1)
   const [cancelTarget, setCancelTarget]   = useState<OfficialDocument | null>(null)
+  const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
   const [emitting, setEmitting]           = useState<string | null>(null)
 
@@ -284,10 +286,10 @@ export default function OfficialProtocolsPage() {
                           <span className="text-sm font-medium text-slate-700">{doc.documentType}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 max-w-xs">
+                      <td className="px-4 py-3 max-w-xs w-0 min-w-0">
                         <p className="text-sm text-slate-700 line-clamp-2">{doc.subject}</p>
                         {doc.recipient && (
-                          <p className="text-xs text-slate-400 mt-0.5">Para: {doc.recipient}</p>
+                          <p className="text-xs text-slate-400 mt-0.5 truncate">Para: {doc.recipient}</p>
                         )}
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
@@ -331,6 +333,15 @@ export default function OfficialProtocolsPage() {
                       {showActionsColumn && (
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 flex-wrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 gap-1"
+                              onClick={() => setViewTarget(doc)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Visualizar
+                            </Button>
                             {/* Criador ou admin podem emitir documentos RESERVADO */}
                             {canActOnDoc(doc) && doc.status === 'RESERVADO' && (
                               <Button
@@ -390,6 +401,7 @@ export default function OfficialProtocolsPage() {
       )}
 
       <CancelDialog doc={cancelTarget} onClose={() => setCancelTarget(null)} />
+      <ProtocolDetailsDialog doc={viewTarget} onClose={() => setViewTarget(null)} />
       <GenerateProtocolModal open={generateOpen} onOpenChange={setGenerateOpen} />
     </div>
   )
