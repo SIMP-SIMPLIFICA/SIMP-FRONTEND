@@ -4,8 +4,6 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -66,13 +64,12 @@ interface CancelDialogProps {
 }
 
 function CancelDialog({ doc, onClose }: CancelDialogProps) {
-  const [reason, setReason] = useState('')
   const updateStatus = useUpdateProtocolStatus()
 
   async function handleConfirm() {
-    if (!doc || !reason.trim()) return
+    if (!doc) return
     try {
-      await updateStatus.mutateAsync({ id: doc.id, data: { status: 'CANCELADO', cancelReason: reason.trim() } })
+      await updateStatus.mutateAsync({ id: doc.id, data: { status: 'CANCELADO' } })
       toast({ title: 'Documento cancelado.' })
       onClose()
     } catch {
@@ -82,7 +79,7 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
 
   return (
     <Dialog open={!!doc} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md flex flex-col max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="max-w-md p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-red-100">
             <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -92,27 +89,18 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
             {doc?.formattedNumber}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-1.5">
-            <Label>Justificativa <span className="text-red-500">*</span></Label>
-            <Textarea
-              rows={3}
-              placeholder="Descreva o motivo do cancelamento…"
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              className="resize-none"
-            />
-          </div>
-        </div>
+        <p className="text-sm text-slate-500 text-center px-6 py-4">
+          Tem certeza que deseja cancelar este documento? Esta ação não poderá ser desfeita.
+        </p>
         <DialogFooter className="px-6 py-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={updateStatus.isPending}>Cancelar</Button>
           <Button
             variant="destructive"
-            disabled={updateStatus.isPending || !reason.trim()}
+            disabled={updateStatus.isPending}
             onClick={handleConfirm}
           >
             {updateStatus.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar cancelamento
+            Sim, cancelar documento
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -338,11 +326,6 @@ export default function OfficialProtocolsPage() {
                               </button>
                             )}
                           </div>
-                          {doc.cancelReason && (
-                            <p className="text-xs text-slate-400 line-clamp-1" title={doc.cancelReason}>
-                              {doc.cancelReason}
-                            </p>
-                          )}
                         </div>
                       </td>
                       {showActionsColumn && (
