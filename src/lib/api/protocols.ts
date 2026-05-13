@@ -27,6 +27,7 @@ export interface OfficialDocument {
   subject: string
   recipient: string | null
   sector: string
+  departmentId: string | null
   status: DocumentStatus
   cancelReason: string | null
   libraryDocumentId: string | null
@@ -46,7 +47,8 @@ export interface GenerateDocumentDTO {
   numberingType?: DocumentNumberingType
   subject: string
   recipient?: string
-  sector: string
+  // COMUNICACAO: enviar departmentId. NORMATIVO: omitir.
+  departmentId?: string
 }
 
 export interface UpdateDocumentStatusDTO {
@@ -65,6 +67,7 @@ export const protocolService = {
     documentCategory?: DocumentCategory
     status?: DocumentStatus
     year?: number
+    month?: number
     sector?: string
   }) => {
     const q = new URLSearchParams()
@@ -74,6 +77,7 @@ export const protocolService = {
     if (params?.documentCategory) q.append('documentCategory', params.documentCategory)
     if (params?.status)           q.append('status',           params.status)
     if (params?.year)             q.append('year',             String(params.year))
+    if (params?.month)            q.append('month',            String(params.month))
     if (params?.sector)           q.append('sector',           params.sector)
     const qs = q.toString() ? `?${q.toString()}` : ''
     const res = await api.get<OfficialDocumentListResponse>(`/protocols/${qs}`)

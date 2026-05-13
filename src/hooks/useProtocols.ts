@@ -9,6 +9,7 @@ export function useProtocols(params?: {
   documentCategory?: DocumentCategory
   status?: DocumentStatus
   year?: number
+  month?: number
   sector?: string
 }) {
   return useQuery({

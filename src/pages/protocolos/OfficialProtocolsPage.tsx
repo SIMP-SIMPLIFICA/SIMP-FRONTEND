@@ -1,30 +1,25 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, XCircle, Loader2, AlertTriangle, ChevronLeft, ChevronRight, Paperclip, CheckCircle2, Eye,
+  Search, Plus, Hash, Loader2, ChevronLeft, ChevronRight, Eye, Printer,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
-} from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
-import { useProtocols, useUpdateProtocolStatus } from '@/hooks/useProtocols'
-import { libraryService } from '@/lib/api/library'
+import { useProtocols } from '@/hooks/useProtocols'
 import type { OfficialDocument, DocumentCategory, DocumentStatus } from '@/lib/api/protocols'
 import GenerateProtocolModal from './GenerateProtocolModal'
-import ProtocolDetailsDialog from './ProtocolDetailsDialog'
+import ProtocolViewSheet from './ProtocolViewSheet'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string) {
-  return format(new Date(iso), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+  return format(new Date(iso), 'dd/MM/yyyy', { locale: ptBR })
 }
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -38,6 +33,11 @@ const STATUS_CONFIG: Record<DocumentStatus, { label: string; className: string }
   CANCELADO: { label: 'Cancelado', className: 'bg-red-100 text-red-600' },
 }
 
+const MONTH_NAMES = [
+  '', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
 function StatusBadge({ status }: { status: DocumentStatus }) {
   const cfg = STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' }
   return (
@@ -50,62 +50,10 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
 function RowSkeleton() {
   return (
     <tr className="border-b border-slate-100">
-      {Array.from({ length: 7 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <td key={i} className="px-4 py-3"><Skeleton className="h-4 w-full" /></td>
       ))}
     </tr>
-  )
-}
-
-// ── Cancel Dialog ─────────────────────────────────────────────────────────────
-
-interface CancelDialogProps {
-  doc: OfficialDocument | null
-  onClose: () => void
-}
-
-function CancelDialog({ doc, onClose }: CancelDialogProps) {
-  const updateStatus = useUpdateProtocolStatus()
-
-  async function handleConfirm() {
-    if (!doc) return
-    try {
-      await updateStatus.mutateAsync({ id: doc.id, data: { status: 'CANCELADO' } })
-      toast({ title: 'Documento cancelado.' })
-      onClose()
-    } catch {
-      toast({ title: 'Erro ao cancelar documento.', variant: 'destructive' })
-    }
-  }
-
-  return (
-    <Dialog open={!!doc} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-red-100">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-          </div>
-          <DialogTitle className="text-center">Cancelar Documento?</DialogTitle>
-          <DialogDescription className="text-center text-sm">
-            {doc?.formattedNumber}
-          </DialogDescription>
-        </DialogHeader>
-        <p className="text-sm text-slate-500 text-center px-6 py-4">
-          Tem certeza que deseja cancelar este documento? Esta ação não poderá ser desfeita.
-        </p>
-        <DialogFooter className="px-6 py-4 border-t">
-          <Button variant="outline" onClick={onClose} disabled={updateStatus.isPending}>Cancelar</Button>
-          <Button
-            variant="destructive"
-            disabled={updateStatus.isPending}
-            onClick={handleConfirm}
-          >
-            {updateStatus.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sim, cancelar documento
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -113,58 +61,32 @@ function CancelDialog({ doc, onClose }: CancelDialogProps) {
 
 export default function OfficialProtocolsPage() {
   const { data: me } = useMe()
-  const isAdmin = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
+  const isAdmin      = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
   const currentUserId = me?.user?.id
 
-  // Coluna de ações visível para qualquer usuário com permissão de escrita
-  const showActionsColumn = isAdmin || hasAnyPermission(me, ['protocols:write'])
-
-  // Por linha: admin vê tudo, criador vê apenas o próprio
   function canActOnDoc(doc: OfficialDocument) {
     return isAdmin || doc.creatorId === currentUserId
   }
 
   const currentYear = new Date().getFullYear()
+
   const [search, setSearch]               = useState('')
   const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | 'ALL'>('ALL')
   const [statusFilter, setStatusFilter]   = useState<DocumentStatus | 'ALL'>('ALL')
   const [yearFilter, setYearFilter]       = useState<number>(currentYear)
+  const [monthFilter, setMonthFilter]     = useState<number>(0)
   const [page, setPage]                   = useState(1)
-  const [cancelTarget, setCancelTarget]   = useState<OfficialDocument | null>(null)
   const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
-  const [emitting, setEmitting]           = useState<string | null>(null)
-
-  const emitMutation = useUpdateProtocolStatus()
-
-  async function handleEmit(doc: OfficialDocument) {
-    setEmitting(doc.id)
-    try {
-      await emitMutation.mutateAsync({ id: doc.id, data: { status: 'EMITIDO' } })
-      toast({ title: 'Documento marcado como Emitido.' })
-    } catch {
-      toast({ title: 'Erro ao emitir documento.', variant: 'destructive' })
-    } finally {
-      setEmitting(null)
-    }
-  }
-
-  async function handleDownloadAttachment(libraryDocumentId: string) {
-    try {
-      const { url } = await libraryService.download(libraryDocumentId)
-      window.open(url, '_blank')
-    } catch {
-      toast({ title: 'Erro ao baixar documento.', variant: 'destructive' })
-    }
-  }
 
   const { data, isLoading } = useProtocols({
     page,
     limit: 25,
-    search: search || undefined,
+    search:           search || undefined,
     documentCategory: categoryFilter !== 'ALL' ? categoryFilter : undefined,
     status:           statusFilter   !== 'ALL' ? statusFilter   : undefined,
     year:             yearFilter,
+    month:            monthFilter !== 0 ? monthFilter : undefined,
   })
 
   const docs       = data?.data ?? []
@@ -172,237 +94,237 @@ export default function OfficialProtocolsPage() {
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
+  // Título do extrato para impressão
+  const extractTitle = [
+    monthFilter !== 0 ? `${MONTH_NAMES[monthFilter]}/${yearFilter}` : `Ano ${yearFilter}`,
+    categoryFilter !== 'ALL' ? CATEGORY_LABELS[categoryFilter] : null,
+    statusFilter   !== 'ALL' ? STATUS_CONFIG[statusFilter].label : null,
+  ].filter(Boolean).join(' · ')
+
+  function handlePrint() {
+    window.print()
+  }
+
   return (
-    <div className="flex flex-col h-full gap-0 max-w-screen-2xl mx-auto w-full">
-      {/* ── Page header ── */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-white shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
-            <Hash className="h-5 w-5 text-indigo-600" />
+    <>
+      {/* CSS de impressão — ocultar controles, mostrar cabeçalho de extrato */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: absolute; inset: 0; }
+          .no-print { display: none !important; }
+          .print-header { display: block !important; }
+          @page { margin: 1.5cm; }
+        }
+        .print-header { display: none; }
+      `}</style>
+
+      <div className="print-area flex flex-col h-full gap-0 max-w-screen-2xl mx-auto w-full">
+
+        {/* Cabeçalho de impressão (visível apenas no print) */}
+        <div className="print-header mb-4 pb-4 border-b">
+          <h2 className="text-lg font-bold text-slate-900">Relatório de Protocolos</h2>
+          <p className="text-sm text-slate-600 mt-0.5">{extractTitle}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Gerado em {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          </p>
+        </div>
+
+        {/* ── Page header ── */}
+        <div className="no-print flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-white shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
+              <Hash className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900">Protocolos e Ofícios</h1>
+              <p className="text-xs text-slate-400">Controle de numeração oficial</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Protocolos e Ofícios</h1>
-            <p className="text-xs text-slate-400">Controle de numeração oficial</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-1.5" onClick={handlePrint}>
+              <Printer className="h-4 w-4" />
+              Imprimir Extrato
+            </Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5" onClick={() => setGenerateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Gerar Novo Número
+            </Button>
           </div>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5" onClick={() => setGenerateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Gerar Novo Número
-        </Button>
-      </div>
 
-      {/* ── Filters ── */}
-      <div className="px-6 py-3 border-b border-slate-100 bg-slate-50 shrink-0">
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-              placeholder="Buscar por número ou assunto…"
-              className="pl-8 h-8 text-sm"
-            />
+        {/* ── Filters ── */}
+        <div className="no-print px-6 py-3 border-b border-slate-100 bg-slate-50 shrink-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Buscar por número ou assunto…"
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v as DocumentCategory | 'ALL'); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-40">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas as categorias</SelectItem>
+                <SelectItem value="COMUNICACAO">Comunicação</SelectItem>
+                <SelectItem value="NORMATIVO">Normativo</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={v => { setStatusFilter(v as DocumentStatus | 'ALL'); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos os status</SelectItem>
+                <SelectItem value="RESERVADO">Reservado</SelectItem>
+                <SelectItem value="EMITIDO">Emitido</SelectItem>
+                <SelectItem value="CANCELADO">Cancelado</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={String(yearFilter)} onValueChange={v => { setYearFilter(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={String(monthFilter)} onValueChange={v => { setMonthFilter(Number(v)); setPage(1) }}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue placeholder="Todos os meses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Todos os meses</SelectItem>
+                {MONTH_NAMES.slice(1).map((name, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isAdmin && (
+              <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+                Visão de auditoria
+              </span>
+            )}
           </div>
-          <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v as DocumentCategory | 'ALL'); setPage(1) }}>
-            <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todas as categorias</SelectItem>
-              <SelectItem value="COMUNICACAO">Comunicação</SelectItem>
-              <SelectItem value="NORMATIVO">Normativo</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={v => { setStatusFilter(v as DocumentStatus | 'ALL'); setPage(1) }}>
-            <SelectTrigger className="h-8 text-xs w-36">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos os status</SelectItem>
-              <SelectItem value="RESERVADO">Reservado</SelectItem>
-              <SelectItem value="EMITIDO">Emitido</SelectItem>
-              <SelectItem value="CANCELADO">Cancelado</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={String(yearFilter)} onValueChange={v => { setYearFilter(Number(v)); setPage(1) }}>
-            <SelectTrigger className="h-8 text-xs w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {yearOptions.map(y => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {isAdmin && (
-            <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
-              Visão de auditoria
-            </span>
-          )}
         </div>
-      </div>
 
-      {/* ── Table ── */}
-      <ScrollArea className="flex-1">
-        <div className="min-w-[600px]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
-                <th className="px-4 py-3 text-left font-semibold">Número</th>
-                <th className="px-4 py-3 text-left font-semibold hidden sm:table-cell">Categoria / Tipo</th>
-                <th className="px-4 py-3 text-left font-semibold">Assunto</th>
-                <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Setor</th>
-                <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">Criado por</th>
-                <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Data</th>
-                <th className="px-4 py-3 text-left font-semibold">Status</th>
-                {showActionsColumn && <th className="px-4 py-3 text-left font-semibold">Ações</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading
-                ? Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
-                : docs.length === 0
-                  ? (
-                    <tr>
-                      <td colSpan={showActionsColumn ? 8 : 7} className="px-4 py-16 text-center text-slate-400">
-                        <Hash className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-sm">Nenhum documento encontrado.</p>
-                      </td>
-                    </tr>
-                  )
-                  : docs.map(doc => (
-                    <tr
-                      key={doc.id}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs font-semibold text-slate-800">
-                          {doc.formattedNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs text-slate-400">{CATEGORY_LABELS[doc.documentCategory]}</span>
-                          <span className="text-sm font-medium text-slate-700">{doc.documentType}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 max-w-xs w-0 min-w-0">
-                        <p className="text-sm text-slate-700 line-clamp-2">{doc.subject}</p>
-                        {doc.recipient && (
-                          <p className="text-xs text-slate-400 mt-0.5 truncate">Para: {doc.recipient}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
-                          {doc.sector}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-sm text-slate-700">
-                            {doc.creator
-                              ? `${doc.creator.firstName} ${doc.creator.lastName}`
-                              : '—'}
-                          </span>
-                          {doc.sector && (
-                            <span className="inline-flex w-fit items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-600 tracking-wide">
-                              {doc.sector}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap hidden md:table-cell">
-                        {formatDate(doc.createdAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={doc.status} />
-                            {doc.libraryDocumentId && (
-                              <button
-                                onClick={() => handleDownloadAttachment(doc.libraryDocumentId!)}
-                                title="Baixar PDF vinculado"
-                                className="text-slate-400 hover:text-indigo-600 transition-colors"
-                              >
-                                <Paperclip className="h-3.5 w-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      {showActionsColumn && (
+        {/* ── Table ── */}
+        <div className="flex-1 overflow-auto">
+          <div className="min-w-[560px]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 text-left font-semibold">Número</th>
+                  <th className="px-4 py-3 text-left font-semibold hidden sm:table-cell">Tipo</th>
+                  <th className="px-4 py-3 text-left font-semibold">Assunto</th>
+                  <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Setor</th>
+                  <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Data</th>
+                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold no-print">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading
+                  ? Array.from({ length: 8 }).map((_, i) => <RowSkeleton key={i} />)
+                  : docs.length === 0
+                    ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-16 text-center text-slate-400">
+                          <Hash className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-sm">Nenhum documento encontrado.</p>
+                        </td>
+                      </tr>
+                    )
+                    : docs.map(doc => (
+                      <tr
+                        key={doc.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
+                        onClick={() => setViewTarget(doc)}
+                      >
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 gap-1"
-                              onClick={() => setViewTarget(doc)}
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              Visualizar
-                            </Button>
-                            {/* Criador ou admin podem emitir documentos RESERVADO */}
-                            {canActOnDoc(doc) && doc.status === 'RESERVADO' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 gap-1"
-                                disabled={emitting === doc.id}
-                                onClick={() => handleEmit(doc)}
-                              >
-                                {emitting === doc.id
-                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  : <CheckCircle2 className="h-3.5 w-3.5" />
-                                }
-                                Emitir
-                              </Button>
-                            )}
-                            {/* Criador ou admin podem cancelar */}
-                            {canActOnDoc(doc) && doc.status !== 'CANCELADO' && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 gap-1"
-                                onClick={() => setCancelTarget(doc)}
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                                Cancelar
-                              </Button>
-                            )}
+                          <span className="font-mono text-xs font-semibold text-slate-800 whitespace-nowrap">
+                            {doc.formattedNumber}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] text-slate-400">{CATEGORY_LABELS[doc.documentCategory]}</span>
+                            <span className="text-xs font-medium text-slate-700">{doc.documentType}</span>
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))
-              }
-            </tbody>
-          </table>
-        </div>
-      </ScrollArea>
-
-      {/* ── Pagination ── */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-200 bg-white shrink-0">
-          <span className="text-xs text-slate-500">
-            {data?.meta?.total ?? 0} documentos · página {page} de {totalPages}
-          </span>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
-              disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="outline" size="sm" className="h-7 w-7 p-0"
-              disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
+                        <td className="px-4 py-3 max-w-[200px]">
+                          <p className="text-sm text-slate-700 line-clamp-1">{doc.subject}</p>
+                          {doc.recipient && (
+                            <p className="text-xs text-slate-400 truncate max-w-[180px]">
+                              Para: {doc.recipient}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                            {doc.sector}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap hidden md:table-cell">
+                          {formatDate(doc.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={doc.status} />
+                        </td>
+                        <td className="px-4 py-3 no-print" onClick={e => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 gap-1"
+                            onClick={() => setViewTarget(doc)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Visualizar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                }
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
 
-      <CancelDialog doc={cancelTarget} onClose={() => setCancelTarget(null)} />
-      <ProtocolDetailsDialog doc={viewTarget} onClose={() => setViewTarget(null)} />
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div className="no-print flex items-center justify-between px-6 py-3 border-t border-slate-200 bg-white shrink-0">
+            <span className="text-xs text-slate-500">
+              {data?.meta?.total ?? 0} documentos · página {page} de {totalPages}
+            </span>
+            <div className="flex gap-1">
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+                disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0"
+                disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modais ── */}
+      <ProtocolViewSheet
+        doc={viewTarget}
+        canAct={viewTarget ? canActOnDoc(viewTarget) : false}
+        onClose={() => setViewTarget(null)}
+      />
       <GenerateProtocolModal open={generateOpen} onOpenChange={setGenerateOpen} />
-    </div>
+    </>
   )
 }

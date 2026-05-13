@@ -27,7 +27,7 @@ interface FormState {
   documentCategory: DocumentCategory | ''
   documentType: string
   numberingType: 'SEQUENTIAL' | 'RANDOM'
-  sector: string
+  departmentId: string
   subject: string
   recipient: string
 }
@@ -36,7 +36,7 @@ const EMPTY: FormState = {
   documentCategory: '',
   documentType: '',
   numberingType: 'SEQUENTIAL',
-  sector: '',
+  departmentId: '',
   subject: '',
   recipient: '',
 }
@@ -198,7 +198,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
     form.documentCategory &&
     form.documentType &&
     form.subject.trim() &&
-    (isNormativo || form.sector.trim()) &&
+    (isNormativo || form.departmentId) &&
     (isNormativo || form.recipient.trim())
   )
 
@@ -211,7 +211,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
         documentType:     form.documentType,
         subject:          form.subject.trim(),
         recipient:        isNormativo ? undefined : form.recipient.trim() || undefined,
-        sector:           isNormativo ? 'CENTRAL' : form.sector.trim(),
+        departmentId:     isNormativo ? undefined : form.departmentId,
         numberingType:    form.numberingType,
       })
       setGenerated(doc)
@@ -337,26 +337,19 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                         <FileText className="h-3.5 w-3.5 shrink-0" />
                         Numeração Centralizada — Geral do Município
                       </div>
-                    ) : departments.length > 0 ? (
-                      <Select value={form.sector} onValueChange={v => set('sector', v)}>
+                    ) : (
+                      <Select value={form.departmentId} onValueChange={v => set('departmentId', v)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecionar setor..." />
+                          <SelectValue placeholder="Selecionar departamento..." />
                         </SelectTrigger>
                         <SelectContent>
                           {departments.map(d => (
-                            <SelectItem key={d.id} value={d.code}>
+                            <SelectItem key={d.id} value={d.id}>
                               {d.code} — {d.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    ) : (
-                      <Input
-                        placeholder="Ex: SAÚDE, OBRAS, ADMINISTRAÇÃO…"
-                        value={form.sector}
-                        onChange={e => set('sector', e.target.value.toUpperCase())}
-                        required
-                      />
                     )}
                   </div>
                 )}
