@@ -85,13 +85,10 @@ export const router = createBrowserRouter([
 
           {
             element: <ModuleGate module="tasks" />,
-            children: [{
-              element: <PermissionGate anyOf={["tasks:read", "tasks:write", "tasks:manage"]} />,
-              children: [
-                { path: "/workspaces", element: <WorkspacesPage /> },
-                { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
-              ],
-            }],
+            children: [
+              { path: "/workspaces", element: <WorkspacesPage /> },
+              { path: "/workspaces/:id", element: <WorkspaceDetailPage /> },
+            ],
           },
 
           {

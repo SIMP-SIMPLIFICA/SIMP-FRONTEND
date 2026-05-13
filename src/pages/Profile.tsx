@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Smartphone, LogOut, Loader2, RefreshCw } from "lucide-react";
+import { Smartphone, LogOut, Loader2, RefreshCw, Building2, FolderOpen } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
-import { useMe } from "@/hooks/useMe";
+import { useMe, type MeUser } from "@/hooks/useMe";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 // --- TYPES ---
 type ApiSession = {
@@ -26,23 +27,11 @@ type SessionResponse = {
   sessions: ApiSession[];
 };
 
-// Definição local para garantir que o TS reconheça os campos, 
-// caso o hook useMe esteja com tipagem incompleta.
-type ProfileUser = {
-  id: string;
-  email: string;
-  username: string;
-  firstName?: string;
-  lastName?: string;
-  avatar?: string;
-};
-
 export default function Profile() {
-  // Ajuste: useQuery retorna 'refetch', não 'mutate'
   const { data: meData, refetch: refreshMe } = useMe();
-  
-  // Cast forçado para garantir acesso aos campos
-  const user = meData?.user as ProfileUser | undefined;
+  const user = meData?.user as MeUser | undefined;
+
+  const userDepartments = user?.departments ?? [];
 
   const [activeTab, setActiveTab] = useState("general");
 
@@ -128,7 +117,8 @@ export default function Profile() {
     try {
       const res = await apiRequest<SessionResponse>("/api/v1/auth/sessions");
       setSessions(res.sessions || []);
-    } catch (err) {
+    } catch {
+      // sessions fetch is non-critical
     } finally {
       setSessionsLoading(false);
     }
@@ -192,6 +182,39 @@ export default function Profile() {
                      <Button type="button" variant="outline" size="sm" disabled>Alterar Avatar</Button>
                      <p className="text-xs text-slate-400 mt-2">Apenas JPG ou PNG. Máx 2MB.</p>
                   </div>
+                </div>
+
+                {/* Organização e Departamento */}
+                <div className="flex flex-wrap gap-3">
+                  {user.organization?.name && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
+                      <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-blue-400 font-medium uppercase tracking-wide">Organização</p>
+                        <p className="text-sm font-semibold text-blue-800">{user.organization.name}</p>
+                      </div>
+                    </div>
+                  )}
+                  {userDepartments.length > 0 ? userDepartments.map(dept => (
+                    <div key={dept.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+                      <FolderOpen className="h-4 w-4 text-slate-500 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Departamento</p>
+                        <p className="text-sm font-semibold text-slate-800">
+                          {dept.name}
+                          <Badge variant="secondary" className="ml-2 text-[10px] py-0">{dept.code}</Badge>
+                        </p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+                      <FolderOpen className="h-4 w-4 text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Departamento</p>
+                        <p className="text-sm text-slate-400">Não vinculado</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

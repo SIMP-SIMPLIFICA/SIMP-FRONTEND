@@ -20,3 +20,12 @@ export function useCreateWorkspace() {
     },
   });
 }
+
+export function useOrgWorkspace() {
+  return useQuery<Workspace | null>({
+    queryKey: ["workspaces", "org"],
+    queryFn: workspaceService.getOrgWorkspace,
+    staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+}

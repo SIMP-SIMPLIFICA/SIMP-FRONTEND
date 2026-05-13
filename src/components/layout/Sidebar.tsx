@@ -77,7 +77,6 @@ const NAV_SECTIONS: NavSection[] = [
         to: "/workspaces",
         icon: <Briefcase className="h-4 w-4" />,
         module: "tasks",
-        anyOf: ["tasks:read", "tasks:write", "tasks:manage"],
       },
       {
         label: "Comunicação",

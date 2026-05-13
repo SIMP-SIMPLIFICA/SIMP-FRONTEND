@@ -2,6 +2,15 @@ import { api } from '../api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export interface DepartmentMember {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  email: string
+  avatar: string | null
+  username: string | null
+}
+
 export interface Department {
   id: string
   organizationId: string
@@ -9,11 +18,11 @@ export interface Department {
   code: string
   description?: string | null
   isActive: boolean
+  managerId?: string | null
+  manager?: { id: string; firstName: string | null; lastName: string | null } | null
   createdAt: string
   updatedAt: string
-  _count?: {
-    users: number
-  }
+  _count?: { users: number }
 }
 
 export interface DepartmentListResponse {
@@ -32,6 +41,7 @@ export interface UpdateDepartmentDTO {
   code?: string
   description?: string | null
   isActive?: boolean
+  managerId?: string | null
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -59,6 +69,21 @@ export const departmentService = {
 
   remove: async (id: string) => {
     const res = await api.delete<{ message: string }>(`/departments/${id}`)
+    return res.data
+  },
+
+  listMembers: async (id: string) => {
+    const res = await api.get<DepartmentMember[]>(`/departments/${id}/members`)
+    return res.data
+  },
+
+  addMembers: async (id: string, userIds: string[]) => {
+    const res = await api.post<{ updated: number }>(`/departments/${id}/members`, { userIds })
+    return res.data
+  },
+
+  removeMember: async (id: string, userId: string) => {
+    const res = await api.delete<{ message: string }>(`/departments/${id}/members/${userId}`)
     return res.data
   },
 }

@@ -12,6 +12,12 @@ export type MeUser = {
   organizationId: string | null;
   isSuperAdmin: boolean;
   clearanceLevel?: number;
+  departments?: {
+    id: string;
+    name: string;
+    code: string;
+    managerId: string | null;
+  }[];
   organization?: {
     id: string;
     name: string;

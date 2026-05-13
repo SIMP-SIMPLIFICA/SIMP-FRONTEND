@@ -12,7 +12,7 @@ export const workspaceService = {
     return response.data;
   },
 
-  create: async (data: { name: string; description?: string }) => {
+  create: async (data: { name: string; description?: string; departmentId?: string | null }) => {
     const response = await api.post<Workspace>("/workspaces", data);
     return response.data;
   },
@@ -30,10 +30,19 @@ export const workspaceService = {
     await api.delete(`/workspaces/${workspaceId}`);
   },
 
+  getOrgWorkspace: async (): Promise<Workspace | null> => {
+    try {
+      const response = await api.get<Workspace>("/workspaces/org");
+      return response.data;
+    } catch {
+      return null;
+    }
+  },
+
   searchOrgUsers: async (search: string) => {
     const response = await api.get<{
       data: { id: string; firstName: string; lastName: string | null; email: string; avatar: string | null }[];
-    }>(`/users?search=${encodeURIComponent(search)}&limit=10`);
+    }>(`/api/v1/users?search=${encodeURIComponent(search)}&limit=10`);
     return response.data.data ?? [];
   },
 };

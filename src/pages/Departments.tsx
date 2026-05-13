@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Building2, Plus, Search, Loader2, Pencil, Trash2, Users,
 } from 'lucide-react'
+import { DepartmentMembersSheet } from '@/components/departments/DepartmentMembersSheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -171,6 +172,7 @@ export default function DepartmentsPage() {
   const [editing, setEditing]         = useState<Department | null>(null)
   const [dialogKey, setDialogKey]     = useState(0)
   const [deleteTarget, setDeleteTarget] = useState<Department | null>(null)
+  const [membersTarget, setMembersTarget] = useState<Department | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300)
@@ -280,10 +282,15 @@ export default function DepartmentsPage() {
                   {dept.description ?? '—'}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell text-center">
-                  <span className="flex items-center justify-center gap-1 text-xs text-slate-500">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 text-xs"
+                    onClick={() => setMembersTarget(dept)}
+                  >
                     <Users className="h-3 w-3" />
-                    {dept._count?.users ?? 0}
-                  </span>
+                    Ver / Adicionar ({dept._count?.users ?? 0})
+                  </Button>
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge variant={dept.isActive ? 'default' : 'secondary'} className="text-xs">
@@ -355,6 +362,13 @@ export default function DepartmentsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         onSuccess={() => setEditing(null)}
+      />
+
+      {/* Members Sheet */}
+      <DepartmentMembersSheet
+        open={!!membersTarget}
+        onOpenChange={v => { if (!v) setMembersTarget(null) }}
+        department={membersTarget}
       />
 
       {/* Delete Confirm */}

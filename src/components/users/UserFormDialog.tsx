@@ -79,7 +79,7 @@ export function UserFormDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [departmentId, setDepartmentId] = useState<string>("");
+  const [departmentId, setDepartmentId] = useState<string>("none");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
 
   const { data: deptData } = useDepartmentOptions();
@@ -102,7 +102,7 @@ export function UserFormDialog({
         setUsername(user.username || "");
         setEmail(user.email || "");
         setIsActive(user.isActive);
-        setDepartmentId(user.departmentId || "");
+        setDepartmentId(user.departmentId || "none");
         setPassword("");
         setSelectedRoles(new Set(user.roles.map((r) => r.role.id)));
         void fetchRoles();
@@ -114,7 +114,7 @@ export function UserFormDialog({
         setEmail("");
         setPassword("");
         setIsActive(true);
-        setDepartmentId("");
+        setDepartmentId("none");
         setSelectedRoles(new Set());
         void fetchRoles();
       }
@@ -126,7 +126,8 @@ export function UserFormDialog({
       setLoadingRoles(true);
       const res = await apiRequest<{ data: UserRoleRef[] }>("/api/v1/roles?limit=100");
       setAvailableRoles(res.data);
-    } catch (error) {
+    } catch {
+      // roles fetch is non-critical
     } finally {
       setLoadingRoles(false);
     }
@@ -173,7 +174,7 @@ export function UserFormDialog({
 
       if (isEditing && user) {
         // --- ATUALIZAR ---
-        const body: UpdateUserBody = { firstName, lastName, username, email, isActive, departmentId: departmentId || null };
+        const body: UpdateUserBody = { firstName, lastName, username, email, isActive, departmentId: departmentId === "none" ? null : departmentId };
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
           body: JSON.stringify(body),
@@ -208,7 +209,7 @@ export function UserFormDialog({
           password,
           isActive,
           roles: Array.from(selectedRoles),
-          departmentId: departmentId || null,
+          departmentId: departmentId === "none" ? null : departmentId,
         };
 
         await apiRequest("/api/v1/users", {
@@ -325,7 +326,7 @@ export function UserFormDialog({
                 <SelectValue placeholder="Sem departamento" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sem departamento</SelectItem>
+                <SelectItem value="none">Sem departamento</SelectItem>
                 {(deptData?.data ?? [])
                   .filter(d => d.isActive)
                   .map(d => (
