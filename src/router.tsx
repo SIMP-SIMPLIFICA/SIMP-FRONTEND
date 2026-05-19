@@ -37,6 +37,8 @@ import LibraryPage from "@/pages/library/LibraryPage"
 import CovenantsPage from "@/pages/convenios/CovenantsPage";
 import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
 import DepartmentsPage from "@/pages/Departments";
+import CouncilsPage from "@/pages/councils/CouncilsPage";
+import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -168,6 +170,13 @@ export const router = createBrowserRouter([
           {
             element: <PermissionGate anyOf={["departments:read", "departments:write", "departments:delete"]} />,
             children: [{ path: "/departamentos", element: <DepartmentsPage /> }],
+          },
+          {
+            element: <ModuleGate module="councils" />,
+            children: [
+              { path: "/conselhos",          element: <CouncilsPage /> },
+              { path: "/conselhos/:id",      element: <CouncilDetailPage /> },
+            ],
           },
         ],
       },
