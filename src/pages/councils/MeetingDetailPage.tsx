@@ -1,4 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import {
   ArrowLeft,
   AlertTriangle,
@@ -9,10 +10,6 @@ import {
   PenLine,
   Loader2,
   Upload,
-  Plus,
-  CheckCircle2,
-  XCircle,
-  Minus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -30,11 +27,14 @@ import {
   useMeetingDocuments,
   useDocumentDownload,
 } from '@/hooks/useCouncils'
+import { toast } from '@/hooks/use-toast'
+import { initiateGovBrSigning } from '@/hooks/useGovBrSigning'
+import { AgendaItemsEditor } from '@/components/councils/AgendaItemsEditor'
+import { UploadDocumentModal } from '@/components/councils/UploadDocumentModal'
+import { SignatureStatusBadge } from '@/components/councils/SignatureStatusBadge'
 import type {
   MeetingStatus,
   CouncilDocumentType,
-  SignatureStatus,
-  MeetingAgendaItem,
   CouncilDocument,
 } from '@/lib/api/councils'
 
@@ -55,13 +55,6 @@ const DOC_TYPE_LABELS: Record<CouncilDocumentType, string> = {
   OUTROS:     'Outros',
 }
 
-const SIGNATURE_STATUS_CONFIG: Record<SignatureStatus, { label: string; className: string }> = {
-  PENDENTE: { label: 'Pendente', className: 'bg-amber-100   text-amber-700'   },
-  ASSINADO: { label: 'Assinado', className: 'bg-emerald-100  text-emerald-700' },
-  FALHOU:   { label: 'Falhou',   className: 'bg-red-100      text-red-700'     },
-  EXPIRADO: { label: 'Expirado', className: 'bg-slate-100    text-slate-500'   },
-}
-
 // ── Utility ───────────────────────────────────────────────────────────────────
 
 function formatDateTime(iso: string): string {
@@ -69,22 +62,13 @@ function formatDateTime(iso: string): string {
 }
 
 function formatFileSize(bytes: number): string {
-  return `${Math.round(bytes / 1024)} KB`
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
 function MeetingStatusBadge({ status }: { status: MeetingStatus }) {
   const cfg = MEETING_STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' }
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.className}`}>
-      {cfg.label}
-    </span>
-  )
-}
-
-function SignatureStatusBadge({ status }: { status: SignatureStatus }) {
-  const cfg = SIGNATURE_STATUS_CONFIG[status] ?? { label: status, className: 'bg-slate-100 text-slate-600' }
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.className}`}>
       {cfg.label}
@@ -158,80 +142,6 @@ function PageSkeleton() {
   )
 }
 
-// ── Agenda section ────────────────────────────────────────────────────────────
-
-interface AgendaSectionProps {
-  items: MeetingAgendaItem[]
-  isLoading: boolean
-}
-
-function AgendaSection({ items, isLoading }: AgendaSectionProps) {
-  const sorted = [...items].sort((a, b) => a.order - b.order)
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-      {/* Section header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <h2 className="text-sm font-semibold text-slate-700">Pauta da Reunião</h2>
-        <Button size="sm" variant="outline" className="gap-1.5" disabled>
-          <Plus className="h-4 w-4" />
-          Adicionar Item
-        </Button>
-      </div>
-
-      {isLoading ? (
-        Array.from({ length: 3 }).map((_, i) => <AgendaRowSkeleton key={i} />)
-      ) : sorted.length === 0 ? (
-        <p className="py-16 text-center text-slate-400 text-sm">
-          Nenhuma pauta registrada.
-        </p>
-      ) : (
-        sorted.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-start gap-3 px-4 py-3 border-b border-slate-100 last:border-0"
-          >
-            {/* Order badge */}
-            <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold flex-shrink-0 mt-0.5">
-              {item.order}
-            </span>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800">{item.title}</p>
-              {item.description && (
-                <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
-              )}
-            </div>
-
-            {/* Approved indicator */}
-            <div className="flex-shrink-0 mt-0.5">
-              {item.approved === true && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Aprovado
-                </span>
-              )}
-              {item.approved === false && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-                  <XCircle className="h-3.5 w-3.5" />
-                  Rejeitado
-                </span>
-              )}
-              {item.approved === null && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
-                  <Minus className="h-3.5 w-3.5" />
-                  Não votado
-                </span>
-              )}
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
-
 // ── Documents section ─────────────────────────────────────────────────────────
 
 interface DocumentsSectionProps {
@@ -239,17 +149,38 @@ interface DocumentsSectionProps {
   isLoading: boolean
   councilId: string
   meetingId: string
+  onUpload: () => void
+  returnPath: string
 }
 
-function DocumentsSection({ documents, isLoading, councilId, meetingId }: DocumentsSectionProps) {
+function DocumentsSection({
+  documents,
+  isLoading,
+  councilId,
+  meetingId,
+  onUpload,
+  returnPath,
+}: DocumentsSectionProps) {
+  const [pendingDocId, setPendingDocId] = useState<string | null>(null)
+  const [signingDocId, setSigningDocId] = useState<string | null>(null)
   const documentDownload = useDocumentDownload(councilId, meetingId)
+
+  async function handleSign(docId: string) {
+    setSigningDocId(docId)
+    try {
+      await initiateGovBrSigning(docId, returnPath)
+    } catch {
+      toast({ title: 'Erro ao iniciar assinatura Gov.br.', variant: 'destructive' })
+      setSigningDocId(null)
+    }
+  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
       {/* Section header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-700">Documentos</h2>
-        <Button size="sm" variant="outline" className="gap-1.5" disabled>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={onUpload}>
           <Upload className="h-4 w-4" />
           Upload Documento
         </Button>
@@ -263,7 +194,7 @@ function DocumentsSection({ documents, isLoading, councilId, meetingId }: Docume
             <th className="px-4 py-3 text-left font-medium text-slate-600">Tamanho</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell">Enviado por</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">SHA-256</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">Status Assinatura</th>
+            <th className="px-4 py-3 text-left font-medium text-slate-600">Assinatura</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600">Ações</th>
           </tr>
         </thead>
@@ -319,11 +250,16 @@ function DocumentsSection({ documents, isLoading, councilId, meetingId }: Docume
                         size="sm"
                         variant="outline"
                         className="gap-1.5 h-8 px-2.5"
-                        onClick={() => documentDownload.mutate(doc.id)}
-                        disabled={documentDownload.isPending}
+                        onClick={() => {
+                          setPendingDocId(doc.id)
+                          documentDownload.mutate(doc.id, {
+                            onSettled: () => setPendingDocId(null),
+                          })
+                        }}
+                        disabled={pendingDocId === doc.id && documentDownload.isPending}
                         title="Baixar documento"
                       >
-                        {documentDownload.isPending ? (
+                        {pendingDocId === doc.id && documentDownload.isPending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Download className="h-3.5 w-3.5" />
@@ -333,10 +269,15 @@ function DocumentsSection({ documents, isLoading, councilId, meetingId }: Docume
                         size="sm"
                         variant="outline"
                         className="gap-1.5 h-8 px-2.5"
-                        disabled
+                        onClick={() => handleSign(doc.id)}
+                        disabled={signingDocId === doc.id}
                         title="Assinar via Gov.br"
                       >
-                        <PenLine className="h-3.5 w-3.5" />
+                        {signingDocId === doc.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <PenLine className="h-3.5 w-3.5" />
+                        )}
                         <span className="hidden sm:inline text-xs">Assinar Gov.br</span>
                       </Button>
                     </div>
@@ -355,10 +296,13 @@ function DocumentsSection({ documents, isLoading, councilId, meetingId }: Docume
 
 export default function MeetingDetailPage() {
   const { id, meetingId } = useParams<{ id: string; meetingId: string }>()
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
 
-  const councilId  = id        ?? ''
-  const mId        = meetingId ?? ''
+  const councilId = id        ?? ''
+  const mId       = meetingId ?? ''
+
+  const [showUpload, setShowUpload] = useState(false)
 
   const { data: meeting, isLoading, isError } = useCouncilMeeting(councilId, mId)
   const { data: documents = [], isLoading: docsLoading } = useMeetingDocuments(councilId, mId)
@@ -457,7 +401,12 @@ export default function MeetingDetailPage() {
       </div>
 
       {/* ── 2. Pauta section ── */}
-      <AgendaSection items={agendaItems} isLoading={false} />
+      <AgendaItemsEditor
+        items={agendaItems}
+        isLoading={false}
+        councilId={councilId}
+        meetingId={mId}
+      />
 
       {/* ── 3. Documentos section ── */}
       <DocumentsSection
@@ -465,8 +414,16 @@ export default function MeetingDetailPage() {
         isLoading={docsLoading}
         councilId={councilId}
         meetingId={mId}
+        onUpload={() => setShowUpload(true)}
+        returnPath={location.pathname}
       />
 
+      <UploadDocumentModal
+        open={showUpload}
+        onClose={() => setShowUpload(false)}
+        councilId={councilId}
+        meetingId={mId}
+      />
     </div>
   )
 }

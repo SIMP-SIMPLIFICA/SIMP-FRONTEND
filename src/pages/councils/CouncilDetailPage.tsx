@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Landmark, AlertTriangle, Plus, Users } from 'lucide-react'
+import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -268,6 +270,7 @@ export default function CouncilDetailPage() {
   const navigate = useNavigate()
 
   const councilId = id ?? ''
+  const [showManageMembers, setShowManageMembers] = useState(false)
   const { data: council, isLoading, isError } = useCouncil(councilId)
 
   if (isLoading) {
@@ -363,7 +366,7 @@ export default function CouncilDetailPage() {
                 size="sm"
                 variant="outline"
                 className="gap-1.5"
-                disabled
+                onClick={() => setShowManageMembers(true)}
               >
                 <Plus className="h-4 w-4" />
                 Gerenciar Membros
@@ -390,6 +393,12 @@ export default function CouncilDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ManageMembersModal
+        open={showManageMembers}
+        onClose={() => setShowManageMembers(false)}
+        councilId={councilId}
+      />
     </div>
   )
 }

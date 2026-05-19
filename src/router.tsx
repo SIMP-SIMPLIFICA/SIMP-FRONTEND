@@ -40,6 +40,7 @@ import DepartmentsPage from "@/pages/Departments";
 import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
+import CouncilSignReturnPage from "@/pages/councils/CouncilSignReturnPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -176,9 +177,11 @@ export const router = createBrowserRouter([
             // TODO: wrap children in PermissionGate anyOf={["councils:read","councils:write","councils:admin"]} when permission keys are configured
             element: <ModuleGate module="councils" />,
             children: [
-              { path: "/conselhos",                                    element: <CouncilsPage /> },
-              { path: "/conselhos/:id",                              element: <CouncilDetailPage /> },
-              { path: "/conselhos/:id/reunioes/:meetingId",          element: <MeetingDetailPage /> },
+              { path: "/conselhos",                                 element: <CouncilsPage /> },
+              { path: "/conselhos/:id",                             element: <CouncilDetailPage /> },
+              { path: "/conselhos/:id/reunioes/:meetingId",         element: <MeetingDetailPage /> },
+              // Route must match the backend's hardcoded redirect: /councils/sign/return
+              { path: "/councils/sign/return",                      element: <CouncilSignReturnPage /> },
             ],
           },
         ],
