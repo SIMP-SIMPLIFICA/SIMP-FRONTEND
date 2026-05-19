@@ -39,6 +39,7 @@ import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
 import DepartmentsPage from "@/pages/Departments";
 import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
+import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -175,8 +176,9 @@ export const router = createBrowserRouter([
             // TODO: wrap children in PermissionGate anyOf={["councils:read","councils:write","councils:admin"]} when permission keys are configured
             element: <ModuleGate module="councils" />,
             children: [
-              { path: "/conselhos",          element: <CouncilsPage /> },
-              { path: "/conselhos/:id",      element: <CouncilDetailPage /> },
+              { path: "/conselhos",                                    element: <CouncilsPage /> },
+              { path: "/conselhos/:id",                              element: <CouncilDetailPage /> },
+              { path: "/conselhos/:id/reunioes/:meetingId",          element: <MeetingDetailPage /> },
             ],
           },
         ],
