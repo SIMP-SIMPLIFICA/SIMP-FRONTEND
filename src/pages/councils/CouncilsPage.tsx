@@ -10,13 +10,13 @@ import type { Council } from '@/lib/api/councils'
 
 // ── Active status config ──────────────────────────────────────────────────────
 
-const ACTIVE_CONFIG: Record<string, { label: string; className: string }> = {
+const ACTIVE_CONFIG: Record<'true' | 'false', { label: string; className: string }> = {
   true:  { label: 'Ativo',   className: 'bg-emerald-100 text-emerald-700' },
   false: { label: 'Inativo', className: 'bg-slate-100   text-slate-500'   },
 }
 
 function ActiveBadge({ isActive }: { isActive: boolean }) {
-  const cfg = ACTIVE_CONFIG[String(isActive)]
+  const cfg = ACTIVE_CONFIG[String(isActive) as 'true' | 'false']
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.className}`}>
       {cfg.label}
@@ -177,6 +177,7 @@ export default function CouncilsPage() {
                         <td className="px-4 py-3 text-right text-slate-700 whitespace-nowrap hidden md:table-cell">
                           {council._count?.memberships ?? 0}
                         </td>
+                        {/* TODO: list endpoint doesn't return meetings — populate after detail page */}
                         <td className="px-4 py-3 text-slate-500 whitespace-nowrap hidden lg:table-cell">
                           —
                         </td>
