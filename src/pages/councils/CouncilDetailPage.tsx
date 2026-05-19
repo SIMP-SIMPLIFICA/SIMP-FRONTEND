@@ -352,8 +352,6 @@ export default function CouncilDetailPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Tab-specific action buttons rendered per tab */}
-            <div id="tab-actions" />
           </div>
 
           <TabsContent value="members">

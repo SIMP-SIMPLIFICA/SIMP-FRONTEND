@@ -172,6 +172,7 @@ export const router = createBrowserRouter([
             children: [{ path: "/departamentos", element: <DepartmentsPage /> }],
           },
           {
+            // TODO: wrap children in PermissionGate anyOf={["councils:read","councils:write","councils:admin"]} when permission keys are configured
             element: <ModuleGate module="councils" />,
             children: [
               { path: "/conselhos",          element: <CouncilsPage /> },
