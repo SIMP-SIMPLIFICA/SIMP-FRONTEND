@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCouncil, useCouncilMembers, useCouncilMeetings } from '@/hooks/useCouncils'
+import { useMe } from '@/hooks/useMe'
+import { hasAnyPermission } from '@/lib/permissions'
 import type { CouncilMemberRole, MeetingStatus, CouncilMembership, CouncilMeeting } from '@/lib/api/councils'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -271,6 +273,8 @@ export default function CouncilDetailPage() {
 
   const councilId = id ?? ''
   const [showManageMembers, setShowManageMembers] = useState(false)
+  const { data: me } = useMe()
+  const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
   const { data: council, isLoading, isError } = useCouncil(councilId)
 
   if (isLoading) {
@@ -362,15 +366,17 @@ export default function CouncilDetailPage() {
               <p className="text-sm text-slate-500">
                 Membros vinculados a este conselho.
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setShowManageMembers(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Gerenciar Membros
-              </Button>
+              {canWrite && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setShowManageMembers(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  Gerenciar Membros
+                </Button>
+              )}
             </div>
             <MembersTab councilId={councilId} />
           </TabsContent>
@@ -380,14 +386,16 @@ export default function CouncilDetailPage() {
               <p className="text-sm text-slate-500">
                 Reuniões agendadas e realizadas por este conselho.
               </p>
-              <Button
-                size="sm"
-                className="gap-1.5 bg-violet-600 hover:bg-violet-700"
-                disabled
-              >
-                <Plus className="h-4 w-4" />
-                Nova Reunião
-              </Button>
+              {canWrite && (
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+                  disabled
+                >
+                  <Plus className="h-4 w-4" />
+                  Nova Reunião
+                </Button>
+              )}
             </div>
             <MeetingsTab councilId={councilId} />
           </TabsContent>

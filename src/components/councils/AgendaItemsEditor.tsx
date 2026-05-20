@@ -45,9 +45,10 @@ interface Props {
   isLoading: boolean
   councilId: string
   meetingId: string
+  canWrite?: boolean
 }
 
-export function AgendaItemsEditor({ items, isLoading, councilId, meetingId }: Props) {
+export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canWrite = false }: Props) {
   const sorted = [...items].sort((a, b) => a.order - b.order)
 
   const [editing, setEditing]           = useState<EditState | null>(null)
@@ -126,16 +127,18 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId }: Pr
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-700">Pauta da Reunião</h2>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => { setShowAdd(true); setEditing(null) }}
-          disabled={showAdd}
-        >
-          <Plus className="h-4 w-4" />
-          Adicionar Item
-        </Button>
+        {canWrite && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => { setShowAdd(true); setEditing(null) }}
+            disabled={showAdd}
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar Item
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -252,31 +255,33 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId }: Pr
                 </div>
 
                 {/* Action buttons — visible on row hover */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
-                    onClick={() => startEdit(item)}
-                    disabled={isDeleting}
-                    title="Editar"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => deleteItem(item.id)}
-                    disabled={isDeleting}
-                    title="Remover"
-                  >
-                    {isDeleting
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Trash2 className="h-3.5 w-3.5" />
-                    }
-                  </Button>
-                </div>
+                {canWrite && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-700"
+                      onClick={() => startEdit(item)}
+                      disabled={isDeleting}
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => deleteItem(item.id)}
+                      disabled={isDeleting}
+                      title="Remover"
+                    >
+                      {isDeleting
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Trash2 className="h-3.5 w-3.5" />
+                      }
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           })}

@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, Loader2, ChevronLeft, ChevronRight, Eye, Printer,
+  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from '@/hooks/use-toast'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useMe } from '@/hooks/useMe'

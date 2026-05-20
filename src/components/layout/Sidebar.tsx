@@ -19,6 +19,7 @@ import {
   Building2,
   Handshake,
   Hash,
+  Landmark,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -121,6 +122,12 @@ const NAV_SECTIONS: NavSection[] = [
         icon: <Hash className="h-4 w-4" />,
         module: "protocols",
         anyOf: ["protocols:read", "protocols:write", "protocols:admin"],
+      },
+      {
+        label: "Conselhos",
+        to: "/conselhos",
+        icon: <Landmark className="h-4 w-4" />,
+        module: "councils",
       },
     ],
   },

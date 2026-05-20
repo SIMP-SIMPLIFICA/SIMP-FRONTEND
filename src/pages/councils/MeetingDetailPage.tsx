@@ -27,6 +27,8 @@ import {
   useMeetingDocuments,
   useDocumentDownload,
 } from '@/hooks/useCouncils'
+import { useMe } from '@/hooks/useMe'
+import { hasAnyPermission } from '@/lib/permissions'
 import { toast } from '@/hooks/use-toast'
 import { initiateGovBrSigning } from '@/hooks/useGovBrSigning'
 import { AgendaItemsEditor } from '@/components/councils/AgendaItemsEditor'
@@ -151,6 +153,8 @@ interface DocumentsSectionProps {
   meetingId: string
   onUpload: () => void
   returnPath: string
+  canWrite: boolean
+  canSign: boolean
 }
 
 function DocumentsSection({
@@ -160,6 +164,8 @@ function DocumentsSection({
   meetingId,
   onUpload,
   returnPath,
+  canWrite,
+  canSign,
 }: DocumentsSectionProps) {
   const [pendingDocId, setPendingDocId] = useState<string | null>(null)
   const [signingDocId, setSigningDocId] = useState<string | null>(null)
@@ -180,10 +186,12 @@ function DocumentsSection({
       {/* Section header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-700">Documentos</h2>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={onUpload}>
-          <Upload className="h-4 w-4" />
-          Upload Documento
-        </Button>
+        {canWrite && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={onUpload}>
+            <Upload className="h-4 w-4" />
+            Upload Documento
+          </Button>
+        )}
       </div>
 
       <table className="w-full text-sm">
@@ -265,21 +273,23 @@ function DocumentsSection({
                           <Download className="h-3.5 w-3.5" />
                         )}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 h-8 px-2.5"
-                        onClick={() => handleSign(doc.id)}
-                        disabled={signingDocId === doc.id}
-                        title="Assinar via Gov.br"
-                      >
-                        {signingDocId === doc.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <PenLine className="h-3.5 w-3.5" />
-                        )}
-                        <span className="hidden sm:inline text-xs">Assinar Gov.br</span>
-                      </Button>
+                      {canSign && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 h-8 px-2.5"
+                          onClick={() => handleSign(doc.id)}
+                          disabled={signingDocId === doc.id}
+                          title="Assinar via Gov.br"
+                        >
+                          {signingDocId === doc.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <PenLine className="h-3.5 w-3.5" />
+                          )}
+                          <span className="hidden sm:inline text-xs">Assinar Gov.br</span>
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -303,6 +313,10 @@ export default function MeetingDetailPage() {
   const mId       = meetingId ?? ''
 
   const [showUpload, setShowUpload] = useState(false)
+
+  const { data: me } = useMe()
+  const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
+  const canSign  = hasAnyPermission(me, ['councils:sign'])
 
   const { data: meeting, isLoading, isError } = useCouncilMeeting(councilId, mId)
   const { data: documents = [], isLoading: docsLoading } = useMeetingDocuments(councilId, mId)
@@ -406,6 +420,7 @@ export default function MeetingDetailPage() {
         isLoading={false}
         councilId={councilId}
         meetingId={mId}
+        canWrite={canWrite}
       />
 
       {/* ── 3. Documentos section ── */}
@@ -416,6 +431,8 @@ export default function MeetingDetailPage() {
         meetingId={mId}
         onUpload={() => setShowUpload(true)}
         returnPath={location.pathname}
+        canWrite={canWrite}
+        canSign={canSign}
       />
 
       <UploadDocumentModal
