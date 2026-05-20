@@ -128,6 +128,7 @@ const NAV_SECTIONS: NavSection[] = [
         to: "/conselhos",
         icon: <Landmark className="h-4 w-4" />,
         module: "councils",
+        anyOf: ["councils:read", "councils:write", "councils:admin"],
       },
     ],
   },

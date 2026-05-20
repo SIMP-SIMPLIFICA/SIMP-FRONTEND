@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Landmark, AlertTriangle, Plus, Users } from 'lucide-react'
+import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil } from 'lucide-react'
 import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
+import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -273,6 +274,7 @@ export default function CouncilDetailPage() {
 
   const councilId = id ?? ''
   const [showManageMembers, setShowManageMembers] = useState(false)
+  const [showEdit, setShowEdit]                   = useState(false)
   const { data: me } = useMe()
   const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
   const { data: council, isLoading, isError } = useCouncil(councilId)
@@ -336,6 +338,17 @@ export default function CouncilDetailPage() {
               )}
             </div>
           </div>
+          {canWrite && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setShowEdit(true)}
+            >
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
+          )}
         </div>
         {council.legalBasis && (
           <p className="mt-2 text-xs text-slate-400">
@@ -406,6 +419,12 @@ export default function CouncilDetailPage() {
         open={showManageMembers}
         onClose={() => setShowManageMembers(false)}
         councilId={councilId}
+      />
+
+      <CouncilFormModal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        council={council}
       />
     </div>
   )

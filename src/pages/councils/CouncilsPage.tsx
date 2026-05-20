@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCouncils } from '@/hooks/useCouncils'
+import { useMe } from '@/hooks/useMe'
+import { hasAnyPermission } from '@/lib/permissions'
+import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
 import type { Council } from '@/lib/api/councils'
 
 // ── Active status config ──────────────────────────────────────────────────────
@@ -48,6 +51,10 @@ export default function CouncilsPage() {
   const [search, setSearch]             = useState('')
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('ALL')
   const [page, setPage]                 = useState(1)
+  const [showCreate, setShowCreate]     = useState(false)
+
+  const { data: me } = useMe()
+  const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
 
   const { data, isLoading, isError } = useCouncils({
     page,
@@ -82,15 +89,16 @@ export default function CouncilsPage() {
               <p className="text-xs text-slate-500">Gestão de conselhos, membros e reuniões</p>
             </div>
           </div>
-          {/* TODO: wire up create-council modal */}
-          <Button
-            size="sm"
-            className="gap-1.5 bg-violet-600 hover:bg-violet-700"
-            disabled
-          >
-            <Plus className="h-4 w-4" />
-            Novo Conselho
-          </Button>
+          {canWrite && (
+            <Button
+              size="sm"
+              className="gap-1.5 bg-violet-600 hover:bg-violet-700"
+              onClick={() => setShowCreate(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Novo Conselho
+            </Button>
+          )}
         </div>
       </div>
 
@@ -212,6 +220,11 @@ export default function CouncilsPage() {
           </div>
         )}
       </div>
+
+      <CouncilFormModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+      />
     </div>
   )
 }
