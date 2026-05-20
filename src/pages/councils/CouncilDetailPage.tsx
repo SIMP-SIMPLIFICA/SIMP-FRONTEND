@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil } from 'lucide-react'
 import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
 import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
+import { CreateMeetingModal } from '@/components/councils/CreateMeetingModal'
+import { EditMemberModal } from '@/components/councils/EditMemberModal'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -134,9 +136,11 @@ function formatDateTime(iso: string): string {
 
 interface MembersTabProps {
   councilId: string
+  canWrite: boolean
+  onEdit: (m: CouncilMembership) => void
 }
 
-function MembersTab({ councilId }: MembersTabProps) {
+function MembersTab({ councilId, canWrite, onEdit }: MembersTabProps) {
   const { data: members = [], isLoading } = useCouncilMembers(councilId)
 
   return (
@@ -150,6 +154,7 @@ function MembersTab({ councilId }: MembersTabProps) {
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">Desde</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">Até</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600">Status</th>
+            {canWrite && <th className="px-4 py-3" />}
           </tr>
         </thead>
         <tbody>
@@ -158,7 +163,7 @@ function MembersTab({ councilId }: MembersTabProps) {
             : members.length === 0
               ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-slate-400 text-sm">
+                  <td colSpan={canWrite ? 7 : 6} className="py-16 text-center text-slate-400 text-sm">
                     Nenhum membro cadastrado.
                   </td>
                 </tr>
@@ -186,6 +191,19 @@ function MembersTab({ councilId }: MembersTabProps) {
                   <td className="px-4 py-3">
                     <ActiveBadge isActive={membership.isActive} />
                   </td>
+                  {canWrite && (
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onEdit(membership)}
+                        title="Editar membro"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))
           }
@@ -273,8 +291,10 @@ export default function CouncilDetailPage() {
   const navigate = useNavigate()
 
   const councilId = id ?? ''
-  const [showManageMembers, setShowManageMembers] = useState(false)
-  const [showEdit, setShowEdit]                   = useState(false)
+  const [showManageMembers, setShowManageMembers]     = useState(false)
+  const [showEdit, setShowEdit]                       = useState(false)
+  const [showCreateMeeting, setShowCreateMeeting]     = useState(false)
+  const [editMembership, setEditMembership]           = useState<CouncilMembership | null>(null)
   const { data: me } = useMe()
   const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
   const { data: council, isLoading, isError } = useCouncil(councilId)
@@ -391,7 +411,11 @@ export default function CouncilDetailPage() {
                 </Button>
               )}
             </div>
-            <MembersTab councilId={councilId} />
+            <MembersTab
+              councilId={councilId}
+              canWrite={canWrite}
+              onEdit={m => setEditMembership(m)}
+            />
           </TabsContent>
 
           <TabsContent value="meetings">
@@ -403,7 +427,7 @@ export default function CouncilDetailPage() {
                 <Button
                   size="sm"
                   className="gap-1.5 bg-violet-600 hover:bg-violet-700"
-                  disabled
+                  onClick={() => setShowCreateMeeting(true)}
                 >
                   <Plus className="h-4 w-4" />
                   Nova Reunião
@@ -425,6 +449,19 @@ export default function CouncilDetailPage() {
         open={showEdit}
         onClose={() => setShowEdit(false)}
         council={council}
+      />
+
+      <CreateMeetingModal
+        open={showCreateMeeting}
+        onClose={() => setShowCreateMeeting(false)}
+        councilId={councilId}
+      />
+
+      <EditMemberModal
+        open={!!editMembership}
+        onClose={() => setEditMembership(null)}
+        councilId={councilId}
+        membership={editMembership}
       />
     </div>
   )
