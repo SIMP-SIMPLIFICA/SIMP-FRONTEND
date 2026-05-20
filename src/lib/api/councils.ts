@@ -15,6 +15,14 @@ export type MeetingStatus =
   | 'CONCLUIDA'
   | 'CANCELADA'
 
+export type AgendaItemStatus =
+  | 'PENDENTE'
+  | 'APROVADO_UNANIMIDADE'
+  | 'APROVADO_MAIORIA'
+  | 'APROVADO_RESSALVAS'
+  | 'REPROVADO'
+  | 'VISTAS_ADIADO'
+
 export type CouncilDocumentType =
   | 'ATA'
   | 'RESOLUCAO'
@@ -71,7 +79,26 @@ export interface MeetingAgendaItem {
   order: number
   title: string
   description: string | null
-  approved: boolean | null
+  status: AgendaItemStatus
+  votingRemarks: string | null
+}
+
+export interface MeetingAttendanceEntry {
+  membershipId: string
+  userId: string
+  firstName: string
+  lastName: string
+  role: CouncilMemberRole
+  isPresent: boolean
+  justifiedAbsence: boolean | null
+}
+
+export interface SaveAttendanceDTO {
+  attendance: Array<{
+    membershipId: string
+    isPresent: boolean
+    justifiedAbsence?: boolean | null
+  }>
 }
 
 export interface SignatureRequestSummary {
@@ -182,7 +209,8 @@ export interface UpdateAgendaItemDTO {
   order?: number
   title?: string
   description?: string
-  approved?: boolean | null
+  status?: AgendaItemStatus
+  votingRemarks?: string | null
 }
 
 // ─── List response ────────────────────────────────────────────────────────────
@@ -316,6 +344,23 @@ export const councilService = {
 
   removeAgendaItem: async (councilId: string, meetingId: string, itemId: string) => {
     await api.delete(`/councils/${councilId}/meetings/${meetingId}/agenda/${itemId}`)
+  },
+
+  // ── Presença ────────────────────────────────────────────────────────────────
+
+  getAttendance: async (councilId: string, meetingId: string) => {
+    const res = await api.get<{ data: MeetingAttendanceEntry[] }>(
+      `/councils/${councilId}/meetings/${meetingId}/attendance`,
+    )
+    return res.data.data
+  },
+
+  saveAttendance: async (councilId: string, meetingId: string, data: SaveAttendanceDTO) => {
+    const res = await api.put<{ success: boolean }>(
+      `/councils/${councilId}/meetings/${meetingId}/attendance`,
+      data,
+    )
+    return res.data
   },
 
   // ── Documentos ──────────────────────────────────────────────────────────────

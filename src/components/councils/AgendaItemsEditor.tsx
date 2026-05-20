@@ -1,8 +1,5 @@
 import { useState } from 'react'
 import {
-  CheckCircle2,
-  XCircle,
-  Minus,
   Pencil,
   Trash2,
   Check,
@@ -15,12 +12,39 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   useAddAgendaItem,
   useUpdateAgendaItem,
   useRemoveAgendaItem,
 } from '@/hooks/useCouncils'
 import { toast } from '@/hooks/use-toast'
-import type { MeetingAgendaItem } from '@/lib/api/councils'
+import type { MeetingAgendaItem, AgendaItemStatus } from '@/lib/api/councils'
+
+// ── Status config ─────────────────────────────────────────────────────────────
+
+const AGENDA_STATUS_CONFIG: Record<AgendaItemStatus, { label: string; className: string }> = {
+  PENDENTE:              { label: 'Pendente',             className: 'bg-slate-100   text-slate-500'   },
+  APROVADO_UNANIMIDADE:  { label: 'Aprovado (unânime)',   className: 'bg-emerald-100 text-emerald-700' },
+  APROVADO_MAIORIA:      { label: 'Aprovado (maioria)',   className: 'bg-green-100   text-green-700'   },
+  APROVADO_RESSALVAS:    { label: 'Aprovado c/ ressalvas',className: 'bg-amber-100   text-amber-700'   },
+  REPROVADO:             { label: 'Reprovado',            className: 'bg-red-100     text-red-700'     },
+  VISTAS_ADIADO:         { label: 'Vistas / Adiado',     className: 'bg-purple-100  text-purple-700'  },
+}
+
+function AgendaStatusBadge({ status }: { status: AgendaItemStatus }) {
+  const cfg = AGENDA_STATUS_CONFIG[status] ?? AGENDA_STATUS_CONFIG.PENDENTE
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  )
+}
 
 function RowSkeleton() {
   return (
@@ -38,6 +62,8 @@ interface EditState {
   id: string
   title: string
   description: string
+  status: AgendaItemStatus
+  votingRemarks: string
 }
 
 interface Props {
@@ -51,9 +77,9 @@ interface Props {
 export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canWrite = false }: Props) {
   const sorted = [...items].sort((a, b) => a.order - b.order)
 
-  const [editing, setEditing]           = useState<EditState | null>(null)
-  const [showAdd, setShowAdd]           = useState(false)
-  const [newTitle, setNewTitle]         = useState('')
+  const [editing, setEditing]               = useState<EditState | null>(null)
+  const [showAdd, setShowAdd]               = useState(false)
+  const [newTitle, setNewTitle]             = useState('')
   const [newDescription, setNewDescription] = useState('')
 
   const addItem    = useAddAgendaItem(councilId, meetingId)
@@ -62,7 +88,13 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canW
 
   function startEdit(item: MeetingAgendaItem) {
     setShowAdd(false)
-    setEditing({ id: item.id, title: item.title, description: item.description ?? '' })
+    setEditing({
+      id:           item.id,
+      title:        item.title,
+      description:  item.description ?? '',
+      status:       item.status,
+      votingRemarks: item.votingRemarks ?? '',
+    })
   }
 
   function cancelEdit() {
@@ -75,8 +107,10 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canW
       {
         itemId: editing.id,
         data: {
-          title: editing.title.trim(),
-          description: editing.description.trim() || undefined,
+          title:         editing.title.trim(),
+          description:   editing.description.trim() || undefined,
+          status:        editing.status,
+          votingRemarks: editing.votingRemarks.trim() || null,
         },
       },
       {
@@ -174,7 +208,6 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canW
                         placeholder="Título do item *"
                         className="h-8 text-sm bg-white"
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) saveEdit()
                           if (e.key === 'Escape') cancelEdit()
                         }}
                       />
@@ -184,6 +217,35 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canW
                         placeholder="Descrição (opcional)"
                         className="h-16 text-sm resize-none bg-white"
                       />
+
+                      {/* Status select */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-slate-500 font-medium">Resultado da votação</label>
+                        <Select
+                          value={editing.status}
+                          onValueChange={(v) => setEditing({ ...editing, status: v as AgendaItemStatus })}
+                        >
+                          <SelectTrigger className="h-8 text-sm bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(Object.keys(AGENDA_STATUS_CONFIG) as AgendaItemStatus[]).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {AGENDA_STATUS_CONFIG[s].label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Voting remarks */}
+                      <Textarea
+                        value={editing.votingRemarks}
+                        onChange={(e) => setEditing({ ...editing, votingRemarks: e.target.value })}
+                        placeholder="Observações da votação (ex: votos contrários de João e Maria)"
+                        className="h-16 text-sm resize-none bg-white"
+                      />
+
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"
@@ -230,28 +292,14 @@ export function AgendaItemsEditor({ items, isLoading, councilId, meetingId, canW
                   {item.description && (
                     <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>
                   )}
+                  {item.votingRemarks && (
+                    <p className="text-xs text-slate-400 italic mt-0.5">{item.votingRemarks}</p>
+                  )}
                 </div>
 
-                {/* Vote status */}
+                {/* Status badge */}
                 <div className="shrink-0 mt-0.5">
-                  {item.approved === true && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Aprovado
-                    </span>
-                  )}
-                  {item.approved === false && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-                      <XCircle className="h-3.5 w-3.5" />
-                      Rejeitado
-                    </span>
-                  )}
-                  {item.approved === null && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
-                      <Minus className="h-3.5 w-3.5" />
-                      Não votado
-                    </span>
-                  )}
+                  <AgendaStatusBadge status={item.status} />
                 </div>
 
                 {/* Action buttons — visible on row hover */}

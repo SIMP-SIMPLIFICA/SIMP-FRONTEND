@@ -12,6 +12,7 @@ import type {
   AddAgendaItemDTO,
   UpdateAgendaItemDTO,
   CouncilDocumentType,
+  SaveAttendanceDTO,
 } from '@/lib/api/councils'
 
 // ─── Conselhos ────────────────────────────────────────────────────────────────
@@ -209,6 +210,28 @@ export function useRemoveAgendaItem(councilId: string, meetingId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['meeting', councilId, meetingId] })
     },
+  })
+}
+
+// ─── Presença ─────────────────────────────────────────────────────────────────
+
+export function useMeetingAttendance(councilId: string, meetingId: string) {
+  return useQuery({
+    queryKey: ['attendance', councilId, meetingId],
+    queryFn:  () => councilService.getAttendance(councilId, meetingId),
+    enabled:  !!councilId && !!meetingId,
+  })
+}
+
+export function useSaveAttendance(councilId: string, meetingId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: SaveAttendanceDTO) =>
+      councilService.saveAttendance(councilId, meetingId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['attendance', councilId, meetingId] })
+    },
+    onError: () => { toast({ title: 'Erro ao salvar lista de presença.', variant: 'destructive' }) },
   })
 }
 

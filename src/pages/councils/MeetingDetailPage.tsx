@@ -26,12 +26,14 @@ import {
   useCouncilMeeting,
   useMeetingDocuments,
   useDocumentDownload,
+  useUpdateMeetingStatus,
 } from '@/hooks/useCouncils'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { toast } from '@/hooks/use-toast'
 import { initiateGovBrSigning } from '@/hooks/useGovBrSigning'
 import { AgendaItemsEditor } from '@/components/councils/AgendaItemsEditor'
+import { MeetingAttendanceList } from '@/components/councils/MeetingAttendanceList'
 import { UploadDocumentModal } from '@/components/councils/UploadDocumentModal'
 import { SignatureStatusBadge } from '@/components/councils/SignatureStatusBadge'
 import type {
@@ -320,6 +322,7 @@ export default function MeetingDetailPage() {
 
   const { data: meeting, isLoading, isError } = useCouncilMeeting(councilId, mId)
   const { data: documents = [], isLoading: docsLoading } = useMeetingDocuments(councilId, mId)
+  const updateStatus = useUpdateMeetingStatus(councilId, mId)
 
   if (isLoading) {
     return <PageSkeleton />
@@ -395,22 +398,36 @@ export default function MeetingDetailPage() {
             <p className="mt-3 text-sm text-slate-500">{meeting.description}</p>
           )}
 
-          {/* Status transition (disabled placeholder) */}
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-xs text-slate-500">Alterar status:</span>
-            <Select disabled>
-              <SelectTrigger className="w-44 h-8 text-sm">
-                <SelectValue placeholder={MEETING_STATUS_CONFIG[meeting.status]?.label ?? meeting.status} />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(MEETING_STATUS_CONFIG) as MeetingStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {MEETING_STATUS_CONFIG[s].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Status transition */}
+          {canWrite && (
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-xs text-slate-500">Alterar status:</span>
+              <Select
+                value={meeting.status}
+                onValueChange={(v) =>
+                  updateStatus.mutate(v as MeetingStatus, {
+                    onSuccess: () => toast({ title: 'Status da reunião atualizado.' }),
+                    onError:   () => toast({ title: 'Erro ao alterar status.', variant: 'destructive' }),
+                  })
+                }
+                disabled={updateStatus.isPending}
+              >
+                <SelectTrigger className="w-44 h-8 text-sm">
+                  {updateStatus.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <SelectValue />
+                  }
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(MEETING_STATUS_CONFIG) as MeetingStatus[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {MEETING_STATUS_CONFIG[s].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -423,7 +440,14 @@ export default function MeetingDetailPage() {
         canWrite={canWrite}
       />
 
-      {/* ── 3. Documentos section ── */}
+      {/* ── 3. Presença section ── */}
+      <MeetingAttendanceList
+        councilId={councilId}
+        meetingId={mId}
+        canWrite={canWrite}
+      />
+
+      {/* ── 4. Documentos section ── */}
       <DocumentsSection
         documents={documents}
         isLoading={docsLoading}
