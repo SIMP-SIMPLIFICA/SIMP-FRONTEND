@@ -20,6 +20,7 @@ import {
   Handshake,
   Hash,
   Landmark,
+  Headphones,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -410,6 +411,21 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
             >
               <ShieldCheck className="h-4 w-4 shrink-0" />
               {!collapsed && <span className="font-medium">Painel Admin</span>}
+            </NavLink>
+            <NavLink
+              to="/admin/support"
+              className={({ isActive }) =>
+                cx(
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
+                  isActive
+                    ? "bg-slate-900 text-white"
+                    : "text-amber-700 hover:bg-amber-50",
+                  collapsed && "justify-center"
+                )
+              }
+            >
+              <Headphones className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="font-medium">Suporte</span>}
             </NavLink>
           </div>
         )}

@@ -32,6 +32,7 @@ import NotesPage from "@/pages/utilidades/Notes";
 import AdminPanel from "@/pages/admin/AdminPanel";
 import AdminNewOrganizationPage from "@/pages/admin/AdminNewOrganizationPage";
 import AdminOrganizationDetailPage from "@/pages/admin/AdminOrganizationDetailPage";
+import SupportAdminPage from "@/pages/admin/SupportAdminPage";
 import OrganizacaoPage from "@/pages/OrganizacaoPage";
 import LibraryPage from "@/pages/library/LibraryPage"
 import CovenantsPage from "@/pages/convenios/CovenantsPage";
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
           { path: "/admin",                        element: <AdminPanel /> },
           { path: "/admin/organizations/new",      element: <AdminNewOrganizationPage /> },
           { path: "/admin/organizations/:id",      element: <AdminOrganizationDetailPage /> },
+          { path: "/admin/support",                element: <SupportAdminPage /> },
         ],
       },
     ],
