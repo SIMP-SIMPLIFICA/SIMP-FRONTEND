@@ -5,6 +5,7 @@ import { UniversalFinanceModalProvider } from "@/context/UniversalFinanceModalCo
 import { UniversalFinanceModal } from "@/components/finance/UniversalFinanceModal";
 import { UniversalProcessModalProvider } from "@/context/UniversalProcessModalContext";
 import { UniversalProcessModal } from "@/components/processos-virtuais/UniversalProcessModal";
+import { SupportWidget } from "@/components/support/SupportWidget";
 
 const titleByPath: Record<string, string> = {
   "/": "Dashboard",
@@ -33,6 +34,7 @@ export function AppLayout() {
         </div>
         <UniversalFinanceModal />
         <UniversalProcessModal />
+        <SupportWidget />
       </UniversalProcessModalProvider>
     </UniversalFinanceModalProvider>
   );
