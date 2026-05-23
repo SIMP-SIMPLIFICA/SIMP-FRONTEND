@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/hooks/useAuth'
+import { useMe } from '@/hooks/useMe'
 import {
   useSupportRequests,
   useSupportMessages,
@@ -43,7 +43,7 @@ const STATUS_VARIANTS: Record<string, string> = {
 
 // ─── View types ───────────────────────────────────────────────────────────────
 
-type View = 'home' | 'new-ticket' | 'chat'
+type View = 'home' | 'new-ticket' | 'chat' | 'history'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -61,11 +61,12 @@ interface HomeViewProps {
   onNewTicket: () => void
   onNewChat:   () => void
   onOpenChat:  (req: SupportRequest) => void
+  onHistory:   () => void
 }
 
-function HomeView({ onNewTicket, onNewChat, onOpenChat }: HomeViewProps) {
-  const { data } = useSupportRequests({ limit: 5 })
-  const recents  = data?.data.filter(r => r.status !== 'CLOSED') ?? []
+function HomeView({ onNewTicket, onNewChat, onOpenChat, onHistory }: HomeViewProps) {
+  const { data } = useSupportRequests({ limit: 3 })
+  const recents  = data?.data.filter(r => r.status === 'OPEN' || r.status === 'IN_PROGRESS') ?? []
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -101,9 +102,14 @@ function HomeView({ onNewTicket, onNewChat, onOpenChat }: HomeViewProps) {
 
       {recents.length > 0 && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Seus chamados
-          </p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Em aberto
+            </p>
+            <button onClick={onHistory} className="text-xs text-primary hover:underline">
+              Ver todos
+            </button>
+          </div>
           <div className="flex flex-col gap-1">
             {recents.map(req => (
               <button
@@ -125,6 +131,56 @@ function HomeView({ onNewTicket, onNewChat, onOpenChat }: HomeViewProps) {
           </div>
         </div>
       )}
+
+      <button
+        onClick={onHistory}
+        className="mt-1 w-full rounded-lg border border-dashed border-border py-2 text-xs text-muted-foreground transition-colors hover:bg-accent"
+      >
+        Ver histórico completo de chamados
+      </button>
+    </div>
+  )
+}
+
+// ─── History View ─────────────────────────────────────────────────────────────
+
+function HistoryView({ onOpenChat }: { onOpenChat: (req: SupportRequest) => void }) {
+  const { data, isLoading } = useSupportRequests({ limit: 50 })
+  const all = data?.data ?? []
+
+  return (
+    <div className="flex flex-col" style={{ height: 360 }}>
+      <ScrollArea className="flex-1">
+        {isLoading ? (
+          <div className="flex h-32 items-center justify-center">
+            <p className="text-xs text-muted-foreground">Carregando...</p>
+          </div>
+        ) : all.length === 0 ? (
+          <div className="flex h-32 flex-col items-center justify-center gap-1 text-muted-foreground">
+            <p className="text-sm">Nenhum chamado ainda</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-px p-2">
+            {all.map(req => (
+              <button
+                key={req.id}
+                onClick={() => onOpenChat(req)}
+                className="flex items-start justify-between gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {req.subject ?? (req.type === 'CHAT' ? 'Chat' : 'Chamado sem título')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDistanceToNow(new Date(req.updatedAt), { addSuffix: true, locale: ptBR })}
+                  </p>
+                </div>
+                <StatusBadge status={req.status} />
+              </button>
+            ))}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   )
 }
@@ -296,14 +352,16 @@ function ChatView({ request, currentId, isOpen }: ChatViewProps) {
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
 export function SupportWidget() {
-  const { user, isSuperAdmin } = useAuth()
-  const [isOpen,          setIsOpen]          = useState(false)
-  const [view,            setView]            = useState<View>('home')
-  const [newType,         setNewType]         = useState<SupportType>('TICKET')
-  const [activeRequest,   setActiveRequest]   = useState<SupportRequest | null>(null)
+  const { data: meData, isLoading } = useMe()
+  const [isOpen,        setIsOpen]        = useState(false)
+  const [view,          setView]          = useState<View>('home')
+  const [newType,       setNewType]       = useState<SupportType>('TICKET')
+  const [activeRequest, setActiveRequest] = useState<SupportRequest | null>(null)
 
-  // SuperAdmins use the dedicated admin panel — hide the widget for them
-  if (isSuperAdmin || !user) return null
+  // Hide while loading, for unauthenticated users, and for SuperAdmins
+  if (isLoading || !meData?.user || meData.user.isSuperAdmin) return null
+
+  const user = meData.user
 
   function openNewForm(type: SupportType) {
     setNewType(type)
@@ -333,7 +391,8 @@ export function SupportWidget() {
   }
 
   const headerTitle =
-    view === 'home'       ? 'Suporte'          :
+    view === 'home'       ? 'Suporte'                                              :
+    view === 'history'    ? 'Meus chamados'                                        :
     view === 'new-ticket' ? (newType === 'TICKET' ? 'Novo chamado' : 'Novo chat') :
     (activeRequest?.subject ?? (activeRequest?.type === 'CHAT' ? 'Chat' : 'Chamado'))
 
@@ -386,6 +445,7 @@ export function SupportWidget() {
               onNewTicket={() => openNewForm('TICKET')}
               onNewChat={()   => openNewForm('CHAT')}
               onOpenChat={openChat}
+              onHistory={() => setView('history')}
             />
           )}
 
@@ -394,6 +454,10 @@ export function SupportWidget() {
               type={newType}
               onDone={handleCreated}
             />
+          )}
+
+          {view === 'history' && (
+            <HistoryView onOpenChat={openChat} />
           )}
 
           {view === 'chat' && activeRequest && (
