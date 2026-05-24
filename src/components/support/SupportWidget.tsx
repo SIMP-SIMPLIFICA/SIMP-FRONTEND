@@ -22,7 +22,7 @@ import {
   useCreateSupportRequest,
   useSendSupportMessage,
 } from '@/hooks/useSupport'
-import type { SupportRequest, SupportType } from '@/lib/api/support'
+import type { SupportMessage, SupportRequest, SupportType } from '@/lib/api/support'
 import { cn } from '@/lib/utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -246,7 +246,86 @@ function NewTicketView({ type, onDone }: NewTicketViewProps) {
   )
 }
 
-// ─── Chat View ────────────────────────────────────────────────────────────────
+// ─── Chat Bubbles (CHAT type) ─────────────────────────────────────────────────
+
+interface MessageListProps {
+  messages:  SupportMessage[]
+  currentId: string
+  bottomRef: React.RefObject<HTMLDivElement>
+}
+
+function ChatBubbles({ messages, currentId, bottomRef }: MessageListProps) {
+  return (
+    <div className="flex flex-col gap-2 py-3">
+      {messages.map(msg => {
+        const isMe = msg.senderId === currentId
+        return (
+          <div key={msg.id} className={cn('flex', isMe ? 'justify-end' : 'justify-start')}>
+            <div
+              className={cn(
+                'max-w-[78%] rounded-2xl px-3 py-2 text-sm',
+                isMe
+                  ? 'rounded-br-sm bg-primary text-primary-foreground'
+                  : 'rounded-bl-sm bg-muted text-foreground',
+              )}
+            >
+              {!isMe && (
+                <p className="mb-0.5 text-[10px] font-semibold opacity-60">
+                  {msg.sender?.firstName ?? 'Suporte'}
+                </p>
+              )}
+              <p className="whitespace-pre-wrap">{msg.content}</p>
+              <p className={cn('mt-0.5 text-[10px] opacity-50', isMe ? 'text-right' : '')}>
+                {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: ptBR })}
+              </p>
+            </div>
+          </div>
+        )
+      })}
+      <div ref={bottomRef} />
+    </div>
+  )
+}
+
+// ─── Ticket Thread (TICKET type) ──────────────────────────────────────────────
+
+function TicketThread({ messages, currentId, bottomRef }: MessageListProps) {
+  return (
+    <div className="flex flex-col">
+      {messages.map((msg, idx) => {
+        const isMe    = msg.senderId === currentId
+        const isFirst = idx === 0
+        return (
+          <div key={msg.id}>
+            {idx > 0 && <div className="border-t" />}
+            <div className={cn(
+              'px-4 py-3',
+              isFirst && 'border-l-2 border-l-primary/40 bg-muted/30',
+            )}>
+              <div className="mb-1.5 flex items-start justify-between gap-2">
+                <span className={cn('text-xs font-semibold', isMe ? 'text-primary' : '')}>
+                  {isMe ? 'Você' : (msg.sender?.firstName ?? 'Suporte')}
+                  {isFirst && (
+                    <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
+                      mensagem original
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-[10px] text-muted-foreground">
+                  {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: ptBR })}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+            </div>
+          </div>
+        )
+      })}
+      <div ref={bottomRef} />
+    </div>
+  )
+}
+
+// ─── Chat View (dispatcher) ───────────────────────────────────────────────────
 
 interface ChatViewProps {
   request:   SupportRequest
@@ -260,7 +339,6 @@ function ChatView({ request, currentId, isOpen }: ChatViewProps) {
   const { data, isLoading } = useSupportMessages(request.id, isOpen)
   const { mutate, isPending } = useSendSupportMessage(request.id)
 
-  // Auto-scroll to bottom when messages update
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [data?.data.length])
@@ -279,55 +357,30 @@ function ChatView({ request, currentId, isOpen }: ChatViewProps) {
   }
 
   const isClosed = request.status === 'CLOSED' || request.status === 'RESOLVED'
+  const messages = data?.data ?? []
+  const isChat   = request.type === 'CHAT'
 
   return (
     <div className="flex flex-col" style={{ height: 360 }}>
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4">
+      <ScrollArea className={cn('flex-1', isChat && 'px-4')}>
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <p className="text-xs text-muted-foreground">Carregando...</p>
           </div>
+        ) : isChat ? (
+          <ChatBubbles messages={messages} currentId={currentId} bottomRef={bottomRef} />
         ) : (
-          <div className="flex flex-col gap-2 py-3">
-            {data?.data.map(msg => {
-              const isMe = msg.senderId === currentId
-              return (
-                <div key={msg.id} className={cn('flex', isMe ? 'justify-end' : 'justify-start')}>
-                  <div
-                    className={cn(
-                      'max-w-[78%] rounded-2xl px-3 py-2 text-sm',
-                      isMe
-                        ? 'rounded-br-sm bg-primary text-primary-foreground'
-                        : 'rounded-bl-sm bg-muted text-foreground',
-                    )}
-                  >
-                    {!isMe && (
-                      <p className="mb-0.5 text-[10px] font-semibold opacity-60">
-                        {msg.sender?.firstName ?? 'Suporte'}
-                      </p>
-                    )}
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                    <p className={cn('mt-0.5 text-[10px] opacity-50', isMe ? 'text-right' : '')}>
-                      {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-            <div ref={bottomRef} />
-          </div>
+          <TicketThread messages={messages} currentId={currentId} bottomRef={bottomRef} />
         )}
       </ScrollArea>
 
-      {/* Input */}
       <div className="border-t p-3">
         {isClosed ? (
           <p className="text-center text-xs text-muted-foreground">Este chamado está encerrado.</p>
         ) : (
           <div className="flex gap-2">
             <Input
-              placeholder="Digite sua mensagem..."
+              placeholder={isChat ? 'Digite sua mensagem...' : 'Adicionar resposta...'}
               value={draft}
               onChange={e => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -385,7 +438,6 @@ export function SupportWidget() {
   function handleOpenChange(open: boolean) {
     setIsOpen(open)
     if (!open) {
-      // Reset to home after close animation
       setTimeout(goHome, 200)
     }
   }

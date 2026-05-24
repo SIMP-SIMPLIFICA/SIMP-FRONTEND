@@ -63,6 +63,11 @@ export interface UpdateSupportStatusDTO {
   status: SupportStatus
 }
 
+export interface SupportInsights {
+  byStatus: { status: SupportStatus; count: number }[]
+  byType:   { type: SupportType;    count: number }[]
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const supportService = {
@@ -94,6 +99,11 @@ export const supportService = {
 
   updateStatus: async (requestId: string, data: UpdateSupportStatusDTO) => {
     const res = await api.patch<SupportRequest>(`/support/${requestId}/status`, data)
+    return res.data
+  },
+
+  getInsights: async () => {
+    const res = await api.get<SupportInsights>('/support/insights')
     return res.data
   },
 }

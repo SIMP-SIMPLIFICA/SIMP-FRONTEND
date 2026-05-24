@@ -58,3 +58,10 @@ export function useUpdateSupportStatus() {
     onError: () => { toast({ title: 'Erro ao atualizar status.', variant: 'destructive' }) },
   })
 }
+
+export function useSupportInsights() {
+  return useQuery({
+    queryKey: ['support-insights'],
+    queryFn:  () => supportService.getInsights(),
+  })
+}
