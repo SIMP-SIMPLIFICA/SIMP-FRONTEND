@@ -5,7 +5,31 @@ import {
   CheckCircle, XCircle, ShieldCheck,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
-import { setAuthTokens } from "@/lib/auth";
+import { getAccessToken, setAuthTokens, clearImpersonateRefreshToken } from "@/lib/auth";
+import { MODULE_LABELS } from "@/lib/moduleLabels";
+
+// Key used to preserve the super-admin access token across an impersonation round-trip.
+// The refreshToken is NOT saved here — the super-admin's httpOnly cookie is never
+// replaced during impersonation (the backend impersonate endpoint doesn't set a cookie),
+// so it remains valid and is automatically used after exit.
+const PREV_ACCESS_KEY  = "simp:impersonate:prev:access"
+const IMPERSONATE_ORG_KEY = "simp:impersonate:org"
+
+export function isImpersonating(): boolean {
+  return !!sessionStorage.getItem(PREV_ACCESS_KEY)
+}
+
+export function exitImpersonation(queryClient: ReturnType<typeof import("@tanstack/react-query").useQueryClient>, navigate: ReturnType<typeof import("react-router-dom").useNavigate>) {
+  const prevAccess = sessionStorage.getItem(PREV_ACCESS_KEY)
+  if (!prevAccess) return
+
+  setAuthTokens(prevAccess)         // restore super-admin access token in memory
+  clearImpersonateRefreshToken()    // clear the impersonated session's refresh token
+  sessionStorage.removeItem(PREV_ACCESS_KEY)
+  sessionStorage.removeItem(IMPERSONATE_ORG_KEY)
+  queryClient.clear()
+  navigate("/admin")
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,16 +53,6 @@ type Org = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const MODULE_LABELS: Record<string, string> = {
-  tasks:             "Tarefas",
-  finance:           "Financeiro",
-  communication:     "Comunicação",
-  virtual_processes: "Processos Virtuais",
-  calendar:          "Calendário",
-  notes:             "Notas",
-  departments:       "Departamentos",
-};
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -56,15 +70,26 @@ export default function AdminPanel() {
 
   async function handleImpersonate(org: Org) {
     try {
-      const res = await apiRequest<{ accessToken: string }>(
+      const res = await apiRequest<{ accessToken: string; refreshToken: string }>(
         `/api/v1/admin/organizations/${org.id}/impersonate`,
         { method: "POST" }
       );
-      setAuthTokens(res.accessToken);
-      queryClient.clear();
-      navigate("/");
+
+      // Save super-admin access token so exitImpersonation can restore it.
+      // The super-admin's refreshToken stays in the httpOnly cookie — it is never
+      // touched by the impersonate endpoint, so it will still be valid on exit.
+      sessionStorage.setItem(PREV_ACCESS_KEY, getAccessToken() ?? "")
+      sessionStorage.setItem(IMPERSONATE_ORG_KEY, JSON.stringify({ id: org.id, name: org.name }))
+
+      // Store impersonated access token in memory and impersonated refresh token
+      // in _impersonateRefreshToken (also memory). api.ts will use the refresh token
+      // via credentials:'omit' + body during any token refresh within this session,
+      // leaving the super-admin's httpOnly cookie untouched.
+      setAuthTokens(res.accessToken, res.refreshToken)
+      queryClient.clear()
+      navigate("/")
     } catch (err: unknown) {
-      alert((err as { message?: string })?.message ?? "Erro ao impersonar organização");
+      alert((err as { message?: string })?.message ?? "Erro ao impersonar organização")
     }
   }
 

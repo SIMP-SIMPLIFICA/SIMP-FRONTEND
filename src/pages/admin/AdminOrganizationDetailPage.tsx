@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { MODULE_LABELS } from "@/lib/moduleLabels";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,21 +42,6 @@ type OrgDetail = {
   _count: { users: number; workspaces: number };
   modules: OrgModule[];
   users: OrgUser[];
-};
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const MODULE_LABELS: Record<string, string> = {
-  tasks:             "Tarefas",
-  finance:           "Financeiro",
-  communication:     "Comunicação",
-  virtual_processes: "Processos Virtuais",
-  calendar:          "Calendário",
-  notes:             "Notas",
-  departments:       "Departamentos",
-  covenants:         "Convênios",
 };
 
 // ---------------------------------------------------------------------------

@@ -59,7 +59,24 @@ const LABELS: Record<string, string> = {
   'tasks:manage': 'Gerenciar Workspaces (total)',
 
   // Biblioteca / GED
-  'library:read': 'Visualizar Biblioteca de Documentos',
+  'library:read':   'Visualizar Biblioteca de Documentos',
+  'library:write':  'Enviar e Editar Documentos na Biblioteca',
+  'library:delete': 'Excluir Documentos da Biblioteca',
+  'library:logs':   'Ver Logs de Acesso à Biblioteca',
+
+  // Comunicação
+  'communication:read': 'Visualizar Módulo de Comunicação',
+
+  // Conselhos Municipais
+  'councils:read':  'Visualizar Conselhos Municipais',
+  'councils:write': 'Criar e Editar Atas e Pautas',
+  'councils:admin': 'Administrar Conselhos (total)',
+  'councils:sign':  'Assinar Documentos de Conselhos',
+
+  // Suporte
+  'support:read':   'Visualizar Tickets de Suporte',
+  'support:write':  'Criar e Responder Tickets',
+  'support:admin':  'Administrar Suporte (total)',
 
   // Auditoria
   'audit:read':   'Visualizar Logs de Auditoria',
