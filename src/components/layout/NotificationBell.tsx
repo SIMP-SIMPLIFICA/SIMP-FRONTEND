@@ -33,7 +33,6 @@ import { ToastAction } from "@/components/ui/toast"
 import { api } from "@/lib/api"
 import { useNavigate } from "react-router-dom"
 import { useToast } from "@/hooks/use-toast"
-import { getAccessToken } from "@/lib/auth"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -182,7 +181,10 @@ export function NotificationBell() {
 
   const navigate = useNavigate()
   const { toast } = useToast()
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const eventSourceRef  = useRef<EventSource | null>(null)
+  const sseErrorCount   = useRef(0)
+  const pollFallbackRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── Fetch inicial ──────────────────────────────────────────────────────────
 
@@ -197,17 +199,47 @@ export function NotificationBell() {
   }
 
   // ── SSE ───────────────────────────────────────────────────────────────────
+  // Strategy:
+  //   1. Exchange the Bearer JWT for a short-lived single-use nonce (POST /notifications/stream-token).
+  //      The nonce — not the JWT — goes in the EventSource URL, keeping the JWT out of server logs.
+  //   2. On connection error, close the stale EventSource and re-init with a fresh nonce
+  //      (backoff: 1s × attempt, max 10s).
+  //   3. After MAX_SSE_ERRORS consecutive init failures, degrade to 30-second polling.
 
-  useEffect(() => {
-    fetchNotifications()
+  const MAX_SSE_ERRORS = 3
+  const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
 
-    const token = getAccessToken()
-    if (!token) return
+  // useRef wrapper so the closure inside onerror can call the latest version
+  const initSSERef = useRef<(() => Promise<void>) | undefined>(undefined)
 
-    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-    const es = new EventSource(`${API_URL}/notifications/stream?token=${token}`)
+  const initSSE = async () => {
+    // Clear any pending retry timer
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
 
-    es.onopen = () => {}
+    let nonce: string
+    try {
+      const res = await api.post<{ token: string }>("/notifications/stream-token", {})
+      nonce = res.data.token
+    } catch {
+      // Could not obtain nonce (network error, auth failure) — fall back to polling
+      sseErrorCount.current += 1
+      if (sseErrorCount.current >= MAX_SSE_ERRORS) {
+        pollFallbackRef.current = setInterval(fetchNotifications, 30_000)
+      } else {
+        const delay = Math.min(1_000 * sseErrorCount.current, 10_000)
+        retryTimeoutRef.current = setTimeout(() => initSSERef.current?.(), delay)
+      }
+      return
+    }
+
+    const es = new EventSource(`${API_URL}/notifications/stream?token=${nonce}`)
+
+    es.onopen = () => {
+      sseErrorCount.current = 0
+    }
 
     es.onmessage = (event) => {
       if (!event.data || event.data.startsWith("retry")) return
@@ -231,11 +263,45 @@ export function NotificationBell() {
     }
 
     es.onerror = () => {
+      // The nonce is single-use: after the first connection the server has consumed
+      // it, so browser auto-reconnect with the same URL would get a 401.
+      // Close and re-init with a fresh nonce instead.
       es.close()
+      sseErrorCount.current += 1
+
+      if (sseErrorCount.current >= MAX_SSE_ERRORS) {
+        console.warn(
+          `[Notifications] SSE failed after ${MAX_SSE_ERRORS} attempts — ` +
+          "falling back to 30s polling."
+        )
+        pollFallbackRef.current = setInterval(fetchNotifications, 30_000)
+        return
+      }
+
+      const delay = Math.min(1_000 * sseErrorCount.current, 10_000)
+      retryTimeoutRef.current = setTimeout(() => initSSERef.current?.(), delay)
     }
 
     eventSourceRef.current = es
-    return () => es.close()
+  }
+
+  initSSERef.current = initSSE
+
+  useEffect(() => {
+    fetchNotifications()
+    initSSE()
+
+    return () => {
+      eventSourceRef.current?.close()
+      if (pollFallbackRef.current) {
+        clearInterval(pollFallbackRef.current)
+        pollFallbackRef.current = null
+      }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current)
+        retryTimeoutRef.current = null
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

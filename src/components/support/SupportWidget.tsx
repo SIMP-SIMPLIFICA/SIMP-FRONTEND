@@ -251,7 +251,8 @@ function NewTicketView({ type, onDone }: NewTicketViewProps) {
 interface MessageListProps {
   messages:  SupportMessage[]
   currentId: string
-  bottomRef: React.RefObject<HTMLDivElement>
+  // useRef<HTMLDivElement>(null) returns RefObject<HTMLDivElement | null> in modern React types
+  bottomRef: React.RefObject<HTMLDivElement | null>
 }
 
 function ChatBubbles({ messages, currentId, bottomRef }: MessageListProps) {

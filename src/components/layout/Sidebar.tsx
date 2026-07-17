@@ -344,27 +344,27 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   const sidebarContent = (
     <div
       className={cx(
-        "h-full bg-white border-r border-slate-200 flex flex-col transition-all duration-300 ease-in-out",
+        "h-full bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out",
         collapsed ? "w-[68px]" : "w-[260px]"
       )}
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-4 h-14 shrink-0 border-b border-slate-100">
+      <div className="flex items-center justify-between px-4 h-14 shrink-0 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-sm">
-            <LayoutGrid className="h-4 w-4 text-white" />
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-sm">
+            <LayoutGrid className="h-4 w-4 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-bold text-slate-900 text-[15px] tracking-tight">SIMP</span>
+            <span className="font-bold text-sidebar-foreground text-[15px] tracking-tight">SIMP</span>
           )}
         </div>
 
         {setMobileOpen && !collapsed && (
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1.5 hover:bg-slate-100 rounded-md transition-colors"
+            className="lg:hidden p-1.5 hover:bg-sidebar-accent rounded-md transition-colors"
           >
-            <X className="h-4 w-4 text-slate-500" />
+            <X className="h-4 w-4 text-sidebar-muted-foreground" />
           </button>
         )}
       </div>
@@ -378,9 +378,9 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
               <span className="text-xs font-semibold text-amber-700">Super Admin</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
-              <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <span className="text-xs font-medium text-slate-600 truncate">{orgName}</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar-accent border border-sidebar-border">
+              <Building2 className="h-3.5 w-3.5 text-sidebar-muted-foreground shrink-0" />
+              <span className="text-xs font-medium text-sidebar-foreground truncate">{orgName}</span>
             </div>
           )}
         </div>
@@ -403,8 +403,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                 cx(
                   "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
                   isActive
-                    ? "bg-slate-900 text-white"
-                    : "text-amber-700 hover:bg-amber-50",
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-amber-400 hover:bg-amber-500/10 hover:text-amber-300",
                   collapsed && "justify-center"
                 )
               }
@@ -418,8 +418,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                 cx(
                   "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
                   isActive
-                    ? "bg-slate-900 text-white"
-                    : "text-amber-700 hover:bg-amber-50",
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-amber-400 hover:bg-amber-500/10 hover:text-amber-300",
                   collapsed && "justify-center"
                 )
               }
@@ -438,7 +438,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
             <div key={section.label}>
               {/* Section label */}
               {!collapsed && (
-                <p className="px-2 pb-1.5 text-[10px] uppercase tracking-widest font-semibold text-slate-400">
+                <p className="px-2 pb-1.5 text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted-foreground">
                   {section.label}
                 </p>
               )}
@@ -463,8 +463,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                               className={cx(
                                 "flex items-center justify-center w-full px-2 py-2 rounded-lg transition-colors",
                                 isGroupActive
-                                  ? "bg-slate-900 text-white"
-                                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                  ? "bg-sidebar-accent text-sidebar-foreground"
+                                  : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                               )}
                             >
                               {item.icon}
@@ -478,15 +478,15 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                               className={cx(
                                 "flex items-center justify-between w-full px-2.5 py-2 rounded-lg transition-colors text-sm",
                                 isGroupActive
-                                  ? "text-slate-900"
-                                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                                  ? "text-sidebar-foreground"
+                                  : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                               )}
                             >
                               <div className="flex items-center gap-2.5">
                                 <span
                                   className={cx(
                                     "shrink-0 transition-colors",
-                                    isGroupActive ? "text-blue-600" : "text-slate-400"
+                                    isGroupActive ? "text-primary" : "text-sidebar-muted-foreground"
                                   )}
                                 >
                                   {item.icon}
@@ -497,7 +497,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                               </div>
                               <ChevronRight
                                 className={cx(
-                                  "h-3.5 w-3.5 text-slate-400 transition-transform duration-200 shrink-0",
+                                  "h-3.5 w-3.5 text-sidebar-muted-foreground transition-transform duration-200 shrink-0",
                                   isOpen && "rotate-90"
                                 )}
                               />
@@ -505,7 +505,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
 
                             {/* Children */}
                             {isOpen && (
-                              <ul className="mt-1 ml-[22px] pl-3.5 border-l border-slate-200 space-y-0.5">
+                              <ul className="mt-1 ml-[22px] pl-3.5 border-l border-sidebar-border space-y-0.5">
                                 {item.children.map((child) => (
                                   <li key={child.to}>
                                     <NavLink
@@ -515,8 +515,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                                         cx(
                                           "block px-2.5 py-1.5 rounded-md text-sm transition-colors",
                                           isActive
-                                            ? "bg-blue-50 text-blue-700 font-semibold"
-                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                                            ? "bg-sidebar-accent text-sidebar-foreground font-semibold"
+                                            : "text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent"
                                         )
                                       }
                                     >
@@ -542,8 +542,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
                           cx(
                             "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
                             isActive
-                              ? "bg-slate-900 text-white"
-                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                              ? "bg-sidebar-accent text-sidebar-foreground"
+                              : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
                             collapsed && "justify-center"
                           )
                         }
@@ -561,12 +561,12 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
       </nav>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-slate-100 p-2 space-y-1">
+      <div className="shrink-0 border-t border-sidebar-border p-2 space-y-1">
         {/* Collapse toggle — desktop only */}
         <button
           onClick={toggleCollapsed}
           className={cx(
-            "hidden lg:flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors text-sm",
+            "hidden lg:flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors text-sm",
             collapsed && "justify-center"
           )}
         >
@@ -582,26 +582,26 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
         {/* User card */}
         <div
           className={cx(
-            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-50 border border-slate-100",
+            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-sidebar-accent border border-sidebar-border",
             collapsed && "justify-center"
           )}
         >
-          <div className="h-7 w-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-            <span className="text-white text-[10px] font-bold leading-none">{initials}</span>
+          <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center shrink-0">
+            <span className="text-primary-foreground text-[10px] font-bold leading-none">{initials}</span>
           </div>
 
           {!collapsed && (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-slate-800 truncate leading-tight">{displayName}</p>
-                <p className="text-[10px] text-slate-400 truncate leading-tight">{userEmail}</p>
+                <p className="text-xs font-semibold text-sidebar-foreground truncate leading-tight">{displayName}</p>
+                <p className="text-[10px] text-sidebar-muted-foreground truncate leading-tight">{userEmail}</p>
               </div>
               <button
                 onClick={logout}
-                className="p-1 rounded-md hover:bg-red-50 transition-colors group"
+                className="p-1 rounded-md hover:bg-red-500/20 transition-colors group"
                 title="Sair"
               >
-                <LogOut className="h-3.5 w-3.5 text-slate-400 group-hover:text-red-500 transition-colors" />
+                <LogOut className="h-3.5 w-3.5 text-sidebar-muted-foreground group-hover:text-red-400 transition-colors" />
               </button>
             </>
           )}
@@ -611,7 +611,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
         {collapsed && (
           <button
             onClick={logout}
-            className="flex items-center justify-center w-full px-2.5 py-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+            className="flex items-center justify-center w-full px-2.5 py-2 rounded-lg text-sidebar-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors"
             title="Sair"
           >
             <LogOut className="h-4 w-4" />
@@ -622,6 +622,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
   );
 
   // ── Flyout panel (rendered outside sidebar, fixed position) ──────────────
+  // Flyout uses light theme — it floats over the main content area
   const flyoutPanel = collapsed && flyout ? (
     <div
       className="fixed z-[200] flex"
@@ -631,13 +632,13 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     >
       {/* Arrow connector */}
       <div className="w-2 flex items-start pt-2.5">
-        <div className="w-2 h-2 border-t border-l border-slate-200 bg-white rotate-[-45deg] translate-x-[5px]" />
+        <div className="w-2 h-2 border-t border-l border-border bg-card rotate-[-45deg] translate-x-[5px]" />
       </div>
 
       {/* Panel */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-lg py-1.5 min-w-[180px] overflow-hidden">
+      <div className="bg-card border border-border rounded-lg shadow-lg py-1.5 min-w-[180px] overflow-hidden">
         {/* Group label */}
-        <p className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-semibold text-slate-400 border-b border-slate-100 mb-1">
+        <p className="px-3 py-1.5 text-[10px] uppercase tracking-widest font-semibold text-muted-foreground border-b border-border mb-1">
           {flyout.item.label}
         </p>
 
@@ -651,8 +652,8 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
               cx(
                 "block px-3 py-1.5 text-sm transition-colors mx-1 rounded-md",
                 isActive
-                  ? "bg-blue-50 text-blue-700 font-semibold"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )
             }
           >
@@ -681,7 +682,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
         )}
       >
         <div
-          className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={() => setMobileOpen?.(false)}
         />
         <div

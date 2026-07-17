@@ -4,10 +4,20 @@ export default {
     content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		boxShadow: {
+  			/* ── Premium card shadows — Vercel / Linear / Stripe style ── */
+  			/* Two-layer system: tight near-shadow defines edge, wide ambient floats */
+  			'card':       '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 4px 12px -2px rgb(0 0 0 / 0.06)',
+  			'card-hover': '0 2px 4px 0 rgb(0 0 0 / 0.06), 0 8px 20px -4px rgb(0 0 0 / 0.10)',
+  			'card-sm':    '0 1px 2px 0 rgb(0 0 0 / 0.04), 0 2px 6px -1px rgb(0 0 0 / 0.05)',
   		},
   		colors: {
   			background: 'hsl(var(--background))',
@@ -49,6 +59,15 @@ export default {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			sidebar: {
+  				DEFAULT: 'hsl(var(--sidebar))',
+  				foreground: 'hsl(var(--sidebar-foreground))',
+  				accent: 'hsl(var(--sidebar-accent))',
+  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
+  				border: 'hsl(var(--sidebar-border))',
+  				'muted-foreground': 'hsl(var(--sidebar-muted-foreground))',
+  				ring: 'hsl(var(--sidebar-ring))',
   			}
   		}
   	}

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Building2, Loader2, ShieldCheck } from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -104,22 +105,17 @@ export default function AdminNewOrganizationPage() {
         message: string;
         org: { id: string; name: string };
         admin: { email: string };
-        tempPassword: string;
       }>("/api/v1/admin/organizations", {
         method: "POST",
         body: JSON.stringify(payload),
       });
 
-      // Invalida lista de orgs
       queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
 
-      // Mostra senha temporária antes de redirecionar
-      alert(
-        `Organização "${res.org.name}" criada!\n\n` +
-        `Admin: ${res.admin.email}\n` +
-        `Senha temporária: ${res.tempPassword}\n\n` +
-        `Anote — esta senha não será exibida novamente.`
-      );
+      toast({
+        title: `Organização "${res.org.name}" criada com sucesso.`,
+        description: `Credenciais de acesso enviadas para ${res.admin.email}.`,
+      });
 
       navigate("/admin");
     } catch (err: unknown) {
@@ -266,7 +262,7 @@ export default function AdminNewOrganizationPage() {
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Uma senha temporária será gerada e exibida após a criação.
+              Uma senha temporária será gerada e enviada para este e-mail.
             </p>
           </div>
         </section>

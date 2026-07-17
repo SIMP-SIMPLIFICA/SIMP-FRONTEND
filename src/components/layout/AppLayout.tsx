@@ -22,7 +22,7 @@ export function AppLayout() {
   return (
     <UniversalFinanceModalProvider>
       <UniversalProcessModalProvider>
-        <div className="flex h-screen overflow-hidden bg-[#F6F8FC]">
+        <div className="flex h-screen overflow-hidden bg-background">
           <Sidebar />
 
           <main className="flex flex-1 flex-col overflow-hidden">

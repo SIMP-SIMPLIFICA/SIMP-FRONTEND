@@ -33,6 +33,12 @@ import {
 } from '@/hooks/useSupport'
 import type { SupportRequest, SupportStatus, SupportInsights } from '@/lib/api/support'
 
+// ─── Recharts formatter types ─────────────────────────────────────────────────
+// Mirrors recharts/types/component/DefaultTooltipContent.d.ts exactly.
+// Defined locally to avoid depending on recharts internal path exports.
+type ChartValue = number | string | ReadonlyArray<number | string>
+type ChartName  = number | string
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<SupportStatus, string> = {
@@ -270,7 +276,7 @@ function InsightsDashboard({ data }: { data?: SupportInsights }) {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number, name: string) => [value, name]}
+                      formatter={(value: ChartValue | undefined, name: ChartName | undefined) => [value, name]}
                       contentStyle={{ fontSize: 11 }}
                     />
                     <Legend
@@ -289,7 +295,7 @@ function InsightsDashboard({ data }: { data?: SupportInsights }) {
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={28} />
                     <Tooltip
-                      formatter={(value: number) => [value, 'chamados']}
+                      formatter={(value: ChartValue | undefined) => [value, 'chamados']}
                       contentStyle={{ fontSize: 11 }}
                     />
                     <Bar dataKey="value" radius={[6, 6, 0, 0]}>

@@ -13,9 +13,9 @@ import { toast } from "@/hooks/use-toast";
 type LoginResponse = {
   message?: string;
   user?: unknown;
-  tokens?: { accessToken?: string; refreshToken?: string; expiresIn?: number };
+  // Backend sets the refreshToken as an httpOnly cookie — it is NOT in the body.
+  tokens?: { accessToken?: string; expiresIn?: number };
   accessToken?: string;
-  refreshToken?: string;
 };
 
 export default function Login() {
@@ -39,13 +39,13 @@ export default function Login() {
       });
 
       const accessToken = data.tokens?.accessToken || data.accessToken;
-      const refreshToken = data.tokens?.refreshToken || data.refreshToken;
 
       if (!accessToken) {
         throw { message: "Token de acesso não retornado pela API." };
       }
 
-      setAuthTokens(accessToken, refreshToken);
+      // refreshToken is in the httpOnly cookie set by the backend — no storage needed.
+      setAuthTokens(accessToken);
       queryClient.clear();
       toast({ title: "Login realizado", description: "Bem-vindo ao SIMP." });
       nav("/");

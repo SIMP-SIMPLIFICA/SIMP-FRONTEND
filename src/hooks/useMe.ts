@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
 
 export type MeUser = {
   id: string;
@@ -42,12 +41,13 @@ export type MeResponse = {
 };
 
 export function useMe(enabled = true) {
-  const token = getAccessToken();
-
   return useQuery({
     queryKey: ["auth", "me"], // mesma key do useAuth — compartilham o cache
     queryFn: () => apiRequest<MeResponse>("/api/v1/auth/me"),
-    enabled: enabled && !!token,
+    // No token guard here: when _accessToken is null (page reload), the 401
+    // interceptor in api.ts will silently refresh via the httpOnly cookie and
+    // retry /auth/me — this is the bootstrap path for persistent sessions.
+    enabled,
     staleTime: 1000 * 60 * 2,
     retry: false,
   });
