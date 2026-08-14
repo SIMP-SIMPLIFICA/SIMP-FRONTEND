@@ -17,6 +17,10 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Radix Select proíbe value="" em SelectItem (reservado para placeholder) — usamos
+// um sentinela e mapeamos de volta para null no payload de criação.
+const PERSONAL_WORKSPACE_VALUE = "__personal__";
+
 export default function WorkspacesPage() {
   const { data: meData } = useMe();
   const userDepts = meData?.user?.departments ?? [];
@@ -32,17 +36,23 @@ export default function WorkspacesPage() {
   const [isOpen, setIsOpen]           = useState(false);
   const [name, setName]               = useState("");
   const [desc, setDesc]               = useState("");
-  const [selectedDeptId, setSelectedDeptId] = useState<string>("");
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(PERSONAL_WORKSPACE_VALUE);
 
   // Strict split: personal vs sectoral
   const myWorkspaces     = workspaces.filter(w => !w.departmentId);
   const sectorWorkspaces = workspaces.filter(w => !!w.departmentId);
 
+  // Agrupamento por departamento — só relevante quando o usuário pertence a mais de um setor;
+  // com um único departamento, a grade simples já é a experiência mais direta.
+  const sectorWorkspacesByDept = userDepts
+    .map(dept => ({ dept, workspaces: sectorWorkspaces.filter(ws => ws.departmentId === dept.id) }))
+    .filter(group => group.workspaces.length > 0);
+
   const handleClose = () => {
     setIsOpen(false);
     setName("");
     setDesc("");
-    setSelectedDeptId("");
+    setSelectedDeptId(PERSONAL_WORKSPACE_VALUE);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -51,7 +61,7 @@ export default function WorkspacesPage() {
       await createWorkspace({
         name,
         description: desc,
-        departmentId: selectedDeptId || null,
+        departmentId: selectedDeptId === PERSONAL_WORKSPACE_VALUE ? null : selectedDeptId,
       });
       handleClose();
     } catch {
@@ -122,7 +132,7 @@ export default function WorkspacesPage() {
                           <SelectValue placeholder="Workspace pessoal (sem setor)" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Workspace pessoal (sem setor)</SelectItem>
+                          <SelectItem value={PERSONAL_WORKSPACE_VALUE}>Workspace pessoal (sem setor)</SelectItem>
                           {userDepts.map(dept => {
                             const canCreate = isSystemAdmin || dept.managerId === userId;
                             return (
@@ -182,6 +192,20 @@ export default function WorkspacesPage() {
               <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
               <p className="font-medium">Nenhum workspace vinculado ao(s) seu(s) setor(es) ainda.</p>
               <p className="text-sm mt-1">O Chefe do setor pode criar um workspace setorial.</p>
+            </div>
+          ) : userDepts.length > 1 ? (
+            <div className="space-y-8">
+              {sectorWorkspacesByDept.map(({ dept, workspaces: deptWorkspaces }) => (
+                <div key={dept.id}>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    {dept.name}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {deptWorkspaces.map(ws => <WorkspaceCard key={ws.id} workspace={ws} />)}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Layout, Trash2, Loader2, LogOut, Calendar as CalendarIcon } from "lucide-react";
-import { type TaskStatus, type TaskPriority, type Task } from "@/types/task";
+import { type TaskStatus, type TaskPriority, type Task, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from "@/types/task";
 import { type Workspace } from "@/types/workspace";
 import { useState } from "react";
 import { useMe } from "@/hooks/useMe";
@@ -36,13 +36,9 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
-  { id: 'TODO', label: 'A Fazer', color: 'bg-slate-400' },
-  { id: 'IN_PROGRESS', label: 'Em Progresso', color: 'bg-blue-500' },
-  { id: 'IN_REVIEW', label: 'Revisão', color: 'bg-amber-500' },
-  { id: 'DONE', label: 'Concluído', color: 'bg-green-500' },
-  { id: 'EXPIRED', label: 'Expiradas', color: 'bg-red-400' },
-];
+const COLUMNS: { id: TaskStatus; label: string; color: string }[] = (
+  Object.keys(TASK_STATUS_LABELS) as TaskStatus[]
+).map(id => ({ id, label: TASK_STATUS_LABELS[id].label, color: TASK_STATUS_LABELS[id].dotClassName }));
 
 function DatePickerField({ date, onChange }: {
   date: Date | undefined
@@ -255,10 +251,9 @@ export default function WorkspaceDetailPage() {
                     <Select value={newTaskPriority} onValueChange={(v) => setNewTaskPriority(v as TaskPriority)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="LOW">Baixa</SelectItem>
-                        <SelectItem value="MEDIUM">Média</SelectItem>
-                        <SelectItem value="HIGH">Alta</SelectItem>
-                        <SelectItem value="URGENT">Urgente</SelectItem>
+                        {Object.entries(TASK_PRIORITY_LABELS).map(([key, cfg]) => (
+                          <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

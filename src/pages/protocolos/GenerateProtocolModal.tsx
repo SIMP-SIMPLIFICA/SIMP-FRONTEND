@@ -11,9 +11,9 @@ import {
   CheckCircle2, Copy, Paperclip, Loader2, Clock, FileText,
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { useGenerateProtocol, useUpdateProtocolStatus } from '@/hooks/useProtocols'
+import { useGenerateProtocol, useAttachProtocolDocument } from '@/hooks/useProtocols'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
-import { libraryService } from '@/lib/api/library'
+import { useMe } from '@/hooks/useMe'
 import type { OfficialDocument, DocumentCategory } from '@/lib/api/protocols'
 
 // ─── Document type options by category ───────────────────────────────────────
@@ -24,21 +24,29 @@ const NORMATIVO_TYPES   = ['Lei', 'Decreto', 'Portaria', 'Edital', 'Resolução'
 // ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
-  documentCategory: DocumentCategory | ''
+  documentCategory: DocumentCategory
   documentType: string
   numberingType: 'SEQUENTIAL' | 'RANDOM'
   departmentId: string
   subject: string
   recipient: string
+  /** Ato Normativo: número oficial digitado pelo usuário. */
+  actNumber: string
+  /** Ato Normativo: ano do ato (pode ser exercício anterior). */
+  actYear: string
 }
 
-const EMPTY: FormState = {
-  documentCategory: '',
-  documentType: '',
-  numberingType: 'SEQUENTIAL',
-  departmentId: '',
-  subject: '',
-  recipient: '',
+function emptyForm(category: DocumentCategory): FormState {
+  return {
+    documentCategory: category,
+    documentType: '',
+    numberingType: 'SEQUENTIAL',
+    departmentId: '',
+    subject: '',
+    recipient: '',
+    actNumber: '',
+    actYear: String(new Date().getFullYear()),
+  }
 }
 
 // ─── Success screen ───────────────────────────────────────────────────────────
@@ -51,7 +59,7 @@ function SuccessScreen({
   onClose: () => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const updateStatus = useUpdateProtocolStatus()
+  const attachDocument = useAttachProtocolDocument()
   const [uploading, setUploading] = useState(false)
 
   async function handleCopy() {
@@ -64,19 +72,13 @@ function SuccessScreen({
     if (!file) return
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('title', doc.formattedNumber)
-      formData.append('accessLevel', '1')
-      const uploaded = await libraryService.upload(formData)
-      await updateStatus.mutateAsync({
-        id: doc.id,
-        data: { status: 'EMITIDO', libraryDocumentId: uploaded.id },
-      })
+      await attachDocument.mutateAsync({ protocol: doc, file })
       toast({ title: 'PDF anexado. Documento marcado como Emitido.' })
       onClose()
-    } catch {
-      toast({ title: 'Erro ao anexar PDF.', variant: 'destructive' })
+    } catch (err: unknown) {
+      const data = err as { message?: string; issues?: Array<{ message: string }> }
+      const msg = data?.message ?? data?.issues?.[0]?.message ?? 'Verifique o arquivo e tente novamente.'
+      toast({ title: 'Erro ao anexar PDF', description: msg, variant: 'destructive' })
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -94,7 +96,9 @@ function SuccessScreen({
       </div>
 
       <div>
-        <p className="text-sm text-slate-500 mb-2">Número oficial reservado</p>
+        <p className="text-sm text-slate-500 mb-2">
+          {doc.documentCategory === 'NORMATIVO' ? 'Ato normativo registrado' : 'Número oficial reservado'}
+        </p>
         <div className="inline-block bg-slate-900 text-white font-mono text-lg font-bold px-6 py-3 rounded-xl tracking-wider shadow-lg">
           {doc.formattedNumber}
         </div>
@@ -159,13 +163,19 @@ function SuccessScreen({
 interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
+  /** Categoria fixada pela aba de origem (Ato Normativo / Comunicação) — ver OfficialProtocolsPage. */
+  category: DocumentCategory
+  /** Admins (protocols:admin ou super admin) veem todos os departamentos da organização; demais usuários veem apenas os seus. */
+  isAdmin: boolean
 }
 
-export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
+export default function GenerateProtocolModal({ open, onOpenChange, category, isAdmin }: Props) {
   const { data: deptData } = useDepartmentOptions()
-  const departments = (deptData?.data ?? []).filter(d => d.isActive)
+  const { data: me } = useMe()
+  const allDepartments = (deptData?.data ?? []).filter(d => d.isActive)
+  const departments = isAdmin ? allDepartments : (me?.user?.departments ?? [])
 
-  const [form, setForm]       = useState<FormState>(EMPTY)
+  const [form, setForm]       = useState<FormState>(() => emptyForm(category))
   const [generated, setGenerated] = useState<OfficialDocument | null>(null)
   const generateMutation      = useGenerateProtocol()
 
@@ -182,29 +192,27 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
   }
 
   function handleClose() {
-    setForm(EMPTY)
+    setForm(emptyForm(category))
     setGenerated(null)
     onOpenChange(false)
   }
 
   const typeOptions = form.documentCategory === 'NORMATIVO'
     ? NORMATIVO_TYPES
-    : form.documentCategory === 'COMUNICACAO'
-      ? COMUNICACAO_TYPES
-      : []
+    : COMUNICACAO_TYPES
 
   const isNormativo = form.documentCategory === 'NORMATIVO'
   const isValid = !!(
-    form.documentCategory &&
     form.documentType &&
     form.subject.trim() &&
     (isNormativo || form.departmentId) &&
-    (isNormativo || form.recipient.trim())
+    (isNormativo || form.recipient.trim()) &&
+    (!isNormativo || (Number(form.actNumber) > 0 && Number(form.actYear) > 1900))
   )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isValid || !form.documentCategory) return
+    if (!isValid) return
     try {
       const doc = await generateMutation.mutateAsync({
         documentCategory: form.documentCategory,
@@ -212,11 +220,19 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
         subject:          form.subject.trim(),
         recipient:        isNormativo ? undefined : form.recipient.trim() || undefined,
         departmentId:     isNormativo ? undefined : form.departmentId,
-        numberingType:    form.numberingType,
+        numberingType:    isNormativo ? 'MANUAL' : form.numberingType,
+        sequenceNumber:   isNormativo ? Number(form.actNumber) : undefined,
+        year:             isNormativo ? Number(form.actYear) : undefined,
       })
       setGenerated(doc)
-    } catch {
-      toast({ title: 'Erro ao gerar número.', variant: 'destructive' })
+    } catch (err: unknown) {
+      const data = err as { message?: string; issues?: Array<{ message: string }> }
+      const msg = data?.message ?? data?.issues?.[0]?.message ?? 'Verifique os campos e tente novamente.'
+      toast({
+        title: isNormativo ? 'Erro ao registrar ato' : 'Erro ao gerar número',
+        description: msg,
+        variant: 'destructive',
+      })
     }
   }
 
@@ -225,11 +241,15 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
       <DialogContent className="sm:max-w-2xl w-[95vw] overflow-hidden p-0 gap-0 flex flex-col max-h-[90vh]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
           <DialogTitle>
-            {generated ? 'Número Gerado com Sucesso' : 'Gerar Novo Número Oficial'}
+            {generated
+              ? (isNormativo ? 'Ato Normativo Registrado com Sucesso' : 'Número Gerado com Sucesso')
+              : isNormativo ? 'Registrar Ato Normativo' : 'Gerar Nova Comunicação'}
           </DialogTitle>
           {!generated && (
             <DialogDescription>
-              Preencha os dados do documento. A numeração é atribuída automaticamente.
+              {isNormativo
+                ? 'Informe o número oficial do ato e preencha os dados do documento.'
+                : 'Preencha os dados do documento. A numeração é atribuída automaticamente.'}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -245,41 +265,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
             <div className="flex-1 overflow-y-auto">
               <div className="px-6 py-5 space-y-5">
 
-                {/* Campo 1: Categoria */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">
-                    Categoria do Documento <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {([
-                      { value: 'COMUNICACAO', title: 'Comunicação', desc: 'Ofícios, Memorandos, CIs', color: 'blue' },
-                      { value: 'NORMATIVO',   title: 'Ato Normativo', desc: 'Leis, Decretos, Portarias', color: 'indigo' },
-                    ] as const).map(opt => {
-                      const selected = form.documentCategory === opt.value
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => set('documentCategory', opt.value)}
-                          className={`rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                            selected
-                              ? opt.color === 'blue'
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-indigo-500 bg-indigo-50'
-                              : 'border-slate-200 hover:border-slate-300 bg-white'
-                          }`}
-                        >
-                          <p className={`text-sm font-semibold ${selected ? (opt.color === 'blue' ? 'text-blue-700' : 'text-indigo-700') : 'text-slate-700'}`}>
-                            {opt.title}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Campo 1b: Tipo de Numeração — apenas Comunicação */}
+                {/* Campo 1: Tipo de Numeração — apenas Comunicação (Normativo é sempre sequencial) */}
                 {form.documentCategory === 'COMUNICACAO' && (
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Tipo de Numeração</Label>
@@ -309,50 +295,80 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                   </div>
                 )}
 
-                {/* Campo 2: Tipo — aparece depois de escolher categoria */}
-                {form.documentCategory && (
-                  <div className="space-y-1.5">
-                    <Label>
-                      Tipo de Documento <span className="text-red-500">*</span>
-                    </Label>
-                    <Select value={form.documentType} onValueChange={v => set('documentType', v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecionar tipo…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {typeOptions.map(t => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {/* Campo 1b: Número e Ano — apenas Ato Normativo (numeração manual).
+                    A numeração oficial vem do processo legislativo, externa ao sistema. */}
+                {isNormativo && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>
+                        Número da Lei/Ato <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Ex: 1"
+                        value={form.actNumber}
+                        onChange={e => set('actNumber', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>
+                        Ano <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1900}
+                        max={2200}
+                        placeholder="Ex: 2026"
+                        value={form.actYear}
+                        onChange={e => set('actYear', e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
                 )}
 
+                {/* Campo 2: Tipo */}
+                <div className="space-y-1.5">
+                  <Label>
+                    Tipo de Documento <span className="text-red-500">*</span>
+                  </Label>
+                  <Select value={form.documentType} onValueChange={v => set('documentType', v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar tipo…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typeOptions.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Campo 3: Setor */}
-                {form.documentCategory && (
-                  <div className="space-y-1.5">
-                    <Label>Setor de Origem</Label>
-                    {isNormativo ? (
-                      <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-slate-50 text-sm text-slate-400">
-                        <FileText className="h-3.5 w-3.5 shrink-0" />
-                        Numeração Centralizada — Geral do Município
-                      </div>
-                    ) : (
-                      <Select value={form.departmentId} onValueChange={v => set('departmentId', v)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecionar departamento..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {departments.map(d => (
-                            <SelectItem key={d.id} value={d.id}>
-                              {d.code} — {d.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <Label>Setor de Origem</Label>
+                  {isNormativo ? (
+                    <div className="flex items-center gap-2 h-9 px-3 border border-slate-200 rounded-md bg-slate-50 text-sm text-slate-400">
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      Numeração Centralizada — Geral do Município
+                    </div>
+                  ) : (
+                    <Select value={form.departmentId} onValueChange={v => set('departmentId', v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar departamento..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map(d => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.code} — {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
 
                 {/* Campo 4: Assunto */}
                 {form.documentType && (
@@ -407,7 +423,7 @@ export default function GenerateProtocolModal({ open, onOpenChange }: Props) {
                 disabled={!isValid || generateMutation.isPending}
               >
                 {generateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Gerar Número
+                {isNormativo ? 'Registrar Ato' : 'Gerar Número'}
               </Button>
             </div>
           </form>

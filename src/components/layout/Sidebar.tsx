@@ -21,6 +21,7 @@ import {
   Hash,
   Landmark,
   Headphones,
+  Settings,
 } from "lucide-react";
 
 import { useQueryClient } from "@tanstack/react-query";
@@ -314,21 +315,23 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
 
   const enabledModules: string[] = rawUser?.enabledModules ?? [];
 
+  // Só chamada para sessões não-super-admin (ver render abaixo) — um super admin
+  // nativo nunca atinge NAV_SECTIONS, então não há mais bypass de módulo/permissão aqui.
   function filterItems(items: NavItem[]): NavItem[] {
     return items
       .map((item) => {
-        if (item.to === "/organizacao") return (!!orgName && !isSuperAdmin) ? item : null;
-        // Module check (super admin bypasses)
-        if (!isSuperAdmin && item.module && !enabledModules.includes(item.module)) return null;
+        if (item.to === "/organizacao") return orgName ? item : null;
+        // Module check
+        if (item.module && !enabledModules.includes(item.module)) return null;
         // Permission check
-        if (item.anyOf && !isSuperAdmin) {
+        if (item.anyOf) {
           if (!data) return null;
           if (!hasAnyPermission(data, item.anyOf)) return null;
         }
         // Filter children by module
         if (item.children) {
           const visibleChildren = item.children.filter(
-            (c) => !c.module || isSuperAdmin || enabledModules.includes(c.module)
+            (c) => !c.module || enabledModules.includes(c.module)
           );
           if (visibleChildren.length === 0) return null;
           return { ...item, children: visibleChildren };
@@ -427,10 +430,25 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
               <Headphones className="h-4 w-4 shrink-0" />
               {!collapsed && <span className="font-medium">Suporte</span>}
             </NavLink>
+            <NavLink
+              to="/configuracoes"
+              className={({ isActive }) =>
+                cx(
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-amber-400 hover:bg-amber-500/10 hover:text-amber-300",
+                  collapsed && "justify-center"
+                )
+              }
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="font-medium">Configurações Globais</span>}
+            </NavLink>
           </div>
         )}
 
-        {NAV_SECTIONS.map((section) => {
+        {!isSuperAdmin && NAV_SECTIONS.map((section) => {
           const visibleItems = filterItems(section.items);
           if (visibleItems.length === 0) return null;
 

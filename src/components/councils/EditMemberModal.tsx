@@ -19,19 +19,12 @@ import {
 import { Loader2 } from 'lucide-react'
 import { useUpdateCouncilMember } from '@/hooks/useCouncils'
 import { toast } from '@/hooks/use-toast'
+import { COUNCIL_ROLE_LABELS } from '@/lib/councilRoles'
 import type { CouncilMembership, CouncilMemberRole } from '@/lib/api/councils'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<CouncilMemberRole, string> = {
-  PRESIDENTE:      'Presidente',
-  VICE_PRESIDENTE: 'Vice-Presidente',
-  SECRETARIO:      'Secretário',
-  MEMBRO_TITULAR:  'Membro Titular',
-  MEMBRO_SUPLENTE: 'Membro Suplente',
-}
-
-const ROLES = Object.entries(ROLE_LABELS) as [CouncilMemberRole, string][]
+const ROLES = Object.entries(COUNCIL_ROLE_LABELS) as [CouncilMemberRole, string][]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

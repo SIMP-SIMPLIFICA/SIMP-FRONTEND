@@ -1,8 +1,8 @@
-import { type Task } from "@/types/task";
+import { type Task, TASK_PRIORITY_LABELS } from "@/types/task";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 // REMOVIDO: Paperclip da lista abaixo
-import { Calendar, MessageSquare, CheckSquare } from "lucide-react"; 
+import { Calendar, MessageSquare, CheckSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -11,23 +11,16 @@ interface TaskCardProps {
   onClick: (task: Task) => void;
 }
 
-const priorityColors = {
-  LOW: "bg-gray-100 text-gray-800",
-  MEDIUM: "bg-blue-100 text-blue-800",
-  HIGH: "bg-orange-100 text-orange-800",
-  URGENT: "bg-red-100 text-red-800",
-};
-
 export function TaskCard({ task, onClick }: TaskCardProps) {
   return (
-    <Card 
+    <Card
       onClick={() => onClick(task)}
       className="mb-3 cursor-pointer hover:shadow-md transition-all border-l-4 border-l-transparent hover:border-l-primary"
     >
       <CardHeader className="p-3 pb-0 space-y-0">
         <div className="flex justify-between items-start">
-          <Badge variant="outline" className={cn("text-[10px] px-1 py-0 border-0", priorityColors[task.priority])}>
-            {task.priority}
+          <Badge variant="outline" className={cn("text-[10px] px-1 py-0 border-0", TASK_PRIORITY_LABELS[task.priority].className)}>
+            {TASK_PRIORITY_LABELS[task.priority].label}
           </Badge>
           <span className="text-xs text-muted-foreground font-mono">#{task.code}</span>
         </div>

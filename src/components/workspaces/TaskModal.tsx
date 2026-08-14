@@ -25,7 +25,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { type WorkspaceMember } from "@/types/workspace";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { type TaskStatus } from "@/types/task";
+import { type TaskStatus, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from "@/types/task";
 
 interface TaskModalProps {
   taskId: string | null;
@@ -35,14 +35,6 @@ interface TaskModalProps {
   workspaceMembers: WorkspaceMember[];
 }
 
-
-const STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }> = {
-  TODO:        { label: 'A Fazer',      className: 'bg-slate-100 text-slate-700' },
-  IN_PROGRESS: { label: 'Em Progresso', className: 'bg-blue-100 text-blue-700' },
-  IN_REVIEW:   { label: 'Revisão',      className: 'bg-amber-100 text-amber-700' },
-  DONE:        { label: 'Concluído',    className: 'bg-green-100 text-green-700' },
-  EXPIRED:    { label: 'Expirado',     className: 'bg-red-100 text-red-600' },
-};
 
 export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembers }: TaskModalProps) {
   const queryClient = useQueryClient();
@@ -320,11 +312,11 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                   <div className="space-y-3">
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Situação</h4>
                       <Select value={task.status} onValueChange={handleStatusChange}>
-                        <SelectTrigger className={`h-8 text-xs font-semibold w-full ${STATUS_CONFIG[task.status as TaskStatus]?.className ?? ''}`}>
+                        <SelectTrigger className={`h-8 text-xs font-semibold w-full ${TASK_STATUS_LABELS[task.status as TaskStatus]?.badgeClassName ?? ''}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+                          {Object.entries(TASK_STATUS_LABELS).map(([key, cfg]) => (
                             <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
                           ))}
                         </SelectContent>
@@ -338,10 +330,9 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="LOW">Baixa</SelectItem>
-                          <SelectItem value="MEDIUM">Média</SelectItem>
-                          <SelectItem value="HIGH">Alta</SelectItem>
-                          <SelectItem value="URGENT">Urgente</SelectItem>
+                          {Object.entries(TASK_PRIORITY_LABELS).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                   </div>

@@ -10,6 +10,7 @@ import {
   PenLine,
   Loader2,
   Upload,
+  Lock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -157,6 +158,7 @@ interface DocumentsSectionProps {
   returnPath: string
   canWrite: boolean
   canSign: boolean
+  isFrozen: boolean
 }
 
 function DocumentsSection({
@@ -168,6 +170,7 @@ function DocumentsSection({
   returnPath,
   canWrite,
   canSign,
+  isFrozen,
 }: DocumentsSectionProps) {
   const [pendingDocId, setPendingDocId] = useState<string | null>(null)
   const [signingDocId, setSigningDocId] = useState<string | null>(null)
@@ -189,7 +192,16 @@ function DocumentsSection({
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
         <h2 className="text-sm font-semibold text-slate-700">Documentos</h2>
         {canWrite && (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={onUpload}>
+          // Desabilitado, não oculto: o usuário precisa entender que a ação
+          // existia e deixou de estar disponível.
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={onUpload}
+            disabled={isFrozen}
+            title={isFrozen ? 'Registro congelado: prazo de 72h encerrado' : undefined}
+          >
             <Upload className="h-4 w-4" />
             Upload Documento
           </Button>
@@ -324,6 +336,10 @@ export default function MeetingDetailPage() {
   const { data: documents = [], isLoading: docsLoading } = useMeetingDocuments(councilId, mId)
   const updateStatus = useUpdateMeetingStatus(councilId, mId)
 
+  // Veredito vem pronto do servidor — não recalculamos aqui (ver CouncilMeeting.isFrozen).
+  // Congelado revoga a escrita independentemente da permissão do usuário.
+  const isFrozen = meeting?.isFrozen === true
+
   if (isLoading) {
     return <PageSkeleton />
   }
@@ -371,7 +387,26 @@ export default function MeetingDetailPage() {
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <h1 className="text-xl font-semibold text-slate-900">{meeting.title}</h1>
             <MeetingStatusBadge status={meeting.status} />
+            {isFrozen && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 text-white px-2.5 py-1 text-[11px] font-semibold">
+                <Lock className="h-3 w-3" />
+                Registro Oficial Congelado (Prazo de 72h encerrado)
+              </span>
+            )}
           </div>
+
+          {/* Aviso de congelamento — visível antes de qualquer tentativa de clique */}
+          {isFrozen && (
+            <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm text-slate-700 font-medium">
+                Este registro está congelado e não pode mais ser alterado.
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Atas de conselho são documentos oficiais: passadas 72 horas da reunião, o
+                conteúdo é preservado como registro definitivo.
+              </p>
+            </div>
+          )}
 
           {/* Meta row */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-600">
@@ -410,9 +445,12 @@ export default function MeetingDetailPage() {
                     onError:   () => toast({ title: 'Erro ao alterar status.', variant: 'destructive' }),
                   })
                 }
-                disabled={updateStatus.isPending}
+                disabled={updateStatus.isPending || isFrozen}
               >
-                <SelectTrigger className="w-44 h-8 text-sm">
+                <SelectTrigger
+                  className="w-44 h-8 text-sm"
+                  title={isFrozen ? 'Registro congelado: prazo de 72h encerrado' : undefined}
+                >
                   {updateStatus.isPending
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     : <SelectValue />
@@ -457,6 +495,7 @@ export default function MeetingDetailPage() {
         returnPath={location.pathname}
         canWrite={canWrite}
         canSign={canSign}
+        isFrozen={isFrozen}
       />
 
       <UploadDocumentModal

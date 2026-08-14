@@ -21,12 +21,16 @@ import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
+  useUpdateProcessValidity,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
-import type { VirtualProcess } from '@/types/virtual-process'
+import type { VirtualProcess, UnifiedProcessDoc } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
+import { libraryService } from '@/lib/api/library'
+import { formatCurrencyBRL, formatCurrencyInput, sanitizeCurrencyInput, parseCurrencyInput } from '@/lib/currency'
+import { getExpiryAlert, EXPIRING_SOON_DAYS } from '@/lib/processExpiry'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
@@ -108,6 +112,8 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   })
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [validityDate, setValidityDate] = useState<Date | undefined>(undefined)
+  const [totalValue, setTotalValue] = useState('')
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(undefined)
   const { data: processesResponse } = useVirtualProcesses(undefined)
@@ -125,6 +131,7 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   function reset() {
     setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
     setStartDate(undefined); setEndDate(undefined)
+    setValidityDate(undefined); setTotalValue('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -132,6 +139,10 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
     const num = form.processNumber.trim()
     if ((processesResponse?.data ?? []).some((p: VirtualProcess) => p.processNumber === num)) {
       toast({ title: 'Número já cadastrado', description: `O processo "${num}" já existe.`, variant: 'destructive' })
+      return
+    }
+    if (startDate && endDate && startDate > endDate) {
+      toast({ title: 'Datas inválidas', description: 'A data de início não pode ser posterior à data de encerramento.', variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -147,6 +158,8 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
         companyCnpj: form.companyCnpj.trim() || undefined,
         startDate: startDate?.toISOString() || undefined,
         endDate: endDate?.toISOString() || undefined,
+        validityDate: validityDate?.toISOString() || undefined,
+        totalValue: parseCurrencyInput(totalValue),
         bankAccount: form.bankAccount.trim() || undefined,
         agency: form.agency.trim() || undefined,
         bankName: form.bankName.trim() || undefined,
@@ -281,10 +294,45 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
               </div>
             </div>
 
-            {/* Row 6: Datas */}
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <DatePickerField label="Data de Início" date={startDate} onChange={setStartDate} />
-              <DatePickerField label="Data de Encerramento" date={endDate} onChange={setEndDate} />
+            {/* Row 6: Vigência do processo (tramitação) — NÃO gera alerta */}
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Tramitação do processo</p>
+                <p className="text-[11px] text-slate-400">Quando o processo começou e quando foi/será arquivado.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <DatePickerField label="Data de Início" date={startDate} onChange={setStartDate} />
+                <DatePickerField label="Data de Encerramento" date={endDate} onChange={setEndDate} />
+              </div>
+            </div>
+
+            {/* Row 6b: Prazo monitorado — é ESTA data que dispara os alertas.
+                Separado visualmente de propósito: preencher "Encerramento" achando
+                que é a validade faria o alerta nunca disparar (falha silenciosa). */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Prazo monitorado</p>
+                <p className="text-[11px] text-amber-700">
+                  A Data de Validade é a vigência legal — é ela que gera os alertas de vencimento na listagem. Opcional.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <DatePickerField label="Data de Validade" date={validityDate} onChange={setValidityDate} />
+                <div className="space-y-1.5">
+                  <Label>Valor Total <span className="text-slate-400 font-normal">(opcional)</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">R$</span>
+                    <Input
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      className="pl-9"
+                      value={totalValue}
+                      onChange={e => setTotalValue(sanitizeCurrencyInput(e.target.value))}
+                      onBlur={() => setTotalValue(v => formatCurrencyInput(v))}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Row 7: Conta Bancária */}
@@ -448,6 +496,12 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
 
   if (!process) return null
 
+  // Lista unificada vinda do backend (documentos do processo + do convênio, com
+  // `source` marcando a procedência). Fallback para `documents` mantém a tela
+  // funcionando caso o backend antigo ainda esteja no ar.
+  const unifiedDocs: UnifiedProcessDoc[] = process.unifiedDocuments
+    ?? (process.documents ?? []).map(d => ({ ...d, source: 'process' as const }))
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -498,8 +552,30 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
             )}
             {(process.startDate || process.endDate) && (
               <div className="col-span-2">
-                <div className="text-xs text-slate-400">Período</div>
+                <div className="text-xs text-slate-400">Período de tramitação</div>
                 <div className="font-medium text-slate-700">{formatDate(process.startDate)} → {formatDate(process.endDate)}</div>
+              </div>
+            )}
+            {process.validityDate && (
+              <div>
+                <div className="text-xs text-slate-400">Validade (vigência)</div>
+                <div className="font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                  {formatDate(process.validityDate)}
+                  {(() => {
+                    const alert = getExpiryAlert(process.validityDate)
+                    return alert.label ? (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${alert.className}`}>
+                        {alert.label}
+                      </span>
+                    ) : null
+                  })()}
+                </div>
+              </div>
+            )}
+            {process.totalValue != null && (
+              <div>
+                <div className="text-xs text-slate-400">Valor total</div>
+                <div className="font-medium text-slate-700">{formatCurrencyBRL(process.totalValue)}</div>
               </div>
             )}
             <div>
@@ -592,45 +668,68 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
               </Button>
             </div>
 
-            {!process.documents || process.documents.length === 0 ? (
+            {unifiedDocs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center rounded-lg border border-dashed border-slate-200">
                 <Paperclip className="h-6 w-6 text-slate-300 mb-1.5" />
                 <div className="text-xs text-slate-400">Nenhum documento anexado</div>
               </div>
             ) : (
               <div className="space-y-2">
-                {process.documents.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                    <FileText className="h-4 w-4 text-[#0A5BC4] shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-slate-700 truncate">{doc.fileName}</div>
-                      <div className="text-xs text-slate-400">{doc.tag} · {formatBytes(doc.fileSize)} · {formatDate(doc.uploadedAt)}</div>
+                {unifiedDocs.map(doc => {
+                  const fromCovenant = doc.source === 'covenant'
+                  return (
+                    <div key={`${doc.source}-${doc.id}`} className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <FileText className={`h-4 w-4 shrink-0 ${fromCovenant ? 'text-emerald-600' : 'text-[#0A5BC4]'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-700 truncate flex items-center gap-1.5">
+                          <span className="truncate">{doc.fileName}</span>
+                          {fromCovenant && (
+                            <span className="shrink-0 rounded-full bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide">
+                              Do convênio
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {fromCovenant
+                            ? `${doc.covenantNumber ? `Convênio ${doc.covenantNumber} · ` : ''}${formatBytes(doc.fileSize)} · ${formatDate(doc.uploadedAt)}`
+                            : `${doc.tag} · ${formatBytes(doc.fileSize)} · ${formatDate(doc.uploadedAt)}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          className="p-1 text-slate-400 hover:text-[#0A5BC4] transition-colors"
+                          title="Download"
+                          onClick={async () => {
+                            try {
+                              // Documento do convênio baixa pelo endpoint da Biblioteca,
+                              // preservando a checagem de nível de sigilo que vive lá —
+                              // sem criar um segundo caminho de download para divergir.
+                              const data = fromCovenant
+                                ? await libraryService.download(doc.id)
+                                : await virtualProcessService.getDownloadUrl(processId!, doc.id)
+                              window.open(data.url, '_blank')
+                            } catch {
+                              toast({ title: 'Erro ao baixar documento', variant: 'destructive' })
+                            }
+                          }}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </button>
+                        {/* Sem excluir para documentos do convênio: são acervo com
+                            valor legal e suas regras de exclusão vivem na Biblioteca. */}
+                        {!fromCovenant && (
+                          <button
+                            onClick={() => setDeletingDocId(doc.id)}
+                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Remover"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        className="p-1 text-slate-400 hover:text-[#0A5BC4] transition-colors"
-                        title="Download"
-                        onClick={async () => {
-                          try {
-                            const data = await virtualProcessService.getDownloadUrl(processId!, doc.id)
-                            window.open(data.url, '_blank')
-                          } catch {
-                            toast({ title: 'Erro ao baixar documento', variant: 'destructive' })
-                          }
-                        }}
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeletingDocId(doc.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                        title="Remover"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -665,31 +764,129 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
 }
 
 // --- Process List Item ---
-function ProcessItem({ process, selected, onClick }: { process: VirtualProcess; selected: boolean; onClick: () => void }) {
+function ProcessItem({ process, selected, onClick, onEditValidity }: {
+  process: VirtualProcess; selected: boolean; onClick: () => void; onEditValidity: () => void
+}) {
+  const expiry = getExpiryAlert(process.validityDate)
+
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-start gap-3 ${selected ? 'bg-blue-50 border-l-2 border-l-[#0A5BC4]' : ''}`}
+    <div
+      className={`w-full border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-start gap-3 px-4 py-3.5 ${selected ? 'bg-blue-50 border-l-2 border-l-[#0A5BC4]' : ''}`}
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 mt-0.5">
-        <FolderArchive className="h-4 w-4 text-slate-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-slate-800">{process.processNumber}</span>
-          {statusBadge(process.status)}
+      <button onClick={onClick} className="flex flex-1 min-w-0 items-start gap-3 text-left">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 mt-0.5">
+          <FolderArchive className="h-4 w-4 text-slate-500" />
         </div>
-        <div className="text-xs text-slate-500 truncate mt-0.5">{process.subject}</div>
-        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-          <span className="flex items-center gap-1"><Tag className="h-3 w-3" />{process.category}</span>
-          <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{process.secretaria}</span>
-          {(process._count?.documents ?? 0) > 0 && (
-            <span className="flex items-center gap-1"><Paperclip className="h-3 w-3" />{process._count!.documents}</span>
-          )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800">{process.processNumber}</span>
+            {statusBadge(process.status)}
+            {expiry.label && (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${expiry.className}`}>
+                {expiry.label}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-500 truncate mt-0.5">{process.subject}</div>
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 flex-wrap">
+            <span className="flex items-center gap-1"><Tag className="h-3 w-3" />{process.category}</span>
+            <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{process.secretaria}</span>
+            {(process._count?.documents ?? 0) > 0 && (
+              <span className="flex items-center gap-1"><Paperclip className="h-3 w-3" />{process._count!.documents}</span>
+            )}
+            {process.validityDate && (
+              <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />Val. {formatDate(process.validityDate)}</span>
+            )}
+            {process.totalValue != null && (
+              <span className="font-medium text-slate-500">{formatCurrencyBRL(process.totalValue)}</span>
+            )}
+          </div>
         </div>
+      </button>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditValidity() }}
+          title="Editar prazo e valor"
+          className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+        </button>
+        <ChevronRight className="h-4 w-4 text-slate-300 mt-0.5" />
       </div>
-      <ChevronRight className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
-    </button>
+    </div>
+  )
+}
+
+// --- Editar prazo/valor de um processo já existente ---
+function EditValidityDialog({ process, onClose }: { process: VirtualProcess | null; onClose: () => void }) {
+  // O pai monta este componente com `key={process.id}`, então ele remonta a cada
+  // processo diferente — inicializar o estado aqui basta, sem efeito de sincronização.
+  const [date, setDate] = useState<Date | undefined>(
+    process?.validityDate ? new Date(process.validityDate) : undefined
+  )
+  const [value, setValue] = useState(
+    process?.totalValue != null ? formatCurrencyInput(String(Number(process.totalValue))) : ''
+  )
+  const { mutateAsync: updateValidity, isPending } = useUpdateProcessValidity()
+
+  async function handleSave() {
+    if (!process) return
+    try {
+      await updateValidity({
+        id: process.id,
+        data: {
+          // null (não undefined) para permitir REMOVER uma data/valor já gravado
+          validityDate: date ? date.toISOString() : null,
+          totalValue: parseCurrencyInput(value) ?? null,
+        },
+      })
+      toast({ title: 'Prazo e valor atualizados' })
+      onClose()
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Tente novamente.'
+      toast({ title: 'Erro ao atualizar', description: msg, variant: 'destructive' })
+    }
+  }
+
+  return (
+    <Dialog open={!!process} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Prazo e valor</DialogTitle>
+          <DialogDescription>
+            Processo <span className="font-mono font-semibold">{process?.processNumber}</span>. A Data de Validade
+            é a vigência legal — é ela que gera os alertas de vencimento.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <DatePickerField label="Data de Validade" date={date} onChange={setDate} />
+          <div className="space-y-1.5">
+            <Label>Valor Total</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">R$</span>
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                className="pl-9"
+                value={value}
+                onChange={e => setValue(sanitizeCurrencyInput(e.target.value))}
+                onBlur={() => setValue(v => formatCurrencyInput(v))}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">Deixe em branco para remover o valor já registrado.</p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={isPending} className="gap-2">
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -701,6 +898,8 @@ export default function ProcessosVirtuais() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [deletingProcessId, setDeletingProcessId] = useState<string | null>(null)
+  const [expiringOnly, setExpiringOnly] = useState(false)
+  const [validityTarget, setValidityTarget] = useState<VirtualProcess | null>(null)
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useVirtualProcesses(undefined, {
@@ -708,6 +907,8 @@ export default function ProcessosVirtuais() {
     search: search || undefined,
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
     category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+    // Filtrado no servidor para que total e paginação fiquem coerentes com o resultado.
+    expiringIn: expiringOnly ? EXPIRING_SOON_DAYS : undefined,
   })
 
   const { mutate: deleteProcess, isPending: deleting } = useDeleteVirtualProcess(undefined)
@@ -780,6 +981,20 @@ export default function ProcessosVirtuais() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Atalho "Quase Vencendo" — compõe com os demais filtros, não os substitui */}
+          <button
+            type="button"
+            onClick={() => { setExpiringOnly(v => !v); setPage(1) }}
+            className={`mt-2 w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium border transition-colors ${
+              expiringOnly
+                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {expiringOnly ? `Quase vencendo (${EXPIRING_SOON_DAYS} dias)` : 'Filtrar: quase vencendo'}
+          </button>
         </div>
 
         {/* List */}
@@ -815,6 +1030,7 @@ export default function ProcessosVirtuais() {
                   process={p}
                   selected={selectedId === p.id}
                   onClick={() => setSelectedId(p.id)}
+                  onEditValidity={() => setValidityTarget(p)}
                 />
               ))}
               {totalPages > 1 && (
@@ -852,6 +1068,13 @@ export default function ProcessosVirtuais() {
 
       {/* Create dialog */}
       <CreateProcessDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {/* Editar prazo/valor — key força remontagem ao trocar de processo */}
+      <EditValidityDialog
+        key={validityTarget?.id ?? 'none'}
+        process={validityTarget}
+        onClose={() => setValidityTarget(null)}
+      />
 
       {/* Delete process confirm */}
       <Dialog open={!!deletingProcessId} onOpenChange={v => !v && setDeletingProcessId(null)}>

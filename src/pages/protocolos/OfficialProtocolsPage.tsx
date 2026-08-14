@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer,
+  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer, Paperclip,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useMe } from '@/hooks/useMe'
@@ -14,6 +15,7 @@ import { useProtocols } from '@/hooks/useProtocols'
 import type { OfficialDocument, DocumentCategory, DocumentStatus } from '@/lib/api/protocols'
 import GenerateProtocolModal from './GenerateProtocolModal'
 import ProtocolViewSheet from './ProtocolViewSheet'
+import AttachDocumentModal from './AttachDocumentModal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +48,18 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
   )
 }
 
+function AttachmentBadge({ attached }: { attached: boolean }) {
+  return attached ? (
+    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
+      Anexado
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+      Pendente de Anexo
+    </span>
+  )
+}
+
 function RowSkeleton() {
   return (
     <tr className="border-b border-slate-100">
@@ -63,26 +77,32 @@ export default function OfficialProtocolsPage() {
   const isAdmin      = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
   const currentUserId = me?.user?.id
 
+  // Ato Normativo/Comunicação são fluxos separados com permissões independentes;
+  // protocols:write segue concedendo acesso às duas categorias (aditivo, sem regressão).
+  const canNormativo   = isAdmin || hasAnyPermission(me, ['protocols:write', 'protocols:normativo'])
+  const canComunicacao = isAdmin || hasAnyPermission(me, ['protocols:write', 'protocols:comunicacao'])
+
   function canActOnDoc(doc: OfficialDocument) {
     return isAdmin || doc.creatorId === currentUserId
   }
 
   const currentYear = new Date().getFullYear()
 
+  const [categoryTab, setCategoryTab]     = useState<DocumentCategory>(canNormativo ? 'NORMATIVO' : 'COMUNICACAO')
   const [search, setSearch]               = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<DocumentCategory | 'ALL'>('ALL')
   const [statusFilter, setStatusFilter]   = useState<DocumentStatus | 'ALL'>('ALL')
   const [yearFilter, setYearFilter]       = useState<number>(currentYear)
   const [monthFilter, setMonthFilter]     = useState<number>(0)
   const [page, setPage]                   = useState(1)
   const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
+  const [attachTarget, setAttachTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
 
   const { data, isLoading } = useProtocols({
     page,
     limit: 25,
     search:           search || undefined,
-    documentCategory: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+    documentCategory: categoryTab,
     status:           statusFilter   !== 'ALL' ? statusFilter   : undefined,
     year:             yearFilter,
     month:            monthFilter !== 0 ? monthFilter : undefined,
@@ -96,7 +116,7 @@ export default function OfficialProtocolsPage() {
   // Título do extrato para impressão
   const extractTitle = [
     monthFilter !== 0 ? `${MONTH_NAMES[monthFilter]}/${yearFilter}` : `Ano ${yearFilter}`,
-    categoryFilter !== 'ALL' ? CATEGORY_LABELS[categoryFilter] : null,
+    CATEGORY_LABELS[categoryTab],
     statusFilter   !== 'ALL' ? STATUS_CONFIG[statusFilter].label : null,
   ].filter(Boolean).join(' · ')
 
@@ -153,6 +173,16 @@ export default function OfficialProtocolsPage() {
           </div>
         </div>
 
+        {/* ── Abas de categoria — Ato Normativo (fila única) vs Comunicação (por setor) ── */}
+        <div className="no-print px-6 pt-3 border-b border-slate-100 bg-white shrink-0">
+          <Tabs value={categoryTab} onValueChange={v => { setCategoryTab(v as DocumentCategory); setPage(1) }}>
+            <TabsList>
+              {canNormativo && <TabsTrigger value="NORMATIVO">Ato Normativo</TabsTrigger>}
+              {canComunicacao && <TabsTrigger value="COMUNICACAO">Comunicação</TabsTrigger>}
+            </TabsList>
+          </Tabs>
+        </div>
+
         {/* ── Filters ── */}
         <div className="no-print px-6 py-3 border-b border-slate-100 bg-slate-50 shrink-0">
           <div className="flex items-center gap-3 flex-wrap">
@@ -165,16 +195,6 @@ export default function OfficialProtocolsPage() {
                 className="pl-8 h-8 text-sm"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v as DocumentCategory | 'ALL'); setPage(1) }}>
-              <SelectTrigger className="h-8 text-xs w-40">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Todas as categorias</SelectItem>
-                <SelectItem value="COMUNICACAO">Comunicação</SelectItem>
-                <SelectItem value="NORMATIVO">Normativo</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={statusFilter} onValueChange={v => { setStatusFilter(v as DocumentStatus | 'ALL'); setPage(1) }}>
               <SelectTrigger className="h-8 text-xs w-36">
                 <SelectValue placeholder="Status" />
@@ -227,6 +247,7 @@ export default function OfficialProtocolsPage() {
                   <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Setor</th>
                   <th className="px-4 py-3 text-left font-semibold hidden md:table-cell">Data</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold hidden lg:table-cell">Anexo</th>
                   <th className="px-4 py-3 text-left font-semibold no-print">Ações</th>
                 </tr>
               </thead>
@@ -236,7 +257,7 @@ export default function OfficialProtocolsPage() {
                   : docs.length === 0
                     ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-16 text-center text-slate-400">
+                        <td colSpan={8} className="px-4 py-16 text-center text-slate-400">
                           <Hash className="h-8 w-8 mx-auto mb-2 opacity-30" />
                           <p className="text-sm">Nenhum documento encontrado.</p>
                         </td>
@@ -278,16 +299,34 @@ export default function OfficialProtocolsPage() {
                         <td className="px-4 py-3">
                           <StatusBadge status={doc.status} />
                         </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <AttachmentBadge attached={!!doc.libraryDocumentId} />
+                        </td>
                         <td className="px-4 py-3 no-print" onClick={e => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 gap-1"
-                            onClick={() => setViewTarget(doc)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Visualizar
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 gap-1"
+                              onClick={() => setViewTarget(doc)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Visualizar
+                            </Button>
+                            {/* Anexar só faz sentido enquanto o documento não tem PDF vinculado,
+                                e segue a mesma regra de quem pode agir sobre o documento. */}
+                            {!doc.libraryDocumentId && doc.status !== 'CANCELADO' && canActOnDoc(doc) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 gap-1"
+                                onClick={() => setAttachTarget(doc)}
+                              >
+                                <Paperclip className="h-3.5 w-3.5" />
+                                Anexar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -323,7 +362,14 @@ export default function OfficialProtocolsPage() {
         canAct={viewTarget ? canActOnDoc(viewTarget) : false}
         onClose={() => setViewTarget(null)}
       />
-      <GenerateProtocolModal open={generateOpen} onOpenChange={setGenerateOpen} />
+      <AttachDocumentModal doc={attachTarget} onClose={() => setAttachTarget(null)} />
+      <GenerateProtocolModal
+        key={categoryTab}
+        open={generateOpen}
+        onOpenChange={setGenerateOpen}
+        category={categoryTab}
+        isAdmin={isAdmin}
+      />
     </>
   )
 }

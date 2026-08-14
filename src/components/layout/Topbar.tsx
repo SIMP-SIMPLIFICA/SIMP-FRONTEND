@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "./NotificationBell";
 import { isImpersonating, exitImpersonation } from "@/pages/admin/AdminPanel";
-import { ShieldAlert, LogOut } from "lucide-react";
+import { ShieldAlert, LogOut, Menu } from "lucide-react";
 
 // Interface local para garantir que o TS reconheça os campos
 interface UserWithDetails {
@@ -23,7 +23,12 @@ function initialsFromName(first?: string | null, last?: string | null, fallback?
   return (fallback?.trim()?.slice(0, 2) ?? "US").toUpperCase();
 }
 
-export function Topbar({ title = "Dashboard" }: { title?: string }) {
+interface TopbarProps {
+  title?: string;
+  onMenuClick?: () => void;
+}
+
+export function Topbar({ title = "Dashboard", onMenuClick }: TopbarProps) {
   const nav = useNavigate();
   const queryClient = useQueryClient();
   const { data } = useMe(true);
@@ -71,7 +76,16 @@ export function Topbar({ title = "Dashboard" }: { title?: string }) {
       )}
 
     <header className="flex h-16 items-center justify-between border-b border-border bg-background px-6">
-      <div className="text-xl font-semibold text-foreground">{title}</div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onMenuClick}
+          className="rounded-lg p-2 text-foreground hover:bg-secondary transition-colors lg:hidden"
+          aria-label="Abrir menu de navegação"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="text-xl font-semibold text-foreground">{title}</div>
+      </div>
 
       <div className="flex items-center gap-4">
 

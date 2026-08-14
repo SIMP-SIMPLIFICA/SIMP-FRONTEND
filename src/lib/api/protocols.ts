@@ -3,7 +3,7 @@ import { api } from '../api'
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type DocumentCategory = 'COMUNICACAO' | 'NORMATIVO'
-export type DocumentNumberingType = 'SEQUENTIAL' | 'RANDOM'
+export type DocumentNumberingType = 'SEQUENTIAL' | 'RANDOM' | 'MANUAL'
 export type DocumentStatus = 'RESERVADO' | 'EMITIDO' | 'CANCELADO'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,6 +49,10 @@ export interface GenerateDocumentDTO {
   recipient?: string
   // COMUNICACAO: enviar departmentId. NORMATIVO: omitir.
   departmentId?: string
+  // NORMATIVO: número e ano informados manualmente (obrigatórios).
+  // COMUNICACAO: omitir — o sistema gera o número e usa o ano corrente.
+  sequenceNumber?: number
+  year?: number
 }
 
 export interface UpdateDocumentStatusDTO {

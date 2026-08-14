@@ -9,6 +9,7 @@ import { SuperAdminRoute } from "@/components/layout/SuperAdminRoute";
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
+import SuspendedAccess from "@/pages/SuspendedAccess";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -48,6 +49,9 @@ export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
+  // Pública de propósito: a sessão é limpa antes do redirecionamento, então uma
+  // rota protegida cairia no login e criaria laço de redirecionamento.
+  { path: "/acesso-suspenso", element: <SuspendedAccess /> },
 
   // Rotas protegidas — Super Admin
   {

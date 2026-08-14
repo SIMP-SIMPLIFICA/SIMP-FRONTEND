@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
-import type { CreateVirtualProcessPayload } from '@/types/virtual-process'
+import type { CreateVirtualProcessPayload, UpdateValidityPayload } from '@/types/virtual-process'
 
 export function useVirtualProcesses(_workspaceId?: string | undefined, filters?: {
   page?: number; limit?: number; search?: string; status?: string;
-  secretaria?: string; category?: string; startDate?: string; endDate?: string
+  secretaria?: string; category?: string; startDate?: string; endDate?: string;
+  expiringIn?: number
 }) {
   return useQuery({
     queryKey: ['virtualProcesses', filters],
@@ -26,6 +27,19 @@ export function useCreateVirtualProcess(_workspaceId?: string | undefined) {
     mutationFn: (data: CreateVirtualProcessPayload) => virtualProcessService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
+    },
+  })
+}
+
+/** Atualiza vigência/valor de um processo já existente (PATCH /:id/validity). */
+export function useUpdateProcessValidity() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateValidityPayload }) =>
+      virtualProcessService.updateValidity(id, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcess', id] })
     },
   })
 }

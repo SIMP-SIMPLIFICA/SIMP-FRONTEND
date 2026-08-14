@@ -144,6 +144,14 @@ export interface CouncilMeeting {
   agendaItems?: MeetingAgendaItem[]
   documents?: CouncilDocument[]
   _count?: { agendaItems: number; documents: number }
+  /**
+   * Trava de compliance de 72h — calculada NO SERVIDOR e apenas refletida aqui.
+   * O frontend não recalcula: o relógio do navegador do usuário não pode
+   * participar da decisão sobre um registro oficial.
+   */
+  isFrozen?: boolean
+  /** Instante a partir do qual a reunião congelou. */
+  freezeAt?: string
 }
 
 export interface CouncilDetail extends Council {

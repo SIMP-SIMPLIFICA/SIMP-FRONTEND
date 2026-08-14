@@ -1,12 +1,15 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   Building2, Users, Plus, Play,
-  CheckCircle, XCircle, ShieldCheck,
+  CheckCircle, XCircle, ShieldCheck, Ban, RotateCcw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { getAccessToken, setAuthTokens, clearImpersonateRefreshToken } from "@/lib/auth";
 import { MODULE_LABELS } from "@/lib/moduleLabels";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { toast } from "@/hooks/use-toast";
 
 // Key used to preserve the super-admin access token across an impersonation round-trip.
 // The refreshToken is NOT saved here — the super-admin's httpOnly cookie is never
@@ -68,6 +71,31 @@ export default function AdminPanel() {
 
   const orgs = data?.data ?? [];
 
+  // Suspensão (kill switch) — reaproveita PATCH /admin/organizations/:id, que já
+  // aceita isActive e já é restrito ao Super Admin.
+  const [suspendTarget, setSuspendTarget] = useState<Org | null>(null);
+
+  const toggleActive = useMutation({
+    mutationFn: ({ org, isActive }: { org: Org; isActive: boolean }) =>
+      apiRequest(`/api/v1/admin/organizations/${org.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+      }),
+    onSuccess: (_res, { org, isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      toast({
+        title: isActive ? "Organização reativada" : "Organização suspensa",
+        description: isActive
+          ? `${org.name} voltou a ter acesso ao sistema.`
+          : `${org.name} perdeu o acesso ao sistema imediatamente.`,
+      });
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { message?: string })?.message ?? "Tente novamente.";
+      toast({ title: "Não foi possível alterar o status", description: msg, variant: "destructive" });
+    },
+  });
+
   async function handleImpersonate(org: Org) {
     try {
       const res = await apiRequest<{ accessToken: string; refreshToken: string }>(
@@ -95,6 +123,18 @@ export default function AdminPanel() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      <ConfirmDialog
+        open={suspendTarget !== null}
+        title={`Suspender ${suspendTarget?.name ?? ""}?`}
+        description={`Todos os ${suspendTarget?._count.users ?? 0} usuário(s) desta organização perderão o acesso ao sistema imediatamente, mesmo os que estiverem logados neste momento. Você pode reativar a qualquer momento.`}
+        confirmLabel="Suspender acesso"
+        onConfirm={() => {
+          const org = suspendTarget;
+          setSuspendTarget(null);
+          if (org) toggleActive.mutate({ org, isActive: false });
+        }}
+        onCancel={() => setSuspendTarget(null)}
+      />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -167,7 +207,7 @@ export default function AdminPanel() {
               <div className="shrink-0 mt-0.5">
                 {org.isActive
                   ? <CheckCircle className="h-5 w-5 text-green-500" />
-                  : <XCircle className="h-5 w-5 text-slate-300" />}
+                  : <XCircle className="h-5 w-5 text-red-500" />}
               </div>
 
               {/* Info */}
@@ -180,9 +220,13 @@ export default function AdminPanel() {
                   <span className="rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">
                     {org.plan}
                   </span>
-                  {!org.isActive && (
-                    <span className="rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">
-                      Inativa
+                  {org.isActive ? (
+                    <span className="rounded-full bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">
+                      Ativa
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-red-50 text-red-700 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide">
+                      Suspensa
                     </span>
                   )}
                 </div>
@@ -220,16 +264,42 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Impersonate */}
-              <button
-                onClick={(e) => { e.stopPropagation(); handleImpersonate(org); }}
-                disabled={!org.isActive}
-                title={!org.isActive ? "Organização inativa" : `Entrar como admin de ${org.name}`}
-                className="shrink-0 flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                <Play className="h-4 w-4" />
-                Entrar
-              </button>
+              {/* Ações */}
+              <div className="shrink-0 flex items-center gap-2">
+                {/* Suspender exige confirmação (derruba todos os usuários);
+                    reativar é a ação não destrutiva, aplicada direto. */}
+                {org.isActive ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSuspendTarget(org); }}
+                    disabled={toggleActive.isPending}
+                    title={`Suspender o acesso de ${org.name}`}
+                    className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Suspender
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleActive.mutate({ org, isActive: true }); }}
+                    disabled={toggleActive.isPending}
+                    title={`Reativar o acesso de ${org.name}`}
+                    className="flex items-center gap-2 rounded-xl border border-green-200 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-50 hover:border-green-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reativar
+                  </button>
+                )}
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleImpersonate(org); }}
+                  disabled={!org.isActive}
+                  title={!org.isActive ? "Organização suspensa" : `Entrar como admin de ${org.name}`}
+                  className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <Play className="h-4 w-4" />
+                  Entrar
+                </button>
+              </div>
             </div>
           ))}
         </div>

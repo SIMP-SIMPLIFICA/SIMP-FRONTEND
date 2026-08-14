@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, Paperclip, Send, Loader2, FileText, ShieldOff, Reply } from "lucide-react";
+import { Search, X, Paperclip, Send, Loader2, FileText, Reply } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,7 +114,6 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
   }, []);
 
   function addRecipient(recipient: Recipient) {
-    if (recipient.hasPermission === false) return;
     setSelectedRecipients(prev => [...prev, {
       id: recipient.id,
       name: recipient.name,
@@ -295,36 +294,22 @@ export function NewMessageModal({ open, onOpenChange, onSuccess, replyTo }: Prop
                         Nenhum destinatário encontrado
                       </div>
                     ) : (
-                      searchResults.map(r => {
-                        const blocked = r.hasPermission === false;
-                        return (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onMouseDown={e => { e.preventDefault(); addRecipient(r); }}
-                            disabled={blocked}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-slate-50 last:border-0 ${
-                              blocked
-                                ? 'opacity-50 cursor-not-allowed bg-slate-50'
-                                : 'hover:bg-emerald-50'
-                            }`}
-                          >
-                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 ${blocked ? 'bg-slate-400' : 'bg-emerald-600'}`}>
-                              {r.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className={`text-sm font-medium ${blocked ? 'text-slate-400' : 'text-slate-800'}`}>{r.name}</p>
-                              <p className="text-xs text-slate-400">{r.role} · {r.email}</p>
-                              {blocked && (
-                                <p className="flex items-center gap-1 text-[11px] text-amber-600 mt-0.5">
-                                  <ShieldOff className="h-3 w-3" />
-                                  Sem permissão (Edite em Roles)
-                                </p>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })
+                      searchResults.map(r => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); addRecipient(r); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-slate-50 last:border-0 hover:bg-emerald-50"
+                        >
+                          <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 bg-emerald-600">
+                            {r.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">{r.name}</p>
+                            <p className="text-xs text-slate-400">{r.role} · {r.email}</p>
+                          </div>
+                        </button>
+                      ))
                     )}
                   </div>
                 )}

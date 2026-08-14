@@ -14,6 +14,8 @@ export type LibraryDocument = {
   mimeType: string;
   accessLevel: number;
   createdAt: string;
+  /** Processo virtual ao qual este documento foi atribuído (via Convênio). */
+  virtualProcessId?: string | null;
   uploader: { id: string; firstName: string | null; lastName: string | null; avatar: string | null };
   category: { id: string; name: string } | null;
 };
@@ -63,8 +65,10 @@ export const libraryService = {
     await api.delete(`/api/v1/library/categories/${id}`);
   },
 
-  upload: async (formData: FormData, covenantId?: string) => {
+  upload: async (formData: FormData, covenantId?: string, virtualProcessId?: string) => {
     if (covenantId) formData.append("covenantId", covenantId);
+    // Só faz sentido dentro de um convênio — o backend recusa a combinação inválida.
+    if (virtualProcessId) formData.append("virtualProcessId", virtualProcessId);
     const response = await api.post<LibraryDocument>("/api/v1/library/upload", formData);
     return response.data;
   },

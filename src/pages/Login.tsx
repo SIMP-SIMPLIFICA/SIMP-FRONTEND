@@ -56,6 +56,10 @@ export default function Login() {
       } else if (err && typeof err === "object") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const e = err as any;
+        // Organização suspensa: o interceptor de api.ts já está levando o usuário
+        // para /acesso-suspenso, que explica a situação. Um toast de "Falha no
+        // login" aqui só piscaria uma mensagem enganosa antes do redirecionamento.
+        if (e.error === "ORGANIZATION_SUSPENDED") return;
         msg = e.message || e.error || msg;
       }
       toast({ title: "Falha no login", description: msg, variant: "destructive" });

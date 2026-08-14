@@ -4,6 +4,7 @@ import {
   getImpersonateRefreshToken,
   clearAuth,
 } from "./auth";
+import { queryClient } from "./queryClient";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -57,6 +58,21 @@ export async function apiRequest<T = unknown>(
     data = await res.json().catch(() => ({}));
   } else {
     data = await res.text();
+  }
+
+  // Kill switch: organização suspensa. Trata ANTES do 401 porque não é um problema
+  // de sessão — renovar o token não resolveria, a organização é que está bloqueada.
+  // Checa o código específico, nunca 403 genérico: um 403 de permissão comum não
+  // pode deslogar ninguém.
+  if (res.status === 403 && data?.error === "ORGANIZATION_SUSPENDED") {
+    clearAuth();
+    // Limpa também o cache do TanStack Query — sem isso, dados já carregados da
+    // organização bloqueada permaneceriam em memória.
+    queryClient.clear();
+    if (window.location.pathname !== "/acesso-suspenso") {
+      window.location.href = "/acesso-suspenso";
+    }
+    throw { error: "ORGANIZATION_SUSPENDED", message: data?.message ?? "Organização suspensa." };
   }
 
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {

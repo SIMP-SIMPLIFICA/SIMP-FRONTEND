@@ -47,7 +47,15 @@ interface LinkedProcess {
   processNumber: string
   status: string
   subject: string
+  secretaria?: string | null
   documents: VPDocument[]
+}
+
+/** Identificação do processo usada tanto no Select quanto no cabeçalho dos blocos. */
+function processLabel(vp: LinkedProcess): string {
+  return [`Processo nº ${vp.processNumber}`, vp.secretaria, vp.subject]
+    .filter(Boolean)
+    .join(' — ')
 }
 
 interface CovenantDetail extends Covenant {
@@ -492,10 +500,51 @@ function ProcessosTab({ processes, covenantId }: { processes: LinkedProcess[]; c
 
 // ── Tab: Documentos ───────────────────────────────────────────────────────────
 
+/** Sentinela do Select — Radix proíbe SelectItem com value="" (ver Épico 2). */
+const NO_PROCESS = '__none__'
+
+/** Linha de documento — forma comum para as duas origens (GED e processo). */
+function DocRow({ title, meta, onDownload, href, variant = 'ged' }: {
+  title: string
+  meta: string
+  onDownload?: () => void
+  href?: string
+  variant?: 'ged' | 'process'
+}) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 group">
+      <div className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 ${
+        variant === 'process' ? 'bg-blue-50' : 'bg-red-50'
+      }`}>
+        {variant === 'process'
+          ? <Building2 className="h-4 w-4 text-blue-500" />
+          : <FileText className="h-4.5 w-4.5 text-red-500" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-slate-800 truncate">{title}</p>
+        <p className="text-xs text-slate-400">{meta}</p>
+      </div>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer">
+          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+        </a>
+      ) : (
+        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={onDownload}>
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function DocumentosTab({ covenant }: { covenant: CovenantDetail }) {
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [targetProcessId, setTargetProcessId] = useState<string>(NO_PROCESS)
 
   // GED docs linked directly to this covenant
   const { data: gedData, isLoading: gedLoading } = useQuery({
@@ -519,12 +568,21 @@ function DocumentosTab({ covenant }: { covenant: CovenantDetail }) {
 
     setUploading(true)
     try {
-      await libraryService.upload(formData, covenant.id)
-      toast({ title: 'Documento enviado e vinculado ao convênio.' })
+      await libraryService.upload(
+        formData,
+        covenant.id,
+        targetProcessId === NO_PROCESS ? undefined : targetProcessId,
+      )
+      toast({
+        title: targetProcessId === NO_PROCESS
+          ? 'Documento enviado como geral do convênio.'
+          : 'Documento enviado e vinculado ao processo.'
+      })
       qc.invalidateQueries({ queryKey: ['library', 'list', { covenantId: covenant.id }] })
       qc.invalidateQueries({ queryKey: ['covenant', covenant.id] })
-    } catch {
-      toast({ title: 'Erro no upload.', variant: 'destructive' })
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Tente novamente.'
+      toast({ title: 'Erro no upload', description: msg, variant: 'destructive' })
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -541,16 +599,36 @@ function DocumentosTab({ covenant }: { covenant: CovenantDetail }) {
   }
 
   const gedDocs = gedData?.data ?? []
+  // Sem processo atribuído → bloco "Gerais". Cobre também documentos cujo
+  // processo foi excluído (o SetNull do schema devolve o arquivo para cá).
+  const generalDocs = gedDocs.filter(d => !d.virtualProcessId)
   const totalDocs = gedDocs.length + vpDocs.length
 
   return (
     <div>
       {/* Upload bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50">
+      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100 bg-slate-50 flex-wrap">
         <span className="text-xs text-slate-500">
           {totalDocs} {totalDocs === 1 ? 'documento' : 'documentos'} no acervo deste convênio
         </span>
-        <div>
+        <div className="flex items-center gap-2">
+          {/* Só aparece se houver processos vinculados — escolher de lista vazia
+              não faz sentido (FR-011). */}
+          {covenant.virtualProcesses.length > 0 && (
+            <Select value={targetProcessId} onValueChange={setTargetProcessId}>
+              <SelectTrigger className="h-7 text-xs w-56">
+                <SelectValue placeholder="Vincular a qual Processo?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROCESS}>Geral do convênio (sem processo)</SelectItem>
+                {covenant.virtualProcesses.map(vp => (
+                  <SelectItem key={vp.id} value={vp.id}>
+                    {processLabel(vp)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <input ref={fileInputRef} type="file" accept="application/pdf"
             className="hidden" onChange={handleUpload} />
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5"
@@ -587,51 +665,55 @@ function DocumentosTab({ covenant }: { covenant: CovenantDetail }) {
             : null
         }
 
-        {gedDocs.map(doc => (
-          <div key={doc.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 shrink-0">
-              <FileText className="h-4.5 w-4.5 text-red-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{doc.title}</p>
-              <p className="text-xs text-slate-400">
-                {formatBytes(doc.fileSize)} · GED · {formatDate(doc.createdAt)}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => handleDownload(doc.id)}>
-              <Download className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        ))}
+        {/* Um bloco por processo vinculado, reunindo AS DUAS origens:
+            documentos do convênio atribuídos ao processo (GED) e documentos
+            anexados diretamente no processo. */}
+        {covenant.virtualProcesses.map(vp => {
+          const gedOfProcess = gedDocs.filter(d => d.virtualProcessId === vp.id)
+          if (gedOfProcess.length === 0 && vp.documents.length === 0) return null
 
-        {/* VP docs section */}
-        {vpDocs.length > 0 && (
-          <div className="px-5 py-2 bg-slate-50 border-t border-slate-100">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Documentos de Processos Vinculados
-            </p>
+          return (
+            <div key={vp.id}>
+              <div className="px-5 py-2 bg-blue-50/60 border-y border-blue-100">
+                <p className="text-xs font-semibold text-blue-800 truncate" title={processLabel(vp)}>
+                  {processLabel(vp)}
+                </p>
+                <p className="text-[11px] text-blue-600/70">
+                  {gedOfProcess.length + vp.documents.length} documento(s)
+                </p>
+              </div>
+
+              {gedOfProcess.map(doc => (
+                <DocRow key={doc.id} title={doc.title}
+                  meta={`${formatBytes(doc.fileSize)} · Do convênio · ${formatDate(doc.createdAt)}`}
+                  onDownload={() => handleDownload(doc.id)} />
+              ))}
+
+              {vp.documents.map(doc => (
+                <DocRow key={doc.id} title={doc.fileName} variant="process"
+                  meta={`${formatBytes(doc.fileSize)} · Anexado no processo · ${doc.tag}`}
+                  href={doc.fileUrl} />
+              ))}
+            </div>
+          )
+        })}
+
+        {/* Bloco "Gerais" — documentos do convênio sem processo atribuído */}
+        {generalDocs.length > 0 && (
+          <div>
+            <div className="px-5 py-2 bg-slate-50 border-y border-slate-100">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Gerais do convênio
+              </p>
+              <p className="text-[11px] text-slate-400">{generalDocs.length} documento(s)</p>
+            </div>
+            {generalDocs.map(doc => (
+              <DocRow key={doc.id} title={doc.title}
+                meta={`${formatBytes(doc.fileSize)} · GED · ${formatDate(doc.createdAt)}`}
+                onDownload={() => handleDownload(doc.id)} />
+            ))}
           </div>
         )}
-        {vpDocs.map(doc => (
-          <div key={doc.id} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 shrink-0">
-              <Building2 className="h-4 w-4 text-blue-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">{doc.fileName}</p>
-              <p className="text-xs text-slate-400">
-                {formatBytes(doc.fileSize)} · Processo {doc.processNumber} · {doc.tag}
-              </p>
-            </div>
-            <a href={doc.fileUrl} target="_blank" rel="noreferrer">
-              <Button variant="ghost" size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Download className="h-3.5 w-3.5" />
-              </Button>
-            </a>
-          </div>
-        ))}
       </div>
     </div>
   )

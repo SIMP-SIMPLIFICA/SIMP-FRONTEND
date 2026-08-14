@@ -83,5 +83,4 @@ export type Recipient = {
   email: string;
   avatar?: string | null;
   role: string;
-  hasPermission?: boolean;
 };

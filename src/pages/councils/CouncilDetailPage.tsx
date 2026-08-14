@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil } from 'lucide-react'
+import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil, Lock, FileDown } from 'lucide-react'
 import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
 import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
 import { CreateMeetingModal } from '@/components/councils/CreateMeetingModal'
@@ -13,17 +13,12 @@ import { ptBR } from 'date-fns/locale'
 import { useCouncil, useCouncilMembers, useCouncilMeetings } from '@/hooks/useCouncils'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
-import type { CouncilMemberRole, MeetingStatus, CouncilMembership, CouncilMeeting } from '@/lib/api/councils'
+import { COUNCIL_ROLE_LABELS as ROLE_LABELS } from '@/lib/councilRoles'
+import { exportCouncilCalendarPdf } from '@/utils/councilCalendarPdf'
+import type { MeetingStatus, CouncilMembership, CouncilMeeting } from '@/lib/api/councils'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<CouncilMemberRole, string> = {
-  PRESIDENTE:       'Presidente',
-  VICE_PRESIDENTE:  'Vice-Presidente',
-  SECRETARIO:       'Secretário',
-  MEMBRO_TITULAR:   'Membro Titular',
-  MEMBRO_SUPLENTE:  'Membro Suplente',
-}
 
 const MEETING_STATUS_CONFIG: Record<MeetingStatus, { label: string; className: string }> = {
   AGENDADA:     { label: 'Agendada',     className: 'bg-amber-100   text-amber-700'   },
@@ -217,18 +212,58 @@ function MembersTab({ councilId, canWrite, onEdit }: MembersTabProps) {
 
 interface MeetingsTabProps {
   councilId: string
+  councilName: string
 }
 
-function MeetingsTab({ councilId }: MeetingsTabProps) {
+function MeetingsTab({ councilId, councilName }: MeetingsTabProps) {
   const navigate = useNavigate()
   const { data: meetings = [], isLoading } = useCouncilMeetings(councilId)
+  const { data: memberships = [] } = useCouncilMembers(councilId)
+  const { data: me } = useMe()
+
+  const currentYear = new Date().getFullYear()
+  const [exportYear, setExportYear] = useState(currentYear)
+
+  // Anos com reuniões + ano corrente, para o usuário não exportar um ano vazio sem querer
+  const availableYears = Array.from(
+    new Set([currentYear, ...meetings.map(m => new Date(m.scheduledAt).getFullYear())])
+  ).sort((a, b) => b - a)
 
   function handleRowClick(meeting: CouncilMeeting) {
     navigate(`/conselhos/${councilId}/reunioes/${meeting.id}`)
   }
 
+  function handleExport() {
+    exportCouncilCalendarPdf({
+      organizationName: me?.user?.organization?.name ?? 'Prefeitura Municipal',
+      councilName,
+      year: exportYear,
+      meetings: meetings.filter(m => new Date(m.scheduledAt).getFullYear() === exportYear),
+      memberships,
+      statusLabels: Object.fromEntries(
+        (Object.keys(MEETING_STATUS_CONFIG) as MeetingStatus[]).map(s => [s, MEETING_STATUS_CONFIG[s].label])
+      ) as Record<MeetingStatus, string>,
+    })
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      {/* Exportação do calendário anual oficial */}
+      <div className="flex items-center justify-end gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50">
+        <span className="text-xs text-slate-500">Calendário oficial:</span>
+        <select
+          value={exportYear}
+          onChange={e => setExportYear(Number(e.target.value))}
+          className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+        >
+          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={handleExport}>
+          <FileDown className="h-3.5 w-3.5" />
+          Exportar Calendário Anual
+        </Button>
+      </div>
+
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50">
@@ -258,7 +293,15 @@ function MeetingsTab({ councilId }: MeetingsTabProps) {
                   onClick={() => handleRowClick(meeting)}
                 >
                   <td className="px-4 py-3 text-slate-800 font-medium max-w-[200px] truncate">
-                    {meeting.title}
+                    <span className="inline-flex items-center gap-1.5">
+                      {meeting.isFrozen && (
+                        <Lock
+                          className="h-3.5 w-3.5 text-slate-400 shrink-0"
+                          aria-label="Registro congelado"
+                        />
+                      )}
+                      <span className="truncate">{meeting.title}</span>
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <MeetingStatusBadge status={meeting.status} />
@@ -434,7 +477,7 @@ export default function CouncilDetailPage() {
                 </Button>
               )}
             </div>
-            <MeetingsTab councilId={councilId} />
+            <MeetingsTab councilId={councilId} councilName={council.name} />
           </TabsContent>
         </Tabs>
       </div>
