@@ -2,7 +2,7 @@ import { useMe } from "@/hooks/useMe";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationBell } from "./NotificationBell";
-import { isImpersonating, exitImpersonation } from "@/pages/admin/AdminPanel";
+import { isImpersonating, exitImpersonation } from "@/lib/impersonation";
 import { ShieldAlert, LogOut, Menu } from "lucide-react";
 
 // Interface local para garantir que o TS reconheça os campos

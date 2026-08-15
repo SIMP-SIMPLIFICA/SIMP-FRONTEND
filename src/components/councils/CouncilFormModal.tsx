@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -24,28 +24,35 @@ interface CouncilFormModalProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * Wrapper: só monta o corpo quando aberto, com `key` derivada do conselho.
+ *
+ * Isso substitui o useEffect que ressincronizava o estado a cada abertura
+ * (react-hooks/set-state-in-effect): remontando o corpo, o estado inicializa
+ * direto das props, sem render em cascata.
+ */
 export function CouncilFormModal({ open, onClose, council }: CouncilFormModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        {open && <CouncilFormBody key={council?.id ?? 'new'} onClose={onClose} council={council} />}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CouncilFormBody({ onClose, council }: { onClose: () => void; council?: Council }) {
   const isEditing = !!council
 
-  const [name, setName]               = useState('')
-  const [acronym, setAcronym]         = useState('')
-  const [description, setDescription] = useState('')
-  const [legalBasis, setLegalBasis]   = useState('')
+  const [name, setName]               = useState(council?.name        ?? '')
+  const [acronym, setAcronym]         = useState(council?.acronym     ?? '')
+  const [description, setDescription] = useState(council?.description ?? '')
+  const [legalBasis, setLegalBasis]   = useState(council?.legalBasis  ?? '')
   const [nameError, setNameError]     = useState('')
 
   const createMutation = useCreateCouncil()
   const updateMutation = useUpdateCouncil(council?.id ?? '')
   const isPending = createMutation.isPending || updateMutation.isPending
-
-  useEffect(() => {
-    if (open) {
-      setName(council?.name        ?? '')
-      setAcronym(council?.acronym  ?? '')
-      setDescription(council?.description ?? '')
-      setLegalBasis(council?.legalBasis   ?? '')
-      setNameError('')
-    }
-  }, [open, council])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -71,8 +78,7 @@ export function CouncilFormModal({ open, onClose, council }: CouncilFormModalPro
   }
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v && !isPending) onClose() }}>
-      <DialogContent className="sm:max-w-md">
+    <>
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Conselho' : 'Novo Conselho'}</DialogTitle>
         </DialogHeader>
@@ -149,7 +155,6 @@ export function CouncilFormModal({ open, onClose, council }: CouncilFormModalPro
             {isEditing ? 'Salvar' : 'Criar Conselho'}
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   )
 }
