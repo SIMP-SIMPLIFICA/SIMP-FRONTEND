@@ -18,9 +18,10 @@ export interface Workspace {
   name: string;
   description: string | null;
   slug: string;
+  departmentId?: string | null;
   createdAt: string;
   updatedAt: string;
-  members?: WorkspaceMember[]; 
+  members?: WorkspaceMember[];
   _count?: {
     tasks: number;
     members: number;
@@ -31,4 +32,5 @@ export interface Workspace {
 export interface CreateWorkspaceDTO {
   name: string;
   description?: string;
+  departmentId?: string | null;
 }

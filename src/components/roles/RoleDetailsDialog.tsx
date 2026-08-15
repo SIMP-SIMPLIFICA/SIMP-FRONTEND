@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { getPermissionLabel } from "@/utils/permissionLabels";
 
 export type RoleDetailsRole = {
   id: string;
@@ -123,8 +124,9 @@ export function RoleDetailsDialog(props: {
                           key={p}
                           variant="secondary"
                           className="rounded-full bg-slate-100 px-3 py-1 text-slate-800 border border-slate-200"
+                          title={p}
                         >
-                          {p}
+                          {getPermissionLabel(p)}
                         </Badge>
                       ))}
                     </div>

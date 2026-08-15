@@ -13,9 +13,9 @@ import { toast } from "@/hooks/use-toast";
 type LoginResponse = {
   message?: string;
   user?: unknown;
-  tokens?: { accessToken?: string; refreshToken?: string; expiresIn?: number };
+  // Backend sets the refreshToken as an httpOnly cookie — it is NOT in the body.
+  tokens?: { accessToken?: string; expiresIn?: number };
   accessToken?: string;
-  refreshToken?: string;
 };
 
 export default function Login() {
@@ -39,13 +39,13 @@ export default function Login() {
       });
 
       const accessToken = data.tokens?.accessToken || data.accessToken;
-      const refreshToken = data.tokens?.refreshToken || data.refreshToken;
 
       if (!accessToken) {
         throw { message: "Token de acesso não retornado pela API." };
       }
 
-      setAuthTokens(accessToken, refreshToken);
+      // refreshToken is in the httpOnly cookie set by the backend — no storage needed.
+      setAuthTokens(accessToken);
       queryClient.clear();
       toast({ title: "Login realizado", description: "Bem-vindo ao SIMP." });
       nav("/");
@@ -56,6 +56,10 @@ export default function Login() {
       } else if (err && typeof err === "object") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const e = err as any;
+        // Organização suspensa: o interceptor de api.ts já está levando o usuário
+        // para /acesso-suspenso, que explica a situação. Um toast de "Falha no
+        // login" aqui só piscaria uma mensagem enganosa antes do redirecionamento.
+        if (e.error === "ORGANIZATION_SUSPENDED") return;
         msg = e.message || e.error || msg;
       }
       toast({ title: "Falha no login", description: msg, variant: "destructive" });

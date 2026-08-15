@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useUniversalFinanceModal } from "@/context/UniversalFinanceModalContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -16,18 +16,16 @@ import type { FinanceEntry, EntryType } from "../types";
 import { useToast } from "@/hooks/use-toast";
 import {
     useFinanceCategories,
-    useCreateFinanceCategory,
     useCreateFinanceEntry,
     useUpdateFinanceEntry,
     useFinanceAttachments,
     useDeleteAttachment,
     useFinanceBankAccounts,
-    useCreateBankAccount,
 } from "@/hooks/useFinance";
 import { useQueryClient } from "@tanstack/react-query";
 import {
     Paperclip, X, Image as ImageIcon, FileText, Trash2,
-    Loader2, AlertTriangle, Plus, ExternalLink, Check, CalendarIcon,
+    Loader2, AlertTriangle, Settings2, CalendarIcon,
 } from "lucide-react";
 
 interface EntryFormDialogProps {
@@ -131,15 +129,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     const [issueDate, setIssueDate] = useState<Date | undefined>(undefined);
     const [deliveryDate, setDeliveryDate] = useState<Date | undefined>(undefined);
 
-    // Criação inline — categoria
-    const [isAddingCategory, setIsAddingCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState("");
-    const [isCreatingCat, setIsCreatingCat] = useState(false);
-
-    // Criação inline — conta bancária
-    const [isAddingAccount, setIsAddingAccount] = useState(false);
-    const [newAccountName, setNewAccountName] = useState("");
-    const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+    const { open: openFinanceModal } = useUniversalFinanceModal();
 
     // UI
     const [attempted, setAttempted] = useState(false);
@@ -155,8 +145,6 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     const { data: bankAccounts = [] } = useFinanceBankAccounts();
     const { data: existingAttachments = [], isLoading: loadingAttachments } = useFinanceAttachments(entry?.id);
     const { mutate: deleteAttachment } = useDeleteAttachment(entry?.id);
-    const { mutateAsync: createCategory } = useCreateFinanceCategory();
-    const { mutateAsync: createBankAccount } = useCreateBankAccount();
     const { mutateAsync: createEntry } = useCreateFinanceEntry();
     const { mutateAsync: updateEntry } = useUpdateFinanceEntry();
 
@@ -169,10 +157,6 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
     useEffect(() => {
         if (!open) return;
         setAttempted(false);
-        setIsAddingCategory(false);
-        setIsAddingAccount(false);
-        setNewCategoryName("");
-        setNewAccountName("");
         setSelectedFiles([]);
 
         if (entry) {
@@ -215,42 +199,6 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
             if (found) setCategoryId(found.id);
         }
     }, [categories]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Criação inline de categoria
-    async function handleCreateCategory() {
-        if (!newCategoryName.trim()) return;
-        setIsCreatingCat(true);
-        try {
-            const newCat = await createCategory({ name: newCategoryName.trim() });
-            setCategoryId(newCat.id);
-            setNewCategoryName("");
-            setIsAddingCategory(false);
-            queryClient.invalidateQueries({ queryKey: ["financeCategories"] });
-            toast({ title: "Categoria criada", description: `"${newCat.name}" adicionada com sucesso.` });
-        } catch {
-            toast({ title: "Erro", description: "Falha ao criar categoria.", variant: "destructive" });
-        } finally {
-            setIsCreatingCat(false);
-        }
-    }
-
-    // Criação inline de conta bancária
-    async function handleCreateAccount() {
-        if (!newAccountName.trim()) return;
-        setIsCreatingAccount(true);
-        try {
-            const newAcc = await createBankAccount({ name: newAccountName.trim() });
-            setAccountId(newAcc.id);
-            setNewAccountName("");
-            setIsAddingAccount(false);
-            queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] });
-            toast({ title: "Conta criada", description: `"${newAcc.name}" adicionada com sucesso.` });
-        } catch {
-            toast({ title: "Erro", description: "Falha ao criar conta.", variant: "destructive" });
-        } finally {
-            setIsCreatingAccount(false);
-        }
-    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -398,7 +346,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                         <div className="space-y-1.5">
                             <Label>Descrição <span className="text-red-500">*</span></Label>
                             <Input
-                                placeholder="Ex: Compra de materiais de escritório..."
+                                placeholder=""
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 className={fieldCls(err.description)}
@@ -410,45 +358,36 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Classificação</span>
-                                <Link
-                                    to="/financeiro/categorias"
+                                <button
+                                    type="button"
+                                    onClick={() => openFinanceModal("categorias")}
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                     tabIndex={-1}
                                 >
-                                    Gerenciar categorias <ExternalLink className="h-3 w-3" />
-                                </Link>
+                                    <Settings2 className="h-3 w-3" /> Gerenciar categorias
+                                </button>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-slate-500">Categoria <span className="text-red-500">*</span></Label>
-                                    <div className="flex gap-1.5">
-                                        <Select value={categoryId} onValueChange={setCategoryId}>
-                                            <SelectTrigger className={cn("flex-1", fieldCls(err.categoryId))}>
-                                                <SelectValue placeholder="Selecione..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {categories.length === 0
-                                                    ? <div className="px-3 py-4 text-sm text-slate-500 text-center">Nenhuma categoria.</div>
-                                                    : categories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)
-                                                }
-                                            </SelectContent>
-                                        </Select>
-                                        <Button
-                                            type="button" variant="outline" size="icon" title="Nova categoria"
-                                            onClick={() => { setIsAddingCategory(v => !v); setIsAddingAccount(false); setNewCategoryName(""); }}
-                                            className={cn("shrink-0", isAddingCategory && "border-blue-500 text-blue-600")}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    {err.categoryId && <p className="text-xs text-red-500">Selecione ou crie uma categoria.</p>}
+                                    <Select value={categoryId} onValueChange={setCategoryId}>
+                                        <SelectTrigger className={cn("w-full", fieldCls(err.categoryId))}>
+                                            <SelectValue placeholder="Selecionar..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categories.length === 0
+                                                ? <div className="px-3 py-4 text-sm text-slate-500 text-center">Nenhuma categoria.</div>
+                                                : categories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)
+                                            }
+                                        </SelectContent>
+                                    </Select>
+                                    {err.categoryId && <p className="text-xs text-red-500">Selecione uma categoria.</p>}
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <Label className="text-xs text-slate-500">Subcategoria <span className="text-red-500">*</span></Label>
                                     <Input
-                                        placeholder="Ex: Geral, Preventiva..."
                                         value={subcategoryName}
                                         onChange={(e) => setSubcategoryName(e.target.value)}
                                         className={fieldCls(err.subcategoryName)}
@@ -456,86 +395,34 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                                     {err.subcategoryName && <p className="text-xs text-red-500">Campo obrigatório.</p>}
                                 </div>
                             </div>
-
-                            {isAddingCategory && (
-                                <div className="flex gap-2 items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <Input
-                                        placeholder="Nome da nova categoria..."
-                                        value={newCategoryName}
-                                        onChange={(e) => setNewCategoryName(e.target.value)}
-                                        className="flex-1 bg-white"
-                                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleCreateCategory(); } }}
-                                        autoFocus
-                                    />
-                                    <Button type="button" size="sm" onClick={() => void handleCreateCategory()}
-                                        disabled={isCreatingCat || !newCategoryName.trim()}
-                                        className="bg-blue-600 hover:bg-blue-700 shrink-0">
-                                        {isCreatingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                        Criar
-                                    </Button>
-                                    <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCategory(false)} disabled={isCreatingCat}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
                         </div>
 
                         {/* Conta Bancária */}
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
                                 <Label>Conta Bancária <span className="text-red-500">*</span></Label>
-                                <Link
-                                    to="/financeiro/contas"
+                                <button
+                                    type="button"
+                                    onClick={() => openFinanceModal("contas")}
                                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
                                     tabIndex={-1}
                                 >
-                                    Gerenciar contas <ExternalLink className="h-3 w-3" />
-                                </Link>
+                                    <Settings2 className="h-3 w-3" /> Gerenciar contas
+                                </button>
                             </div>
 
-                            <div className="flex gap-2">
-                                <Select value={accountId} onValueChange={setAccountId}>
-                                    <SelectTrigger className={cn("flex-1", fieldCls(err.accountId))}>
-                                        <SelectValue placeholder="Selecione uma conta..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {bankAccounts.length === 0
-                                            ? <div className="px-3 py-4 text-sm text-slate-500 text-center">Nenhuma conta cadastrada.</div>
-                                            : bankAccounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)
-                                        }
-                                    </SelectContent>
-                                </Select>
-                                <Button
-                                    type="button" variant="outline" size="icon" title="Nova conta"
-                                    onClick={() => { setIsAddingAccount(v => !v); setIsAddingCategory(false); setNewAccountName(""); }}
-                                    className={cn("shrink-0", isAddingAccount && "border-blue-500 text-blue-600")}
-                                >
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            {err.accountId && <p className="text-xs text-red-500">Selecione ou crie uma conta bancária.</p>}
-
-                            {isAddingAccount && (
-                                <div className="flex gap-2 items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                    <Input
-                                        placeholder="Nome da conta (ex: Caixa, BB, CEF...)"
-                                        value={newAccountName}
-                                        onChange={(e) => setNewAccountName(e.target.value)}
-                                        className="flex-1 bg-white"
-                                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleCreateAccount(); } }}
-                                        autoFocus
-                                    />
-                                    <Button type="button" size="sm" onClick={() => void handleCreateAccount()}
-                                        disabled={isCreatingAccount || !newAccountName.trim()}
-                                        className="bg-blue-600 hover:bg-blue-700 shrink-0">
-                                        {isCreatingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                                        Criar
-                                    </Button>
-                                    <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingAccount(false)} disabled={isCreatingAccount}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
+                            <Select value={accountId} onValueChange={setAccountId}>
+                                <SelectTrigger className={cn("w-full", fieldCls(err.accountId))}>
+                                    <SelectValue placeholder="Selecionar..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {bankAccounts.length === 0
+                                        ? <div className="px-3 py-4 text-sm text-slate-500 text-center">Nenhuma conta cadastrada.</div>
+                                        : bankAccounts.map(acc => <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>)
+                                    }
+                                </SelectContent>
+                            </Select>
+                            {err.accountId && <p className="text-xs text-red-500">Selecione uma conta bancária.</p>}
                         </div>
 
                         {/* Rastreabilidade Fiscal */}
@@ -572,7 +459,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                                 <div className="space-y-1.5">
                                     <Label className="text-xs">Número da NF-e <span className="text-red-500">*</span></Label>
                                     <Input
-                                        placeholder="Ex: 123456"
+                                        placeholder=""
                                         value={nfeNumber}
                                         onChange={(e) => setNfeNumber(e.target.value)}
                                         className={fieldCls(err.nfeNumber)}
@@ -585,7 +472,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                                 <div className="space-y-1.5">
                                     <Label className="text-xs">N° Empenho <span className="text-red-500">*</span></Label>
                                     <Input
-                                        placeholder="Ex: 2026NE001"
+                                        placeholder=""
                                         value={empenhoNumber}
                                         onChange={(e) => setEmpenhoNumber(e.target.value)}
                                         className={fieldCls(err.empenhoNumber)}
@@ -595,7 +482,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onSuccessSave }: En
                                 <div className="space-y-1.5">
                                     <Label className="text-xs">N° Liquidação <span className="text-red-500">*</span></Label>
                                     <Input
-                                        placeholder="Ex: 2026NL001"
+                                        placeholder=""
                                         value={liquidacaoNumber}
                                         onChange={(e) => setLiquidacaoNumber(e.target.value)}
                                         className={fieldCls(err.liquidacaoNumber)}

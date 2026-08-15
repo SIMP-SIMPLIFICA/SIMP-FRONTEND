@@ -1,9 +1,10 @@
 import {
   getAccessToken,
-  getRefreshToken,
   setAuthTokens,
+  getImpersonateRefreshToken,
   clearAuth,
 } from "./auth";
+import { queryClient } from "./queryClient";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -33,7 +34,7 @@ export async function apiRequest<T = unknown>(
   const url = `${API_URL}${path}`;
   const headers = new Headers(options.headers);
 
-  // Apenas define JSON se NÃO for FormData (para permitir uploads)
+  // Set JSON content-type only when not sending FormData
   if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -59,9 +60,23 @@ export async function apiRequest<T = unknown>(
     data = await res.text();
   }
 
+  // Kill switch: organização suspensa. Trata ANTES do 401 porque não é um problema
+  // de sessão — renovar o token não resolveria, a organização é que está bloqueada.
+  // Checa o código específico, nunca 403 genérico: um 403 de permissão comum não
+  // pode deslogar ninguém.
+  if (res.status === 403 && data?.error === "ORGANIZATION_SUSPENDED") {
+    clearAuth();
+    // Limpa também o cache do TanStack Query — sem isso, dados já carregados da
+    // organização bloqueada permaneceriam em memória.
+    queryClient.clear();
+    if (window.location.pathname !== "/acesso-suspenso") {
+      window.location.href = "/acesso-suspenso";
+    }
+    throw { error: "ORGANIZATION_SUSPENDED", message: data?.message ?? "Organização suspensa." };
+  }
+
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {
-    console.warn(`⚠️ [API] 401 detectado em ${path}. Tentando refresh...`);
-    
+
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -71,32 +86,50 @@ export async function apiRequest<T = unknown>(
     }
 
     isRefreshing = true;
-    const refreshToken = getRefreshToken();
 
-    if (refreshToken) {
-      try {
-        const refreshRes = await fetch(`${API_URL}/api/v1/auth/refresh-token`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
-        });
+    // During impersonation the super-admin's httpOnly cookie must NOT be used —
+    // we send the impersonated refresh token in the body with credentials:'omit'
+    // so the browser neither sends nor overwrites the super-admin's cookie.
+    // For normal sessions the cookie is the sole source of truth (no body token).
+    const impersonateRefresh = getImpersonateRefreshToken();
 
-        if (refreshRes.ok) {
-          const refreshData = await refreshRes.json();
-          const newAccess = refreshData.accessToken || refreshData.token || refreshData.tokens?.accessToken;
-          const newRefresh = refreshData.refreshToken || refreshData.tokens?.refreshToken;
+    try {
+      // Normal sessions: rely on the httpOnly cookie — send NO body and NO Content-Type
+      // so Fastify's JSON parser is not triggered on an empty payload.
+      // Impersonation: must send the refresh token in the body (cookie must not be used).
+      const refreshRes = await fetch(`${API_URL}/api/v1/auth/refresh-token`, {
+        method: "POST",
+        credentials: impersonateRefresh ? "omit" : "include",
+        ...(impersonateRefresh
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refreshToken: impersonateRefresh }),
+            }
+          : {}),
+      });
 
-          if (newAccess) {
-            console.log("✅ [API] Token renovado com sucesso!");
-            setAuthTokens(newAccess, newRefresh);
-            processQueue(null, newAccess);
-            isRefreshing = false;
-            return apiRequest<T>(path, options);
-          }
+      if (refreshRes.ok) {
+        const refreshData = await refreshRes.json();
+        const newAccess =
+          refreshData.accessToken ||
+          refreshData.token ||
+          refreshData.tokens?.accessToken;
+
+        if (newAccess) {
+          // For body-based (impersonation) refreshes the backend returns the rotated
+          // refresh token in the body so we can keep the in-memory token current.
+          // For cookie-based refreshes this field is undefined — passing undefined to
+          // setAuthTokens leaves _impersonateRefreshToken unchanged (correct).
+          const newImpersonateRefresh = refreshData.tokens?.refreshToken as string | undefined;
+          setAuthTokens(newAccess, newImpersonateRefresh);
+
+          processQueue(null, newAccess);
+          isRefreshing = false;
+          return apiRequest<T>(path, options);
         }
-      } catch (refreshErr) {
-        console.error("❌ [API] Falha no refresh:", refreshErr);
       }
+    } catch {
+      // network error during refresh — fall through to logout
     }
 
     isRefreshing = false;
@@ -111,9 +144,9 @@ export async function apiRequest<T = unknown>(
 
 // --- ADAPTER PARA SERVIÇOS ---
 export const api = {
-  get: <T>(path: string, options?: ApiOptions) => 
+  get: <T>(path: string, options?: ApiOptions) =>
     apiRequest<T>(path, { ...options, method: "GET" }).then(data => ({ data })),
-    
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   post: <T>(path: string, body: any, options?: ApiOptions) =>
     apiRequest<T>(path, {
@@ -137,7 +170,7 @@ export const api = {
       method: "PATCH",
       body: body instanceof FormData ? body : JSON.stringify(body)
     }).then(data => ({ data })),
-    
-  delete: <T>(path: string, options?: ApiOptions) => 
+
+  delete: <T>(path: string, options?: ApiOptions) =>
     apiRequest<T>(path, { ...options, method: "DELETE" }).then(data => ({ data })),
 };

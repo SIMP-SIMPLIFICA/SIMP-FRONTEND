@@ -1,6 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Inbox, Send, Circle } from "lucide-react";
+import { Inbox, Send, Circle, CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,11 +95,11 @@ export function MessageList({ tab, messages, loading, selectedId, onSelect }: Pr
               </div>
 
               {/* Content */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="flex items-center justify-between gap-2 mb-0.5">
                   <span
                     className={cn(
-                      "text-sm truncate",
+                      "text-sm truncate min-w-0",
                       isUnread ? "font-semibold text-slate-900" : "font-medium text-slate-700"
                     )}
                   >
@@ -109,18 +109,24 @@ export function MessageList({ tab, messages, loading, selectedId, onSelect }: Pr
                     {formatTime(date)}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                   {isUnread && (
                     <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
                   )}
                   <p
                     className={cn(
-                      "text-xs truncate",
+                      "text-xs truncate min-w-0 flex-1",
                       isUnread ? "text-slate-800 font-medium" : "text-slate-500"
                     )}
                   >
                     {msg.title}
                   </p>
+                  {tab === "sent" && msg.replyToId && (
+                    <span className="shrink-0 flex items-center gap-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 leading-none">
+                      <CornerDownRight className="h-2.5 w-2.5" />
+                      Resposta
+                    </span>
+                  )}
                 </div>
               </div>
             </button>

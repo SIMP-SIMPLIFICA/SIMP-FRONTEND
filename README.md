@@ -1,131 +1,132 @@
-Here is the updated **`README.md`** in English, replacing the generic Vite template with the specific documentation for your SIMP project.
+# SIMP Frontend
 
-After updating the file, run the git commands below.
+Frontend do **SIMP — Sistema Integrado de Gestão Municipal**. Plataforma SaaS B2B para administração municipal.
 
-### 1. Update `README.md`
+**Stack:** React 19 · Vite 7 · TypeScript · TanStack Query v5 · shadcn/ui · Tailwind CSS · React Router v7
 
-Replace all content in your `README.md` file with this:
-
-```markdown
-# SIMP - Frontend (Municipal Management System)
-
-Modern administrative interface for municipal management, built with **React**, **TypeScript**, and **Tailwind CSS**. This project consumes a Node.js/Fastify API (Boilerplate) with full authentication and Role-Based Access Control (RBAC).
-
-![Status](https://img.shields.io/badge/Status-Finished-success)
-![Coverage](https://img.shields.io/badge/Swagger-100%25_Covered-blue)
-
-## 🚀 Technologies
-
-* **Core:** React 18, TypeScript, Vite
-* **Styling:** Tailwind CSS, shadcn/ui (Radix Primitives)
-* **Routing:** React Router DOM v6
-* **Icons:** Lucide React
-* **Http Client:** Fetch API (Custom wrapper with Interceptors)
-* **State Management:** Native Hooks + Context API (Auth)
-
-## ✨ Features
-
-### 🔐 Authentication & Security
-* Login with "Remember me" support.
-* **Automatic Refresh Token:** Silent session renewal (401 Interceptor).
-* **Password Recovery:** Full "Forgot Password" and "Reset Password" flow via email token.
-* **Sessions:** View and remotely revoke connected devices.
-
-### 👥 User Management
-* **Full CRUD:** Create, List, Update, and Delete users.
-* **Status Control:** Activate/Deactivate accounts with reason logging.
-* **Force Reset:** Admin can force a password reset for any user.
-* **Session Management:** Admin can terminate specific user sessions.
-
-### 🛡️ Access Management (RBAC)
-* **Roles:** Create, Edit, Duplicate, and Delete access profiles.
-* **Permissions:** Visual catalog organized by modules (Users, Financial, System, etc.) with Fallback support.
-* **Protection:** Edit lock for System Roles (`isSystem`).
-
-### 👤 User Profile (My Account)
-* Profile update (Name, Surname).
-* Secure password change.
-* Self-management of active sessions.
+**Repositório backend:** [SIMP-BACKEND](https://github.com/SIMP-SIMPLIFICA/SIMP-BACKEND)
 
 ---
 
-## 🛠️ How to Run
+## Pré-requisitos
 
-### Prerequisites
-* Node.js (v18+)
-* Backend (API) running locally or remotely.
+- Node 22 (`nvm use 22`)
+- Backend SIMP rodando (local ou Render dev)
 
-### 1. Installation
-Clone the repository and install dependencies:
+---
+
+## Setup local
 
 ```bash
-git clone [https://github.com/your-username/simp-frontend.git](https://github.com/your-username/simp-frontend.git)
-cd simp-frontend
+# 1. Instalar dependências
+nvm use 22
 npm install
 
+# 2. Configurar variáveis de ambiente
+cp .env.example .env
+# Editar VITE_API_URL com a URL do backend
+
+# 3. Iniciar servidor de desenvolvimento
+npm run dev
 ```
 
-### 2. Configuration
+Aplicação disponível em `http://localhost:5173`
 
-Create a `.env` file in the project root (based on `.env.example`):
+---
 
-```env
-# Backend API URL
-VITE_API_URL=http://localhost:3000
+## Variáveis de ambiente
 
-```
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `VITE_API_URL` | ✅ | URL do backend (ex: `http://localhost:3000`) |
+| `VITE_SENTRY_DSN` | opcional | DSN do Sentry para error tracking |
 
-### 3. Running
+---
 
-Start the development server:
+## Comandos
 
 ```bash
-npm run dev
+# Desenvolvimento
+npm run dev              # Servidor com hot-reload
 
+# Build
+npm run build            # Build de produção
+
+# Qualidade (rodar antes de commitar)
+npx eslint .             # Lint — zero erros obrigatório
+npx tsc -b               # Type check real (não usar tsc --noEmit)
+
+# Testes
+npm run test             # Vitest
+npm run test:coverage    # Vitest com cobertura
 ```
 
-Access `http://localhost:5173` in your browser.
-
 ---
 
-## 🔑 Default Credentials (Dev Environment)
+## Estrutura do projeto
 
-If using the standard backend seed:
-
-* **Email:** `admin@example.com`
-* **Password:** `Admin123!`
-
----
-
-## 📂 Project Structure
-
-```text
+```
 src/
 ├── components/
-│   ├── layout/       # Sidebar, Topbar, AuthGate, PermissionGate
-│   ├── roles/        # Roles specific modals and tables
-│   ├── users/        # Users specific modals and tables
-│   └── ui/           # Base components (shadcn/ui)
-├── hooks/            # Custom hooks (useMe, useToast)
+│   ├── ui/              # Componentes shadcn/ui (gerados — não editar diretamente)
+│   ├── layout/          # AppLayout, Sidebar, Topbar, NotificationBell
+│   ├── workspaces/      # TaskModal, TaskCard, InviteMemberModal, Checklist
+│   ├── task/            # AssigneeSelector
+│   ├── finance/         # UniversalFinanceModal
+│   └── roles/           # RolesTable, RoleDetailsDialog
+├── context/             # React contexts (UniversalFinanceModalContext, etc.)
+├── hooks/               # Hooks TanStack Query por módulo
 ├── lib/
-│   ├── api.ts        # HTTP Client with Refresh Token interceptor
-│   ├── auth.ts       # Token Management (LocalStorage)
-│   └── permissions.ts# Permission verification utilities
-├── pages/            # Application screens (Login, Dashboard, Users...)
-└── router.tsx        # Definition of public and protected routes
-
+│   ├── api/             # Serviços de API por módulo
+│   ├── api.ts           # Instância axios configurada
+│   ├── auth.ts          # Helpers de autenticação
+│   └── permissions.ts   # Helpers RBAC
+├── pages/               # Páginas por módulo
+│   ├── financeiro/      # Lançamentos, Relatórios, Contas, Categorias, Inteligência
+│   ├── workspaces/      # WorkspacesPage, WorkspaceDetailPage
+│   ├── processos-virtuais/
+│   ├── utilidades/      # Calendar, Notes
+│   ├── admin/           # AdminPanel
+│   └── ...
+├── types/               # Interfaces TypeScript por módulo
+└── utils/               # Utilitários (export, formatação)
 ```
 
-## 📦 Build for Production
+---
 
-To generate optimized static files for deployment:
+## Módulos
 
-```bash
-npm run build
+| Módulo | Rota | Responsável | Status |
+|--------|------|-------------|--------|
+| Login / Auth | `/login` | Marllon | ✅ |
+| Dashboard | `/` | Marllon | ✅ |
+| Usuários | `/usuarios` | Marllon | ✅ |
+| Papéis/Permissões | `/papeis` | Marllon | ✅ |
+| Financeiro | `/financeiro/*` | Marllon | ✅ |
+| Workspaces / Kanban | `/workspaces/*` | Carlos | ✅ |
+| Comunicação | `/comunicacao` | Carlos | ✅ |
+| Processos Virtuais | `/processos-virtuais` | Carlos | ✅ |
+| Biblioteca | `/biblioteca` | Carlos | 🔴 pendente |
+| Calendário | `/utilidades/calendario` | Carlos | ✅ |
+| Notas | `/utilidades/notas` | Carlos | ✅ |
+| Perfil | `/perfil` | Marllon | ✅ |
+| Admin | `/admin` | Marllon | ✅ |
 
-```
+---
 
-The files will be generated in the `dist/` folder.
+## Deploy (Vercel)
 
-```
+- Auto-deploy ativado na branch `develop`
+- `vercel.json` na raiz configura SPA routing (rewrites para `/index.html`)
+- Variáveis de ambiente obrigatórias na Vercel: `VITE_API_URL` e `VITE_SENTRY_DSN`
 
+---
+
+## CI/CD
+
+| Pipeline | Trigger | O que faz |
+|----------|---------|-----------|
+| `ci.yml` | push/PR → develop/main | Lint + type check + testes + build |
+| `security.yml` | push/PR + semanal | npm audit + CodeQL + TruffleHog + Claude Review |
+| `failure-analyst.yml` | CI falha | Claude Haiku analisa logs → Issue + Discord |
+| `pr-review.yml` | Todo PR | Claude AI faz code review |

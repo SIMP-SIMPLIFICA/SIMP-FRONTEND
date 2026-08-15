@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
-  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip, Check,
-  Calendar as CalendarIcon,
+  AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
+  Calendar as CalendarIcon, Settings2, Handshake,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,14 +21,19 @@ import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
-  useCreateVirtualProcessCategory, useCreateVirtualProcessSource, useCreateVirtualProcessCompany,
+  useUpdateProcessValidity,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
+import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
-import type { VirtualProcess } from '@/types/virtual-process'
+import type { VirtualProcess, UnifiedProcessDoc } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
+import { libraryService } from '@/lib/api/library'
+import { formatCurrencyBRL, formatCurrencyInput, sanitizeCurrencyInput, parseCurrencyInput } from '@/lib/currency'
+import { getExpiryAlert, EXPIRING_SOON_DAYS } from '@/lib/processExpiry'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
 
 // --- helpers ---
 function formatDocument(val: string) {
@@ -97,9 +102,9 @@ function DatePickerField({ label, date, onChange }: {
 }
 
 // --- Create Process Dialog ---
-type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; workspaceId: undefined }
+type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void }
 
-function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogProps) {
+function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [form, setForm] = useState({
     processNumber: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
@@ -107,28 +112,18 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   })
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [validityDate, setValidityDate] = useState<Date | undefined>(undefined)
+  const [totalValue, setTotalValue] = useState('')
   const [saving, setSaving] = useState(false)
-  const { mutateAsync: create } = useCreateVirtualProcess(workspaceId)
-  const { data: processesResponse } = useVirtualProcesses(workspaceId)
-  const { data: categories = [] } = useVirtualProcessCategories(workspaceId)
-  const { data: sources = [] } = useVirtualProcessSources(workspaceId)
-  const { data: companies = [] } = useVirtualProcessCompanies(workspaceId)
+  const { mutateAsync: create } = useCreateVirtualProcess(undefined)
+  const { data: processesResponse } = useVirtualProcesses(undefined)
+  const { data: categories = [] } = useVirtualProcessCategories(undefined)
+  const { data: sources = [] } = useVirtualProcessSources(undefined)
+  const { data: companies = [] } = useVirtualProcessCompanies(undefined)
   const { data: bankAccounts = [] } = useFinanceBankAccounts()
-  const { mutateAsync: createCat } = useCreateVirtualProcessCategory(workspaceId)
-  const { mutateAsync: createSrc } = useCreateVirtualProcessSource(workspaceId)
-  const { mutateAsync: createCmp } = useCreateVirtualProcessCompany(workspaceId)
-
-  // Inline creation state
-  const [isAddingCat, setIsAddingCat] = useState(false)
-  const [newCatName, setNewCatName] = useState('')
-  const [savingCat, setSavingCat] = useState(false)
-  const [isAddingSrc, setIsAddingSrc] = useState(false)
-  const [newSrcName, setNewSrcName] = useState('')
-  const [savingSrc, setSavingSrc] = useState(false)
-  const [isAddingCmp, setIsAddingCmp] = useState(false)
-  const [newCmpName, setNewCmpName] = useState('')
-  const [newCmpCnpj, setNewCmpCnpj] = useState('')
-  const [savingCmp, setSavingCmp] = useState(false)
+  const { data: deptData } = useDepartmentOptions()
+  const departments = (deptData?.data ?? []).filter(d => d.isActive)
+  const { open: openProcessModal } = useUniversalProcessModal()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
@@ -136,51 +131,7 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
   function reset() {
     setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
     setStartDate(undefined); setEndDate(undefined)
-    setIsAddingCat(false); setNewCatName('')
-    setIsAddingSrc(false); setNewSrcName('')
-    setIsAddingCmp(false); setNewCmpName(''); setNewCmpCnpj('')
-  }
-
-  async function handleCreateCat() {
-    if (!newCatName.trim()) return
-    setSavingCat(true)
-    try {
-      await createCat({ name: newCatName.trim() })
-      setForm(f => ({ ...f, category: newCatName.trim() }))
-      setNewCatName(''); setIsAddingCat(false)
-      toast({ title: 'Categoria criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar categoria', description: msg, variant: 'destructive' })
-    } finally { setSavingCat(false) }
-  }
-
-  async function handleCreateSrc() {
-    if (!newSrcName.trim()) return
-    setSavingSrc(true)
-    try {
-      await createSrc({ name: newSrcName.trim() })
-      setForm(f => ({ ...f, source: newSrcName.trim() }))
-      setNewSrcName(''); setIsAddingSrc(false)
-      toast({ title: 'Origem criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar origem', description: msg, variant: 'destructive' })
-    } finally { setSavingSrc(false) }
-  }
-
-  async function handleCreateCmp() {
-    if (!newCmpName.trim()) return
-    setSavingCmp(true)
-    try {
-      await createCmp({ name: newCmpName.trim(), cnpj: newCmpCnpj.trim() || null })
-      setForm(f => ({ ...f, companyName: newCmpName.trim(), companyCnpj: newCmpCnpj.trim() }))
-      setNewCmpName(''); setNewCmpCnpj(''); setIsAddingCmp(false)
-      toast({ title: 'Empresa criada' })
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message
-      toast({ title: 'Erro ao criar empresa', description: msg, variant: 'destructive' })
-    } finally { setSavingCmp(false) }
+    setValidityDate(undefined); setTotalValue('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -188,6 +139,10 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
     const num = form.processNumber.trim()
     if ((processesResponse?.data ?? []).some((p: VirtualProcess) => p.processNumber === num)) {
       toast({ title: 'Número já cadastrado', description: `O processo "${num}" já existe.`, variant: 'destructive' })
+      return
+    }
+    if (startDate && endDate && startDate > endDate) {
+      toast({ title: 'Datas inválidas', description: 'A data de início não pode ser posterior à data de encerramento.', variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -203,6 +158,8 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
         companyCnpj: form.companyCnpj.trim() || undefined,
         startDate: startDate?.toISOString() || undefined,
         endDate: endDate?.toISOString() || undefined,
+        validityDate: validityDate?.toISOString() || undefined,
+        totalValue: parseCurrencyInput(totalValue),
         bankAccount: form.bankAccount.trim() || undefined,
         agency: form.agency.trim() || undefined,
         bankName: form.bankName.trim() || undefined,
@@ -235,85 +192,72 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
               </div>
               <div className="space-y-1.5">
                 <Label>Secretaria <span className="text-red-500">*</span></Label>
-                <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
+                {departments.length > 0 ? (
+                  <Select
+                    value={form.secretaria}
+                    onValueChange={v => setForm(f => ({ ...f, secretaria: v }))}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar secretaria..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(d => (
+                        <SelectItem key={d.id} value={d.name}>
+                          {d.code} — {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
+                )}
               </div>
             </div>
 
             {/* Row 2: Categoria */}
             <div className="space-y-1.5">
-              <Label>Categoria <span className="text-red-500">*</span></Label>
-              <div className="flex gap-2">
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.length === 0
-                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
-                      : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button type="button" variant="outline" size="icon" title="Nova categoria"
-                  onClick={() => { setIsAddingCat(v => !v); setIsAddingSrc(false); setIsAddingCmp(false) }}
-                  className={isAddingCat ? 'border-blue-500 text-blue-600' : ''}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+              <div className="flex items-center justify-between">
+                <Label>Categoria <span className="text-red-500">*</span></Label>
+                <button type="button" onClick={() => openProcessModal('categorias')}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline" tabIndex={-1}>
+                  <Settings2 className="h-3 w-3" /> Gerenciar categorias
+                </button>
               </div>
+              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                <SelectContent>
+                  {categories.length === 0
+                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
+                    : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-            {isAddingCat && (
-              <div className="flex gap-2 items-center p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <Input placeholder="Nome da categoria..." value={newCatName} onChange={e => setNewCatName(e.target.value)}
-                  className="flex-1 bg-white" autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateCat() } }} />
-                <Button type="button" size="sm" onClick={() => void handleCreateCat()}
-                  disabled={savingCat || !newCatName.trim()} className="bg-blue-600 hover:bg-blue-700 shrink-0">
-                  {savingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Criar
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCat(false)} disabled={savingCat}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
 
             {/* Row 3: Origem + Detalhe */}
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
-                <div className="flex gap-2">
-                  <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
-                    <SelectContent>
-                      {sources.length === 0
-                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
-                        : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" title="Nova origem"
-                    onClick={() => { setIsAddingSrc(v => !v); setIsAddingCat(false); setIsAddingCmp(false) }}
-                    className={isAddingSrc ? 'border-violet-500 text-violet-600' : ''}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <Label>Origem do Recurso <span className="text-red-500">*</span></Label>
+                  <button type="button" onClick={() => openProcessModal('origens')}
+                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 hover:underline" tabIndex={-1}>
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </button>
                 </div>
+                <Select value={form.source} onValueChange={v => setForm(f => ({ ...f, source: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {sources.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma origem cadastrada</div>
+                      : sources.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Detalhe da Origem</Label>
                 <Input placeholder="Número ou referência" value={form.sourceDetail} onChange={set('sourceDetail')} />
               </div>
             </div>
-            {isAddingSrc && (
-              <div className="flex gap-2 items-center p-3 bg-violet-50 border border-violet-200 rounded-lg">
-                <Input placeholder="Nome da origem..." value={newSrcName} onChange={e => setNewSrcName(e.target.value)}
-                  className="flex-1 bg-white" autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateSrc() } }} />
-                <Button type="button" size="sm" onClick={() => void handleCreateSrc()}
-                  disabled={savingSrc || !newSrcName.trim()} className="bg-violet-600 hover:bg-violet-700 shrink-0">
-                  {savingSrc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  Criar
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingSrc(false)} disabled={savingSrc}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
 
             {/* Row 4: Assunto */}
             <div className="space-y-1.5">
@@ -324,56 +268,71 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
             {/* Row 5: Empresa + CNPJ */}
             <div className="grid grid-cols-2 gap-4 items-end">
               <div className="space-y-1.5">
-                <Label>Empresa Contratada</Label>
-                <div className="flex gap-2">
-                  <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
-                    <SelectTrigger className="flex-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-                    <SelectContent>
-                      {companies.length === 0
-                        ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
-                        : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" size="icon" title="Nova empresa"
-                    onClick={() => { setIsAddingCmp(v => !v); setIsAddingCat(false); setIsAddingSrc(false) }}
-                    className={isAddingCmp ? 'border-emerald-500 text-emerald-600' : ''}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <Label>Empresa Contratada</Label>
+                  <button type="button" onClick={() => openProcessModal('empresas')}
+                    className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline" tabIndex={-1}>
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </button>
                 </div>
+                <Select value={form.companyName} onValueChange={v => setForm(f => ({ ...f, companyName: v }))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {companies.length === 0
+                      ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma empresa cadastrada</div>
+                      : companies.map(c => <SelectItem key={c.id} value={c.name}>{c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>CNPJ / CPF</Label>
                 <Input
-                  placeholder="000.000.000-00"
                   inputMode="numeric"
                   value={form.companyCnpj}
                   onChange={e => setForm(f => ({ ...f, companyCnpj: formatDocument(e.target.value) }))}
                 />
               </div>
             </div>
-            {isAddingCmp && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <div className="flex gap-2 items-center">
-                  <Input placeholder="Nome da empresa..." value={newCmpName} onChange={e => setNewCmpName(e.target.value)}
-                    className="flex-1 bg-white" autoFocus />
-                  <Input placeholder="CNPJ (opcional)" value={newCmpCnpj} onChange={e => setNewCmpCnpj(e.target.value)}
-                    className="flex-1 bg-white" />
-                  <Button type="button" size="sm" onClick={() => void handleCreateCmp()}
-                    disabled={savingCmp || !newCmpName.trim()} className="bg-emerald-600 hover:bg-emerald-700 shrink-0">
-                    {savingCmp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    Criar
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setIsAddingCmp(false)} disabled={savingCmp}>
-                    <X className="h-4 w-4" />
-                  </Button>
+
+            {/* Row 6: Vigência do processo (tramitação) — NÃO gera alerta */}
+            <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Tramitação do processo</p>
+                <p className="text-[11px] text-slate-400">Quando o processo começou e quando foi/será arquivado.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <DatePickerField label="Data de Início" date={startDate} onChange={setStartDate} />
+                <DatePickerField label="Data de Encerramento" date={endDate} onChange={setEndDate} />
+              </div>
+            </div>
+
+            {/* Row 6b: Prazo monitorado — é ESTA data que dispara os alertas.
+                Separado visualmente de propósito: preencher "Encerramento" achando
+                que é a validade faria o alerta nunca disparar (falha silenciosa). */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3 space-y-2">
+              <div>
+                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Prazo monitorado</p>
+                <p className="text-[11px] text-amber-700">
+                  A Data de Validade é a vigência legal — é ela que gera os alertas de vencimento na listagem. Opcional.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <DatePickerField label="Data de Validade" date={validityDate} onChange={setValidityDate} />
+                <div className="space-y-1.5">
+                  <Label>Valor Total <span className="text-slate-400 font-normal">(opcional)</span></Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">R$</span>
+                    <Input
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      className="pl-9"
+                      value={totalValue}
+                      onChange={e => setTotalValue(sanitizeCurrencyInput(e.target.value))}
+                      onBlur={() => setTotalValue(v => formatCurrencyInput(v))}
+                    />
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Row 6: Datas */}
-            <div className="grid grid-cols-2 gap-4 items-end">
-              <DatePickerField label="Data de Início" date={startDate} onChange={setStartDate} />
-              <DatePickerField label="Data de Encerramento" date={endDate} onChange={setEndDate} />
             </div>
 
             {/* Row 7: Conta Bancária */}
@@ -426,14 +385,14 @@ function CreateProcessDialog({ open, onOpenChange, workspaceId }: CreateDialogPr
 }
 
 // --- Upload Document Dialog ---
-type UploadDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; processId: string | null; workspaceId: undefined }
+type UploadDialogProps = { open: boolean; onOpenChange: (v: boolean) => void; processId: string | null }
 
-function UploadDocumentDialog({ open, onOpenChange, processId, workspaceId }: UploadDialogProps) {
+function UploadDocumentDialog({ open, onOpenChange, processId }: UploadDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [tag, setTag] = useState('')
   const [description, setDescription] = useState('')
   const [uploading, setUploading] = useState(false)
-  const { mutateAsync: upload } = useUploadProcessDocument(processId, workspaceId)
+  const { mutateAsync: upload } = useUploadProcessDocument(processId, undefined)
 
   function handleClose() { setFile(null); setTag(''); setDescription(''); onOpenChange(false) }
 
@@ -498,12 +457,12 @@ function UploadDocumentDialog({ open, onOpenChange, processId, workspaceId }: Up
 }
 
 // --- Process Detail Panel ---
-type DetailPanelProps = { processId: string; onClose: () => void; workspaceId: undefined }
+type DetailPanelProps = { processId: string; onClose: () => void }
 
-function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProps) {
+function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
   const { data, isLoading, refetch } = useVirtualProcessDetail(processId)
-  const { mutate: updateStatus } = useUpdateProcessStatus(workspaceId)
-  const { mutate: deleteDoc, isPending: deletingDoc } = useDeleteProcessDocument(processId, workspaceId)
+  const { mutate: updateStatus } = useUpdateProcessStatus(undefined)
+  const { mutate: deleteDoc, isPending: deletingDoc } = useDeleteProcessDocument(processId, undefined)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
 
@@ -536,6 +495,12 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
   }
 
   if (!process) return null
+
+  // Lista unificada vinda do backend (documentos do processo + do convênio, com
+  // `source` marcando a procedência). Fallback para `documents` mantém a tela
+  // funcionando caso o backend antigo ainda esteja no ar.
+  const unifiedDocs: UnifiedProcessDoc[] = process.unifiedDocuments
+    ?? (process.documents ?? []).map(d => ({ ...d, source: 'process' as const }))
 
   return (
     <div className="flex flex-col h-full">
@@ -587,8 +552,30 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
             )}
             {(process.startDate || process.endDate) && (
               <div className="col-span-2">
-                <div className="text-xs text-slate-400">Período</div>
+                <div className="text-xs text-slate-400">Período de tramitação</div>
                 <div className="font-medium text-slate-700">{formatDate(process.startDate)} → {formatDate(process.endDate)}</div>
+              </div>
+            )}
+            {process.validityDate && (
+              <div>
+                <div className="text-xs text-slate-400">Validade (vigência)</div>
+                <div className="font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                  {formatDate(process.validityDate)}
+                  {(() => {
+                    const alert = getExpiryAlert(process.validityDate)
+                    return alert.label ? (
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${alert.className}`}>
+                        {alert.label}
+                      </span>
+                    ) : null
+                  })()}
+                </div>
+              </div>
+            )}
+            {process.totalValue != null && (
+              <div>
+                <div className="text-xs text-slate-400">Valor total</div>
+                <div className="font-medium text-slate-700">{formatCurrencyBRL(process.totalValue)}</div>
               </div>
             )}
             <div>
@@ -623,6 +610,54 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
             </div>
           </div>
 
+          {/* Convênios Vinculados */}
+          {(process.covenants ?? []).length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                Convênios Vinculados
+              </div>
+              <div className="space-y-2">
+                {(process.covenants ?? []).map(cv => {
+                  const statusColors: Record<string, string> = {
+                    EM_ANALISE:       'bg-amber-100 text-amber-700',
+                    APROVADO:         'bg-blue-100 text-blue-700',
+                    EM_EXECUCAO:      'bg-emerald-100 text-emerald-700',
+                    PRESTACAO_CONTAS: 'bg-violet-100 text-violet-700',
+                    CONCLUIDO:        'bg-slate-100 text-slate-600',
+                    DEVOLVIDO:        'bg-red-100 text-red-600',
+                  }
+                  const statusLabels: Record<string, string> = {
+                    EM_ANALISE:       'Em Análise',
+                    APROVADO:         'Aprovado',
+                    EM_EXECUCAO:      'Em Execução',
+                    PRESTACAO_CONTAS: 'Prestação de Contas',
+                    CONCLUIDO:        'Concluído',
+                    DEVOLVIDO:        'Devolvido',
+                  }
+                  return (
+                    <div key={cv.id} className="flex items-start gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <Handshake className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-medium text-slate-800">{cv.number}</span>
+                          {cv.covenantType && (
+                            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {cv.covenantType.name}
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[cv.status] ?? 'bg-slate-100 text-slate-600'}`}>
+                            {statusLabels[cv.status] ?? cv.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{cv.processObject}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Documents */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -633,52 +668,75 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
               </Button>
             </div>
 
-            {!process.documents || process.documents.length === 0 ? (
+            {unifiedDocs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center rounded-lg border border-dashed border-slate-200">
                 <Paperclip className="h-6 w-6 text-slate-300 mb-1.5" />
                 <div className="text-xs text-slate-400">Nenhum documento anexado</div>
               </div>
             ) : (
               <div className="space-y-2">
-                {process.documents.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
-                    <FileText className="h-4 w-4 text-[#0A5BC4] shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-slate-700 truncate">{doc.fileName}</div>
-                      <div className="text-xs text-slate-400">{doc.tag} · {formatBytes(doc.fileSize)} · {formatDate(doc.uploadedAt)}</div>
+                {unifiedDocs.map(doc => {
+                  const fromCovenant = doc.source === 'covenant'
+                  return (
+                    <div key={`${doc.source}-${doc.id}`} className="flex items-center gap-2 p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <FileText className={`h-4 w-4 shrink-0 ${fromCovenant ? 'text-emerald-600' : 'text-[#0A5BC4]'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-700 truncate flex items-center gap-1.5">
+                          <span className="truncate">{doc.fileName}</span>
+                          {fromCovenant && (
+                            <span className="shrink-0 rounded-full bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide">
+                              Do convênio
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {fromCovenant
+                            ? `${doc.covenantNumber ? `Convênio ${doc.covenantNumber} · ` : ''}${formatBytes(doc.fileSize)} · ${formatDate(doc.uploadedAt)}`
+                            : `${doc.tag} · ${formatBytes(doc.fileSize)} · ${formatDate(doc.uploadedAt)}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          className="p-1 text-slate-400 hover:text-[#0A5BC4] transition-colors"
+                          title="Download"
+                          onClick={async () => {
+                            try {
+                              // Documento do convênio baixa pelo endpoint da Biblioteca,
+                              // preservando a checagem de nível de sigilo que vive lá —
+                              // sem criar um segundo caminho de download para divergir.
+                              const data = fromCovenant
+                                ? await libraryService.download(doc.id)
+                                : await virtualProcessService.getDownloadUrl(processId!, doc.id)
+                              window.open(data.url, '_blank')
+                            } catch {
+                              toast({ title: 'Erro ao baixar documento', variant: 'destructive' })
+                            }
+                          }}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                        </button>
+                        {/* Sem excluir para documentos do convênio: são acervo com
+                            valor legal e suas regras de exclusão vivem na Biblioteca. */}
+                        {!fromCovenant && (
+                          <button
+                            onClick={() => setDeletingDocId(doc.id)}
+                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                            title="Remover"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        className="p-1 text-slate-400 hover:text-[#0A5BC4] transition-colors"
-                        title="Download"
-                        onClick={async () => {
-                          try {
-                            const data = await virtualProcessService.getDownloadUrl(processId!, doc.id)
-                            window.open(data.url, '_blank')
-                          } catch {
-                            toast({ title: 'Erro ao baixar documento', variant: 'destructive' })
-                          }
-                        }}
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setDeletingDocId(doc.id)}
-                        className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                        title="Remover"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
         </div>
       </ScrollArea>
 
-      <UploadDocumentDialog open={uploadOpen} onOpenChange={v => { setUploadOpen(v); if (!v) refetch() }} processId={processId} workspaceId={workspaceId} />
+      <UploadDocumentDialog open={uploadOpen} onOpenChange={v => { setUploadOpen(v); if (!v) refetch() }} processId={processId} />
 
       {/* Delete doc confirm */}
       <Dialog open={!!deletingDocId} onOpenChange={v => !v && setDeletingDocId(null)}>
@@ -706,31 +764,129 @@ function ProcessDetailPanel({ processId, onClose, workspaceId }: DetailPanelProp
 }
 
 // --- Process List Item ---
-function ProcessItem({ process, selected, onClick }: { process: VirtualProcess; selected: boolean; onClick: () => void }) {
+function ProcessItem({ process, selected, onClick, onEditValidity }: {
+  process: VirtualProcess; selected: boolean; onClick: () => void; onEditValidity: () => void
+}) {
+  const expiry = getExpiryAlert(process.validityDate)
+
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left px-4 py-3.5 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-start gap-3 ${selected ? 'bg-blue-50 border-l-2 border-l-[#0A5BC4]' : ''}`}
+    <div
+      className={`w-full border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-start gap-3 px-4 py-3.5 ${selected ? 'bg-blue-50 border-l-2 border-l-[#0A5BC4]' : ''}`}
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 mt-0.5">
-        <FolderArchive className="h-4 w-4 text-slate-500" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold text-slate-800">{process.processNumber}</span>
-          {statusBadge(process.status)}
+      <button onClick={onClick} className="flex flex-1 min-w-0 items-start gap-3 text-left">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 mt-0.5">
+          <FolderArchive className="h-4 w-4 text-slate-500" />
         </div>
-        <div className="text-xs text-slate-500 truncate mt-0.5">{process.subject}</div>
-        <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
-          <span className="flex items-center gap-1"><Tag className="h-3 w-3" />{process.category}</span>
-          <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{process.secretaria}</span>
-          {(process._count?.documents ?? 0) > 0 && (
-            <span className="flex items-center gap-1"><Paperclip className="h-3 w-3" />{process._count!.documents}</span>
-          )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800">{process.processNumber}</span>
+            {statusBadge(process.status)}
+            {expiry.label && (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${expiry.className}`}>
+                {expiry.label}
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-500 truncate mt-0.5">{process.subject}</div>
+          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 flex-wrap">
+            <span className="flex items-center gap-1"><Tag className="h-3 w-3" />{process.category}</span>
+            <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{process.secretaria}</span>
+            {(process._count?.documents ?? 0) > 0 && (
+              <span className="flex items-center gap-1"><Paperclip className="h-3 w-3" />{process._count!.documents}</span>
+            )}
+            {process.validityDate && (
+              <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" />Val. {formatDate(process.validityDate)}</span>
+            )}
+            {process.totalValue != null && (
+              <span className="font-medium text-slate-500">{formatCurrencyBRL(process.totalValue)}</span>
+            )}
+          </div>
         </div>
+      </button>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditValidity() }}
+          title="Editar prazo e valor"
+          className="p-1.5 rounded-md text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+        </button>
+        <ChevronRight className="h-4 w-4 text-slate-300 mt-0.5" />
       </div>
-      <ChevronRight className="h-4 w-4 text-slate-300 shrink-0 mt-1" />
-    </button>
+    </div>
+  )
+}
+
+// --- Editar prazo/valor de um processo já existente ---
+function EditValidityDialog({ process, onClose }: { process: VirtualProcess | null; onClose: () => void }) {
+  // O pai monta este componente com `key={process.id}`, então ele remonta a cada
+  // processo diferente — inicializar o estado aqui basta, sem efeito de sincronização.
+  const [date, setDate] = useState<Date | undefined>(
+    process?.validityDate ? new Date(process.validityDate) : undefined
+  )
+  const [value, setValue] = useState(
+    process?.totalValue != null ? formatCurrencyInput(String(Number(process.totalValue))) : ''
+  )
+  const { mutateAsync: updateValidity, isPending } = useUpdateProcessValidity()
+
+  async function handleSave() {
+    if (!process) return
+    try {
+      await updateValidity({
+        id: process.id,
+        data: {
+          // null (não undefined) para permitir REMOVER uma data/valor já gravado
+          validityDate: date ? date.toISOString() : null,
+          totalValue: parseCurrencyInput(value) ?? null,
+        },
+      })
+      toast({ title: 'Prazo e valor atualizados' })
+      onClose()
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? 'Tente novamente.'
+      toast({ title: 'Erro ao atualizar', description: msg, variant: 'destructive' })
+    }
+  }
+
+  return (
+    <Dialog open={!!process} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Prazo e valor</DialogTitle>
+          <DialogDescription>
+            Processo <span className="font-mono font-semibold">{process?.processNumber}</span>. A Data de Validade
+            é a vigência legal — é ela que gera os alertas de vencimento.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <DatePickerField label="Data de Validade" date={date} onChange={setDate} />
+          <div className="space-y-1.5">
+            <Label>Valor Total</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 pointer-events-none">R$</span>
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                className="pl-9"
+                value={value}
+                onChange={e => setValue(sanitizeCurrencyInput(e.target.value))}
+                onBlur={() => setValue(v => formatCurrencyInput(v))}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">Deixe em branco para remover o valor já registrado.</p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={isPending} className="gap-2">
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -742,6 +898,8 @@ export default function ProcessosVirtuais() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [deletingProcessId, setDeletingProcessId] = useState<string | null>(null)
+  const [expiringOnly, setExpiringOnly] = useState(false)
+  const [validityTarget, setValidityTarget] = useState<VirtualProcess | null>(null)
   const [page, setPage] = useState(1)
 
   const { data, isLoading } = useVirtualProcesses(undefined, {
@@ -749,6 +907,8 @@ export default function ProcessosVirtuais() {
     search: search || undefined,
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
     category: categoryFilter !== 'ALL' ? categoryFilter : undefined,
+    // Filtrado no servidor para que total e paginação fiquem coerentes com o resultado.
+    expiringIn: expiringOnly ? EXPIRING_SOON_DAYS : undefined,
   })
 
   const { mutate: deleteProcess, isPending: deleting } = useDeleteVirtualProcess(undefined)
@@ -779,7 +939,8 @@ export default function ProcessosVirtuais() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden -m-6">
+    <div className="flex h-[calc(100vh-4rem)] overflow-hidden -m-6 justify-center">
+      <div className="flex w-full max-w-screen-2xl">
       {/* Left panel — list */}
       <div className={`flex flex-col border-r border-slate-200 bg-white ${selectedId ? 'hidden lg:flex lg:w-[420px] shrink-0' : 'flex-1'}`}>
         {/* Header */}
@@ -820,6 +981,20 @@ export default function ProcessosVirtuais() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Atalho "Quase Vencendo" — compõe com os demais filtros, não os substitui */}
+          <button
+            type="button"
+            onClick={() => { setExpiringOnly(v => !v); setPage(1) }}
+            className={`mt-2 w-full flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium border transition-colors ${
+              expiringOnly
+                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {expiringOnly ? `Quase vencendo (${EXPIRING_SOON_DAYS} dias)` : 'Filtrar: quase vencendo'}
+          </button>
         </div>
 
         {/* List */}
@@ -855,6 +1030,7 @@ export default function ProcessosVirtuais() {
                   process={p}
                   selected={selectedId === p.id}
                   onClick={() => setSelectedId(p.id)}
+                  onEditValidity={() => setValidityTarget(p)}
                 />
               ))}
               {totalPages > 1 && (
@@ -872,7 +1048,7 @@ export default function ProcessosVirtuais() {
       {/* Right panel — detail */}
       {selectedId ? (
         <div className="flex-1 flex flex-col bg-white overflow-hidden">
-          <ProcessDetailPanel processId={selectedId} onClose={() => setSelectedId(null)} workspaceId={undefined} />
+          <ProcessDetailPanel processId={selectedId} onClose={() => setSelectedId(null)} />
           {/* Delete button in detail header area */}
           <div className="px-5 py-3 border-t border-slate-100 flex justify-end">
             <Button size="sm" variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 gap-1.5 text-xs" onClick={() => setDeletingProcessId(selectedId)}>
@@ -891,7 +1067,14 @@ export default function ProcessosVirtuais() {
       )}
 
       {/* Create dialog */}
-      <CreateProcessDialog open={createOpen} onOpenChange={setCreateOpen} workspaceId={undefined} />
+      <CreateProcessDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {/* Editar prazo/valor — key força remontagem ao trocar de processo */}
+      <EditValidityDialog
+        key={validityTarget?.id ?? 'none'}
+        process={validityTarget}
+        onClose={() => setValidityTarget(null)}
+      />
 
       {/* Delete process confirm */}
       <Dialog open={!!deletingProcessId} onOpenChange={v => !v && setDeletingProcessId(null)}>
@@ -914,6 +1097,7 @@ export default function ProcessosVirtuais() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>{/* /max-w-screen-2xl */}
     </div>
   )
 }

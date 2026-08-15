@@ -74,13 +74,14 @@ export const taskService = {
   // --- ASSIGNEES (MEMBROS) ---
   
   getAssignableUsers: async (workspaceId: string) => {
-    const response = await api.get<{ 
-      id: string; 
-      firstName: string; 
-      lastName: string | null; 
-      email: string; 
-      avatar: string | null 
-    }[]>(`/workspaces/${workspaceId}/assignable-users`); 
+    const response = await api.get<{
+      id: string;
+      firstName: string;
+      lastName: string | null;
+      email: string;
+      avatar: string | null;
+      hasPermission: boolean;
+    }[]>(`/workspaces/${workspaceId}/assignable-users`);
     return response.data;
   },
 

@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFinanceEntries } from "@/hooks/useFinance";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
 import type { FinanceEntry } from "@/pages/financeiro/types";
 import type { MessageListItem } from "@/types/communication";
@@ -41,35 +42,33 @@ type StatCardProps = {
 
 function StatCard({ title, value, delta, deltaPositive, icon, loading }: StatCardProps) {
   return (
-    <Card className="rounded-2xl border-slate-200 p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold tracking-wide text-slate-500 uppercase truncate">
-            {title}
+    <Card className="rounded-3xl border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm font-medium text-slate-500">{title}</div>
+          <div className="h-8 w-8 rounded-full bg-slate-100 grid place-items-center text-slate-600 shrink-0">
+            {icon}
           </div>
-          {loading ? (
-            <Skeleton className="mt-4 h-7 w-28" />
-          ) : (
-            <div className="mt-4 text-2xl font-bold text-slate-800 tabular-nums leading-tight truncate">
-              {value}
-            </div>
-          )}
-          {delta && !loading && (
-            <div className="mt-2 flex items-center gap-1 text-sm">
-              {deltaPositive ? (
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
-              ) : (
-                <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
-              )}
-              <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
-                {delta}
-              </span>
-            </div>
-          )}
         </div>
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700">
-          {icon}
-        </div>
+        {loading ? (
+          <Skeleton className="h-8 w-32" />
+        ) : (
+          <div className="text-3xl font-bold text-slate-900 tracking-tight leading-tight">
+            {value}
+          </div>
+        )}
+        {delta && !loading && (
+          <div className="mt-2 flex items-center gap-1 text-sm">
+            {deltaPositive ? (
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            ) : (
+              <TrendingDown className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+            )}
+            <span className={deltaPositive ? "text-emerald-600" : "text-rose-600"}>
+              {delta}
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -200,27 +199,55 @@ function CategoryChart({ categories, loading }: CategoryChartProps) {
 
 // --- Página principal ---
 export default function Dashboard() {
+  const { isSuperAdmin, enabledModules } = useAuth();
+  const hasFinance = isSuperAdmin || enabledModules.includes("finance");
+  const hasCommunication = isSuperAdmin || enabledModules.includes("communication");
+
   const { data: workspaces, isLoading: loadingWorkspaces } = useWorkspaces();
   const { data: entriesData, isLoading: loadingEntries } = useFinanceEntries(undefined, {
     limit: 1000,
+    enabled: hasFinance,
   });
   const { data: inbox, isLoading: loadingInbox } = useQuery<MessageListItem[]>({
     queryKey: ["communication", "inbox"],
     queryFn: () => apiRequest("/api/v1/communication/inbox"),
     staleTime: 30_000,
+    enabled: hasCommunication,
   });
 
   const entries: FinanceEntry[] = (entriesData as FinanceEntry[]) || [];
 
-  // Totais financeiros
-  const { totalIncome, totalExpense } = useMemo(() => {
-    let inc = 0, exp = 0;
+  // Totais do mês atual e mês anterior para comparativo
+  const { currentIncome, currentExpense, prevIncome, prevExpense } = useMemo(() => {
+    const now = new Date();
+    const curY = now.getFullYear(), curM = now.getMonth();
+    const prevDate = new Date(now); prevDate.setMonth(curM - 1);
+    const prevY = prevDate.getFullYear(), prevM = prevDate.getMonth();
+
+    let cInc = 0, cExp = 0, pInc = 0, pExp = 0;
     entries.forEach((e) => {
-      if (e.type === "INCOME") inc += e.amountCents;
-      if (e.type === "EXPENSE") exp += e.amountCents;
+      const d = new Date(e.occurredAt);
+      const y = d.getFullYear(), m = d.getMonth();
+      if (y === curY && m === curM) {
+        if (e.type === "INCOME") cInc += e.amountCents;
+        if (e.type === "EXPENSE") cExp += e.amountCents;
+      } else if (y === prevY && m === prevM) {
+        if (e.type === "INCOME") pInc += e.amountCents;
+        if (e.type === "EXPENSE") pExp += e.amountCents;
+      }
     });
-    return { totalIncome: inc, totalExpense: exp };
+    return { currentIncome: cInc, currentExpense: cExp, prevIncome: pInc, prevExpense: pExp };
   }, [entries]);
+
+  function monthDelta(current: number, prev: number): { label: string; positive: boolean } | undefined {
+    if (prev === 0) return undefined;
+    const pct = Math.round(((current - prev) / prev) * 100);
+    if (pct === 0) return undefined;
+    return { label: `${pct > 0 ? "+" : ""}${pct}% vs mês anterior`, positive: pct > 0 };
+  }
+
+  const incomeDelta = hasFinance ? monthDelta(currentIncome, prevIncome) : undefined;
+  const expenseDelta = hasFinance ? monthDelta(currentExpense, prevExpense) : undefined;
 
   // Fluxo dos últimos 6 meses
   const monthlyData = useMemo(() => {
@@ -262,8 +289,6 @@ export default function Dashboard() {
   const unreadCount = (inbox ?? []).filter((m) => !m.isRead).length;
   const workspaceCount = workspaces?.length ?? 0;
 
-  const loadingFinance = loadingEntries;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -274,42 +299,51 @@ export default function Dashboard() {
 
       {/* Cards */}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Receitas (Total)"
-          value={formatCurrency(totalIncome)}
-          delta={totalIncome > 0 ? formatCurrency(totalIncome) : undefined}
-          deltaPositive
-          icon={<ArrowUpRight className="h-5 w-5 text-emerald-600" />}
-          loading={loadingFinance}
-        />
-        <StatCard
-          title="Despesas (Total)"
-          value={formatCurrency(totalExpense)}
-          delta={totalExpense > 0 ? formatCurrency(totalExpense) : undefined}
-          icon={<ArrowDownRight className="h-5 w-5 text-rose-500" />}
-          loading={loadingFinance}
-        />
+        {hasFinance && (
+          <StatCard
+            title="Receitas (Mês Atual)"
+            value={formatCurrency(currentIncome)}
+            delta={incomeDelta?.label}
+            deltaPositive={incomeDelta?.positive}
+            icon={<ArrowUpRight className="h-5 w-5 text-emerald-600" />}
+            loading={loadingEntries}
+          />
+        )}
+        {hasFinance && (
+          <StatCard
+            title="Despesas (Mês Atual)"
+            value={formatCurrency(currentExpense)}
+            delta={expenseDelta?.label}
+            deltaPositive={expenseDelta ? !expenseDelta.positive : undefined}
+            icon={<ArrowDownRight className="h-5 w-5 text-rose-500" />}
+            loading={loadingEntries}
+          />
+        )}
         <StatCard
           title="Workspaces Ativos"
           value={String(workspaceCount)}
           icon={<Briefcase className="h-5 w-5 text-[#0A5BC4]" />}
           loading={loadingWorkspaces}
         />
-        <StatCard
-          title="Mensagens não lidas"
-          value={String(unreadCount)}
-          deltaPositive={unreadCount === 0}
-          delta={unreadCount === 0 ? "Em dia" : `${unreadCount} pendente${unreadCount > 1 ? "s" : ""}`}
-          icon={<Mail className="h-5 w-5 text-amber-500" />}
-          loading={loadingInbox}
-        />
+        {hasCommunication && (
+          <StatCard
+            title="Mensagens não lidas"
+            value={String(unreadCount)}
+            deltaPositive={unreadCount === 0}
+            delta={unreadCount === 0 ? "Em dia" : `${unreadCount} pendente${unreadCount > 1 ? "s" : ""}`}
+            icon={<Mail className="h-5 w-5 text-amber-500" />}
+            loading={loadingInbox}
+          />
+        )}
       </div>
 
-      {/* Gráficos */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <MonthlyChart months={monthlyData} loading={loadingFinance} />
-        <CategoryChart categories={categoryData} loading={loadingFinance} />
-      </div>
+      {/* Gráficos — só se finance habilitado */}
+      {hasFinance && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <MonthlyChart months={monthlyData} loading={loadingEntries} />
+          <CategoryChart categories={categoryData} loading={loadingEntries} />
+        </div>
+      )}
     </div>
   );
 }

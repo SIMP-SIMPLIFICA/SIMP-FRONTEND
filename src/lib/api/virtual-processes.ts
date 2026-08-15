@@ -1,5 +1,5 @@
 import { api } from '../api'
-import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPayload } from '@/types/virtual-process'
+import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPayload, UpdateValidityPayload } from '@/types/virtual-process'
 
 export interface VirtualProcessCategory {
   id: string
@@ -26,7 +26,8 @@ export interface VirtualProcessCompany {
 export const virtualProcessService = {
   list: async (params?: {
     page?: number; limit?: number; search?: string; status?: string;
-    secretaria?: string; category?: string; startDate?: string; endDate?: string
+    secretaria?: string; category?: string; startDate?: string; endDate?: string;
+    expiringIn?: number
   }) => {
     const q = new URLSearchParams()
     if (params?.page) q.append('page', String(params.page))
@@ -37,6 +38,7 @@ export const virtualProcessService = {
     if (params?.category && params.category !== 'ALL') q.append('category', params.category)
     if (params?.startDate) q.append('startDate', params.startDate)
     if (params?.endDate) q.append('endDate', params.endDate)
+    if (params?.expiringIn) q.append('expiringIn', String(params.expiringIn))
     const qs = q.toString() ? `?${q.toString()}` : ''
     const res = await api.get<VirtualProcessListResponse>(`/virtual-processes/${qs}`)
     return res.data
@@ -59,6 +61,11 @@ export const virtualProcessService = {
 
   updateCompany: async (id: string, data: { companyName?: string; companyCnpj?: string }) => {
     const res = await api.patch<VirtualProcess>(`/virtual-processes/${id}/company`, data)
+    return res.data
+  },
+
+  updateValidity: async (id: string, data: UpdateValidityPayload) => {
+    const res = await api.patch<VirtualProcess>(`/virtual-processes/${id}/validity`, data)
     return res.data
   },
 

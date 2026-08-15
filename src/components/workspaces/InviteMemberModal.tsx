@@ -83,7 +83,7 @@ export function InviteMemberModal({ workspaceId, existingMemberIds = [] }: Invit
       setSelectedUser(null);
       setOpen(false);
     } catch (error: unknown) {
-      const msg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message || "Erro ao convidar usuário.";
+      const msg = (error as { message?: string })?.message ?? "Erro ao convidar usuário.";
       toast({ title: "Erro ao convidar", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);

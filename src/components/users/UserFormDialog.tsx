@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
+import { useDepartmentOptions } from "@/hooks/useDepartments";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,11 +28,12 @@ type UserRoleRef = {
 
 type ApiUser = {
   id: string;
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
+  email: string | null;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
   isActive: boolean;
+  departmentId?: string | null;
   roles: { role: UserRoleRef }[];
 };
 
@@ -40,8 +43,9 @@ type CreateUserBody = {
   password?: string;
   firstName: string;
   lastName: string;
-  roles?: string[]; // IDs das roles
+  roles?: string[];
   isActive?: boolean;
+  departmentId?: string | null;
 };
 
 type UpdateUserBody = {
@@ -50,6 +54,7 @@ type UpdateUserBody = {
   firstName?: string;
   lastName?: string;
   isActive?: boolean;
+  departmentId?: string | null;
 };
 
 interface UserFormDialogProps {
@@ -74,7 +79,10 @@ export function UserFormDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [departmentId, setDepartmentId] = useState<string>("none");
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
+
+  const { data: deptData } = useDepartmentOptions();
 
   // Estados de UI
   const [submitting, setSubmitting] = useState(false);
@@ -94,6 +102,7 @@ export function UserFormDialog({
         setUsername(user.username || "");
         setEmail(user.email || "");
         setIsActive(user.isActive);
+        setDepartmentId(user.departmentId || "none");
         setPassword("");
         setSelectedRoles(new Set(user.roles.map((r) => r.role.id)));
         void fetchRoles();
@@ -105,6 +114,7 @@ export function UserFormDialog({
         setEmail("");
         setPassword("");
         setIsActive(true);
+        setDepartmentId("none");
         setSelectedRoles(new Set());
         void fetchRoles();
       }
@@ -116,8 +126,8 @@ export function UserFormDialog({
       setLoadingRoles(true);
       const res = await apiRequest<{ data: UserRoleRef[] }>("/api/v1/roles?limit=100");
       setAvailableRoles(res.data);
-    } catch (error) {
-      console.error("Erro ao carregar roles", error);
+    } catch {
+      // roles fetch is non-critical
     } finally {
       setLoadingRoles(false);
     }
@@ -164,7 +174,7 @@ export function UserFormDialog({
 
       if (isEditing && user) {
         // --- ATUALIZAR ---
-        const body: UpdateUserBody = { firstName, lastName, username, email, isActive };
+        const body: UpdateUserBody = { firstName, lastName, username, email, isActive, departmentId: departmentId === "none" ? null : departmentId };
         await apiRequest(`/api/v1/users/${user.id}`, {
           method: "PUT",
           body: JSON.stringify(body),
@@ -199,6 +209,7 @@ export function UserFormDialog({
           password,
           isActive,
           roles: Array.from(selectedRoles),
+          departmentId: departmentId === "none" ? null : departmentId,
         };
 
         await apiRequest("/api/v1/users", {
@@ -306,6 +317,26 @@ export function UserFormDialog({
               </div>
             </div>
           )}
+
+          {/* Departamento */}
+          <div className="space-y-2">
+            <Label>Departamento / Secretaria</Label>
+            <Select value={departmentId} onValueChange={setDepartmentId} disabled={submitting}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sem departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem departamento</SelectItem>
+                {(deptData?.data ?? [])
+                  .filter(d => d.isActive)
+                  .map(d => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.code} — {d.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Status */}
           <div className="flex items-center space-x-2 py-2">

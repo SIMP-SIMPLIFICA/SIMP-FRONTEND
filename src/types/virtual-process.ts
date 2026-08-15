@@ -20,6 +20,27 @@ export interface VirtualProcessDocument {
   uploader?: { id: string; firstName: string; lastName: string }
 }
 
+/**
+ * Documento exibido na aba do Processo, normalizado no backend a partir de dois
+ * modelos distintos (VirtualProcessDocument e LibraryDocument). `source` indica a
+ * procedência — documentos do convênio são leitura + download apenas.
+ */
+export interface UnifiedProcessDoc {
+  id: string
+  fileName: string
+  fileSize: number
+  uploadedAt: string
+  uploader?: { id: string; firstName: string | null; lastName: string | null }
+  source: 'process' | 'covenant'
+  /** Somente origem 'process'. */
+  tag?: string
+  description?: string | null
+  /** Somente origem 'covenant'. */
+  title?: string
+  accessLevel?: number
+  covenantNumber?: string | null
+}
+
 export interface VirtualProcess {
   id: string
   organizationId: string
@@ -34,6 +55,10 @@ export interface VirtualProcess {
   companyName?: string | null
   startDate?: string | null
   endDate?: string | null
+  /** Vigência legal — é esta data que dispara os alertas de vencimento. */
+  validityDate?: string | null
+  /** Decimal do Prisma chega como string no JSON — converter com Number() antes de calcular. */
+  totalValue?: string | number | null
   subject: string
   status: string
   category: string
@@ -42,6 +67,9 @@ export interface VirtualProcess {
   createdById: string
   creator?: { id: string; firstName: string; lastName: string; avatar?: string | null }
   documents?: VirtualProcessDocument[]
+  /** Documentos do processo + do convênio, já normalizados pelo backend. */
+  unifiedDocuments?: UnifiedProcessDoc[]
+  covenants?: Array<{ id: string; number: string; status: string; processObject: string; covenantType?: { id: string; name: string } | null }>
   _count?: { documents: number }
 }
 
@@ -64,5 +92,13 @@ export interface CreateVirtualProcessPayload {
   companyName?: string
   startDate?: string
   endDate?: string
+  validityDate?: string
+  totalValue?: number
   status?: string
+}
+
+/** Payload do PATCH /:id/validity — `null` remove o valor já gravado. */
+export interface UpdateValidityPayload {
+  validityDate?: string | null
+  totalValue?: number | null
 }

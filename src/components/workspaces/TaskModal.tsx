@@ -25,7 +25,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { type WorkspaceMember } from "@/types/workspace";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { type TaskStatus } from "@/types/task";
+import { type TaskStatus, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS } from "@/types/task";
 
 interface TaskModalProps {
   taskId: string | null;
@@ -35,14 +35,6 @@ interface TaskModalProps {
   workspaceMembers: WorkspaceMember[];
 }
 
-
-const STATUS_CONFIG: Record<TaskStatus, { label: string; className: string }> = {
-  TODO:        { label: 'A Fazer',      className: 'bg-slate-100 text-slate-700' },
-  IN_PROGRESS: { label: 'Em Progresso', className: 'bg-blue-100 text-blue-700' },
-  IN_REVIEW:   { label: 'Revisão',      className: 'bg-amber-100 text-amber-700' },
-  DONE:        { label: 'Concluído',    className: 'bg-green-100 text-green-700' },
-  CANCELED:    { label: 'Cancelado',    className: 'bg-red-100 text-red-600' },
-};
 
 export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembers }: TaskModalProps) {
   const queryClient = useQueryClient();
@@ -137,30 +129,6 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
           <>
             <div className="px-6 py-4 border-b bg-background z-10 flex justify-between items-start">
               <div className="space-y-1">
-                 <div className="flex gap-2 mb-2">
-                    <Select defaultValue={task.priority} onValueChange={handlePriorityChange}>
-                        <SelectTrigger className="w-[100px] h-6 text-xs border-none bg-secondary/50">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="LOW">Baixa</SelectItem>
-                            <SelectItem value="MEDIUM">Média</SelectItem>
-                            <SelectItem value="HIGH">Alta</SelectItem>
-                            <SelectItem value="URGENT">Urgente</SelectItem>
-                        </SelectContent>
-                    </Select>
-
-                    <Select value={task.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger className={`h-6 text-xs border-none font-semibold w-auto min-w-[120px] max-w-[160px] ${STATUS_CONFIG[task.status as TaskStatus]?.className ?? ''}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                          <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                 </div>
                  <DialogTitle className="text-xl font-bold">{task.title}</DialogTitle>
                  <DialogDescription>
                     #{task.code} • Criado em {format(new Date(task.createdAt), "dd 'de' MMMM", { locale: ptBR })} 
@@ -289,7 +257,7 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                                             <div className="min-w-0">
                                                 <p className="text-sm font-medium text-gray-700 truncate">{file.fileName}</p>
                                                 <a
-                                                    href={(file as any).signedUrl ?? undefined}
+                                                    href={file.signedUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="text-[10px] text-blue-500 hover:underline flex items-center gap-1"
@@ -340,13 +308,42 @@ export function TaskModal({ taskId, isOpen, onClose, workspaceId, workspaceMembe
                </div>
 
                <div className="w-72 bg-gray-50 p-6 border-l overflow-y-auto shrink-0 space-y-6">
-                  
+
                   <div className="space-y-3">
-                      <AssigneeSelector 
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Situação</h4>
+                      <Select value={task.status} onValueChange={handleStatusChange}>
+                        <SelectTrigger className={`h-8 text-xs font-semibold w-full ${TASK_STATUS_LABELS[task.status as TaskStatus]?.badgeClassName ?? ''}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TASK_STATUS_LABELS).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Prioridade</h4>
+                      <Select defaultValue={task.priority} onValueChange={handlePriorityChange}>
+                        <SelectTrigger className="h-8 text-xs w-full bg-secondary/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TASK_PRIORITY_LABELS).map(([key, cfg]) => (
+                            <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
+
+                  <div className="space-y-3">
+                      <AssigneeSelector
                         taskId={task.id}
+                        workspaceId={workspaceId}
                         currentAssignees={task.assignees || []}
                         onUpdate={handleRefreshTask}
-                        members={workspaceMembers} 
+                        members={workspaceMembers}
                       />
                   </div>
 
