@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -44,24 +44,41 @@ interface EditMemberModalProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * Wrapper: monta o corpo apenas quando aberto e com membro definido, usando
+ * `key` para remontar ao trocar de membro. Substitui o useEffect que
+ * ressincronizava o estado (react-hooks/set-state-in-effect).
+ */
 export function EditMemberModal({ open, onClose, councilId, membership }: EditMemberModalProps) {
-  const [role, setRole]           = useState<CouncilMemberRole>('MEMBRO_TITULAR')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate]     = useState('')
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        {open && membership && (
+          <EditMemberBody
+            key={membership.id}
+            onClose={onClose}
+            councilId={councilId}
+            membership={membership}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditMemberBody({ onClose, councilId, membership }: {
+  onClose: () => void
+  councilId: string
+  membership: CouncilMembership
+}) {
+  const [role, setRole]           = useState<CouncilMemberRole>(membership.role)
+  const [startDate, setStartDate] = useState(toDateInput(membership.startDate))
+  const [endDate, setEndDate]     = useState(toDateInput(membership.endDate))
 
   const mutation = useUpdateCouncilMember(councilId)
 
-  useEffect(() => {
-    if (open && membership) {
-      setRole(membership.role)
-      setStartDate(toDateInput(membership.startDate))
-      setEndDate(toDateInput(membership.endDate))
-    }
-  }, [open, membership])
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!membership) return
 
     mutation.mutate(
       {
@@ -81,11 +98,8 @@ export function EditMemberModal({ open, onClose, councilId, membership }: EditMe
     )
   }
 
-  if (!membership) return null
-
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v && !mutation.isPending) onClose() }}>
-      <DialogContent className="sm:max-w-sm">
+    <>
         <DialogHeader>
           <DialogTitle>
             Editar Membro —{' '}
@@ -150,7 +164,7 @@ export function EditMemberModal({ open, onClose, councilId, membership }: EditMe
             Salvar
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+    </>
   )
 }

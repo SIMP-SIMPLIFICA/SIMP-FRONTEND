@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,22 @@ interface CreateMeetingModalProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * Wrapper: o corpo é montado apenas quando aberto, então cada abertura começa
+ * com estado limpo — substitui o useEffect de reset
+ * (react-hooks/set-state-in-effect), que causava render em cascata.
+ */
 export function CreateMeetingModal({ open, onClose, councilId }: CreateMeetingModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="sm:max-w-md">
+        {open && <CreateMeetingBody onClose={onClose} councilId={councilId} />}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function CreateMeetingBody({ onClose, councilId }: { onClose: () => void; councilId: string }) {
   const [title, setTitle]             = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation]       = useState('')
@@ -33,17 +48,6 @@ export function CreateMeetingModal({ open, onClose, councilId }: CreateMeetingMo
   const [dateError, setDateError]     = useState('')
 
   const mutation = useCreateMeeting(councilId)
-
-  useEffect(() => {
-    if (open) {
-      setTitle('')
-      setDescription('')
-      setLocation('')
-      setScheduledAt('')
-      setTitleError('')
-      setDateError('')
-    }
-  }, [open])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -82,8 +86,7 @@ export function CreateMeetingModal({ open, onClose, councilId }: CreateMeetingMo
   }
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v && !mutation.isPending) onClose() }}>
-      <DialogContent className="sm:max-w-md">
+    <>
         <DialogHeader>
           <DialogTitle>Nova Reunião</DialogTitle>
         </DialogHeader>
@@ -158,7 +161,6 @@ export function CreateMeetingModal({ open, onClose, councilId }: CreateMeetingMo
             Criar Reunião
           </Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   )
 }

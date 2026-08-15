@@ -321,7 +321,7 @@ export default function Roles() {
         categories: normalizedCategories,
       });
 
-    } catch (err: unknown) {
+    } catch {
       // 🔥 FALLBACK ORGANIZADO 🔥
       setCatalog(FALLBACK_CATALOG);
     } finally {

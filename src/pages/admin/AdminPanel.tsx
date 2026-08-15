@@ -6,34 +6,13 @@ import {
   CheckCircle, XCircle, ShieldCheck, Ban, RotateCcw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
-import { getAccessToken, setAuthTokens, clearImpersonateRefreshToken } from "@/lib/auth";
+import { getAccessToken, setAuthTokens } from "@/lib/auth";
 import { MODULE_LABELS } from "@/lib/moduleLabels";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "@/hooks/use-toast";
-
-// Key used to preserve the super-admin access token across an impersonation round-trip.
-// The refreshToken is NOT saved here — the super-admin's httpOnly cookie is never
-// replaced during impersonation (the backend impersonate endpoint doesn't set a cookie),
-// so it remains valid and is automatically used after exit.
-const PREV_ACCESS_KEY  = "simp:impersonate:prev:access"
-const IMPERSONATE_ORG_KEY = "simp:impersonate:org"
-
-export function isImpersonating(): boolean {
-  return !!sessionStorage.getItem(PREV_ACCESS_KEY)
-}
-
-export function exitImpersonation(queryClient: ReturnType<typeof import("@tanstack/react-query").useQueryClient>, navigate: ReturnType<typeof import("react-router-dom").useNavigate>) {
-  const prevAccess = sessionStorage.getItem(PREV_ACCESS_KEY)
-  if (!prevAccess) return
-
-  setAuthTokens(prevAccess)         // restore super-admin access token in memory
-  clearImpersonateRefreshToken()    // clear the impersonated session's refresh token
-  sessionStorage.removeItem(PREV_ACCESS_KEY)
-  sessionStorage.removeItem(IMPERSONATE_ORG_KEY)
-  queryClient.clear()
-  navigate("/admin")
-}
-
+// isImpersonating/exitImpersonation vivem em lib/impersonation.ts: exportar
+// utilitários junto de um componente quebra o Fast Refresh do Vite.
+import { PREV_ACCESS_KEY, IMPERSONATE_ORG_KEY } from "@/lib/impersonation";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

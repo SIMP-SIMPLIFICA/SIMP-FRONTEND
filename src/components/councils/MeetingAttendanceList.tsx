@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { Users, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -7,13 +7,7 @@ import { useMeetingAttendance, useSaveAttendance } from '@/hooks/useCouncils'
 import { toast } from '@/hooks/use-toast'
 import type { MeetingAttendanceEntry } from '@/lib/api/councils'
 
-const ROLE_LABELS: Record<string, string> = {
-  PRESIDENTE:       'Presidente',
-  VICE_PRESIDENTE:  'Vice-Presidente',
-  SECRETARIO:       'Secretário',
-  MEMBRO_TITULAR:   'Membro Titular',
-  MEMBRO_SUPLENTE:  'Membro Suplente',
-}
+import { COUNCIL_ROLE_LABELS as ROLE_LABELS } from '@/lib/councilRoles'
 
 interface AttendanceState {
   [membershipId: string]: { isPresent: boolean; justifiedAbsence: boolean }
@@ -38,11 +32,19 @@ export function MeetingAttendanceList({ councilId, meetingId, canWrite = false }
   const { data: entries = [], isLoading } = useMeetingAttendance(councilId, meetingId)
   const saveAttendance = useSaveAttendance(councilId, meetingId)
 
-  const [state, setState] = useState<AttendanceState>({})
+  // Estado derivado em vez de espelhar a query num useEffect
+  // (react-hooks/set-state-in-effect): guardamos apenas as alterações feitas
+  // pelo usuário e as mesclamos sobre o dado do servidor. Assim a lista reflete
+  // atualizações vindas do backend sem sobrescrever edições em andamento.
+  const [overrides, setOverrides] = useState<AttendanceState>({})
 
-  useEffect(() => {
-    if (entries.length > 0) setState(buildInitialState(entries))
-  }, [entries])
+  const state: AttendanceState = useMemo(
+    () => ({ ...buildInitialState(entries), ...overrides }),
+    [entries, overrides],
+  )
+
+  const setState = (updater: (prev: AttendanceState) => AttendanceState) =>
+    setOverrides(() => updater(state))
 
   const presentCount = Object.values(state).filter((v) => v.isPresent).length
   const totalCount   = entries.length
@@ -75,7 +77,11 @@ export function MeetingAttendanceList({ councilId, meetingId, canWrite = false }
     saveAttendance.mutate(
       { attendance },
       {
-        onSuccess: () => toast({ title: 'Lista de presença salva.' }),
+        onSuccess: () => {
+          // Salvo: o servidor volta a ser a fonte da verdade.
+          setOverrides({})
+          toast({ title: 'Lista de presença salva.' })
+        },
         onError:   () => toast({ title: 'Erro ao salvar presença.', variant: 'destructive' }),
       },
     )
