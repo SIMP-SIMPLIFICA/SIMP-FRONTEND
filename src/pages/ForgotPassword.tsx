@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, LayoutGrid, Loader2 } from "lucide-react";
 
 import { apiRequest } from "@/lib/api";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/security/TurnstileWidget";
+import { isTurnstileEnabled, turnstileHeaders } from "@/lib/turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -12,14 +17,30 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
+      const turnstileToken = turnstileRef.current?.getToken();
+
+      // Sem site key configurada (dev local) o formulário segue normalmente — o
+      // backend também pula a verificação nesse cenário.
+      if (isTurnstileEnabled && !turnstileToken) {
+        toast({
+          title: "Verificação de segurança pendente",
+          description: "Aguarde um instante e tente novamente.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       await apiRequest("/api/v1/auth/forgot-password", {
         method: "POST",
         noAuth: true,
+        headers: turnstileHeaders(turnstileToken),
         body: JSON.stringify({ email }),
       });
       setSuccess(true);
@@ -31,6 +52,8 @@ export default function ForgotPassword() {
         variant: "destructive",
       });
     } finally {
+      // Token do Turnstile é de USO ÚNICO — ver comentário em Login.tsx.
+      turnstileRef.current?.reset();
       setLoading(false);
     }
   }
@@ -71,6 +94,9 @@ export default function ForgotPassword() {
                     autoComplete="email"
                   />
                 </div>
+
+                {/* Invisível: só aparece se a Cloudflare decidir desafiar. */}
+                <TurnstileWidget ref={turnstileRef} />
 
                 <Button
                   type="submit"

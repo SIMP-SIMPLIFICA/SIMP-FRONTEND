@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, LayoutGrid, Loader2 } from "lucide-react";
 
@@ -9,6 +9,11 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/security/TurnstileWidget";
+import { isTurnstileEnabled, turnstileHeaders } from "@/lib/turnstile";
 
 type LoginResponse = {
   message?: string;
@@ -26,15 +31,32 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const turnstileToken = turnstileRef.current?.getToken();
+
+      // Só bloqueia quando o Turnstile está de fato configurado. Sem site key
+      // (desenvolvimento local) o formulário segue normalmente — o backend também
+      // pula a verificação nesse cenário.
+      if (isTurnstileEnabled && !turnstileToken) {
+        toast({
+          title: "Verificação de segurança pendente",
+          description: "Aguarde um instante e tente novamente.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const data = await apiRequest<LoginResponse>("/api/v1/auth/login", {
         method: "POST",
         noAuth: true,
+        headers: turnstileHeaders(turnstileToken),
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
@@ -64,6 +86,10 @@ export default function Login() {
       }
       toast({ title: "Falha no login", description: msg, variant: "destructive" });
     } finally {
+      // Token do Turnstile é de USO ÚNICO. Sem este reset, uma segunda tentativa
+      // reenviaria o mesmo token e a Cloudflare responderia `timeout-or-duplicate`,
+      // fazendo um erro de senha comum virar "falha na verificação de segurança".
+      turnstileRef.current?.reset();
       setLoading(false);
     }
   }
@@ -179,6 +205,9 @@ export default function Login() {
                     Esqueceu a senha?
                   </Link>
                 </div>
+
+                {/* Invisível: só aparece se a Cloudflare decidir desafiar. */}
+                <TurnstileWidget ref={turnstileRef} />
 
                 <Button
                   type="submit"
