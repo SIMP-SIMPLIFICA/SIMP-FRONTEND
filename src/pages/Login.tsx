@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, LayoutGrid, Loader2 } from "lucide-react";
 
@@ -9,6 +9,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
+import {
+  TurnstileWidget,
+  type TurnstileWidgetHandle,
+} from "@/components/security/TurnstileWidget";
+import { isTurnstileEnabled, turnstileHeaders } from "@/lib/turnstile";
+import { HONEYPOT_FIELD } from "@/lib/honeypot";
 
 type LoginResponse = {
   message?: string;
@@ -26,16 +32,42 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const [honeypotValue, setHoneypotValue] = useState("");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
     try {
+      const turnstileToken = turnstileRef.current?.getToken();
+
+      // Só bloqueia quando o Turnstile está de fato configurado. Sem site key
+      // (desenvolvimento local) o formulário segue normalmente — o backend também
+      // pula a verificação nesse cenário.
+      if (isTurnstileEnabled && !turnstileToken) {
+        toast({
+          title: "Verificação de segurança pendente",
+          description: "Aguarde um instante e tente novamente.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const data = await apiRequest<LoginResponse>("/api/v1/auth/login", {
         method: "POST",
         noAuth: true,
-        body: JSON.stringify({ email, password, rememberMe }),
+        headers: turnstileHeaders(turnstileToken),
+        // O campo-isca vai SEMPRE no payload, vazio para gente de verdade. Enviar
+        // só quando preenchido entregaria o jogo: bastaria ao bot comparar dois
+        // payloads para descobrir qual campo ignorar.
+        body: JSON.stringify({
+          email,
+          password,
+          rememberMe,
+          [HONEYPOT_FIELD]: honeypotValue,
+        }),
       });
 
       const accessToken = data.tokens?.accessToken || data.accessToken;
@@ -64,6 +96,10 @@ export default function Login() {
       }
       toast({ title: "Falha no login", description: msg, variant: "destructive" });
     } finally {
+      // Token do Turnstile é de USO ÚNICO. Sem este reset, uma segunda tentativa
+      // reenviaria o mesmo token e a Cloudflare responderia `timeout-or-duplicate`,
+      // fazendo um erro de senha comum virar "falha na verificação de segurança".
+      turnstileRef.current?.reset();
       setLoading(false);
     }
   }
@@ -179,6 +215,35 @@ export default function Login() {
                     Esqueceu a senha?
                   </Link>
                 </div>
+
+                {/*
+                  Campo-isca (honeypot). Invisível para pessoas, preenchido por
+                  bots que completam todo input que encontram.
+
+                  `aria-hidden` + `tabIndex={-1}` mantêm o campo fora do fluxo de
+                  leitores de tela e da navegação por teclado — sem isso a isca
+                  viraria uma armadilha de acessibilidade para quem usa TAB ou
+                  leitor de tela, que seria banido por navegar corretamente.
+
+                  `autoComplete="off"` reduz a chance de um gerenciador de senhas
+                  preencher o campo sozinho. Como não elimina, o backend conta
+                  reincidências antes de banir (ver HONEYPOT_FIELD_STRIKES).
+                */}
+                <div className="hidden" aria-hidden="true">
+                  <label htmlFor={HONEYPOT_FIELD}>Não preencha este campo</label>
+                  <input
+                    id={HONEYPOT_FIELD}
+                    name={HONEYPOT_FIELD}
+                    type="text"
+                    value={honeypotValue}
+                    onChange={(e) => setHoneypotValue(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+                </div>
+
+                {/* Invisível: só aparece se a Cloudflare decidir desafiar. */}
+                <TurnstileWidget ref={turnstileRef} />
 
                 <Button
                   type="submit"
