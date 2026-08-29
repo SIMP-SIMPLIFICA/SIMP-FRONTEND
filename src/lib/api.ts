@@ -75,6 +75,19 @@ export async function apiRequest<T = unknown>(
     throw { error: "ORGANIZATION_SUSPENDED", message: data?.message ?? "Organização suspensa." };
   }
 
+  // Fingerprint de sessão não confere: o token está sendo usado de outro
+  // dispositivo/rede. Diferente de um 401 comum, renovar NÃO resolve — o token
+  // novo carregaria o mesmo problema —, então vai direto para o login em vez de
+  // entrar no laço de refresh.
+  if (res.status === 401 && data?.error === "SESSAO_INVALIDADA") {
+    clearAuth();
+    queryClient.clear();
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login?motivo=sessao-invalidada";
+    }
+    throw { error: "SESSAO_INVALIDADA", message: data?.message ?? "Sessão invalidada." };
+  }
+
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {
 
     if (isRefreshing) {
