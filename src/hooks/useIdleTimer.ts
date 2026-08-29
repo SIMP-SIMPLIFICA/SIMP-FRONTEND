@@ -13,20 +13,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   por segundo. O ref muda sem provocar render; só o aviso final é estado.
  */
 
-const MINUTO = 60 * 1000;
+const MINUTE = 60 * 1000;
 
 /** Tempo total de inatividade até o logout automático. */
-export const TEMPO_INATIVIDADE_MS = 30 * MINUTO;
+export const IDLE_TIMEOUT_MS = 30 * MINUTE;
 
 /** Antecedência do aviso "sua sessão vai expirar". */
-export const ANTECEDENCIA_AVISO_MS = 1 * MINUTO;
+export const WARNING_LEAD_TIME_MS = 1 * MINUTE;
 
 /**
  * Eventos que contam como atividade.
  * `visibilitychange` entra para que voltar à aba conte como presença — sem ele,
  * quem deixa o SIMP aberto em outra aba durante uma reunião perde a sessão.
  */
-const EVENTOS_ATIVIDADE = [
+const ACTIVITY_EVENTS = [
   "mousemove",
   "mousedown",
   "keydown",
@@ -36,127 +36,127 @@ const EVENTOS_ATIVIDADE = [
   "visibilitychange",
 ] as const;
 
-interface OpcoesIdleTimer {
+interface IdleTimerOptions {
   /** Executado ao esgotar o tempo — deve limpar tokens e redirecionar. */
-  aoExpirar: () => void;
+  onExpire: () => void;
   /** Desliga o monitoramento (ex: usuário não autenticado). */
-  habilitado?: boolean;
-  tempoInatividadeMs?: number;
-  antecedenciaAvisoMs?: number;
+  enabled?: boolean;
+  idleTimeoutMs?: number;
+  warningLeadTimeMs?: number;
 }
 
 export function useIdleTimer({
-  aoExpirar,
-  habilitado = true,
-  tempoInatividadeMs = TEMPO_INATIVIDADE_MS,
-  antecedenciaAvisoMs = ANTECEDENCIA_AVISO_MS,
-}: OpcoesIdleTimer) {
-  const [avisoVisivel, setAvisoVisivel] = useState(false);
-  const [segundosRestantes, setSegundosRestantes] = useState(0);
+  onExpire,
+  enabled = true,
+  idleTimeoutMs = IDLE_TIMEOUT_MS,
+  warningLeadTimeMs = WARNING_LEAD_TIME_MS,
+}: IdleTimerOptions) {
+  const [isWarningVisible, setIsWarningVisible] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
 
-  const timerAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const timerExpiracao = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervaloContagem = useRef<ReturnType<typeof setInterval> | null>(null);
+  const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expirationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Ref para o callback: assim o efeito de listeners não precisa recriar-se a
   // cada render só porque a função mudou de identidade. A atribuição vai num
   // efeito (e não no corpo do componente) porque escrever em ref durante o
   // render é acesso fora de hora — React pode descartar o render.
-  const aoExpirarRef = useRef(aoExpirar);
+  const onExpireRef = useRef(onExpire);
   useEffect(() => {
-    aoExpirarRef.current = aoExpirar;
-  }, [aoExpirar]);
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
-  const limparTimers = useCallback(() => {
-    if (timerAviso.current) clearTimeout(timerAviso.current);
-    if (timerExpiracao.current) clearTimeout(timerExpiracao.current);
-    if (intervaloContagem.current) clearInterval(intervaloContagem.current);
-    timerAviso.current = null;
-    timerExpiracao.current = null;
-    intervaloContagem.current = null;
+  const clearTimers = useCallback(() => {
+    if (warningTimer.current) clearTimeout(warningTimer.current);
+    if (expirationTimer.current) clearTimeout(expirationTimer.current);
+    if (countdownInterval.current) clearInterval(countdownInterval.current);
+    warningTimer.current = null;
+    expirationTimer.current = null;
+    countdownInterval.current = null;
   }, []);
 
   /**
    * Apenas (re)agenda os timers, sem tocar em estado.
    *
-   * Separado de `reiniciar` porque a montagem precisa agendar sem chamar
+   * Separado de `reset` porque a montagem precisa agendar sem chamar
    * setState: um setState síncrono dentro de efeito provoca render em cascata
    * (react-hooks/set-state-in-effect). Na montagem não há aviso na tela, então
    * não há o que limpar.
    */
-  const agendarTimers = useCallback(() => {
-    limparTimers();
+  const scheduleTimers = useCallback(() => {
+    clearTimers();
 
-    if (!habilitado) return;
+    if (!enabled) return;
 
-    timerAviso.current = setTimeout(() => {
-      setAvisoVisivel(true);
-      setSegundosRestantes(Math.ceil(antecedenciaAvisoMs / 1000));
+    warningTimer.current = setTimeout(() => {
+      setIsWarningVisible(true);
+      setSecondsRemaining(Math.ceil(warningLeadTimeMs / 1000));
 
-      intervaloContagem.current = setInterval(() => {
-        setSegundosRestantes(s => (s > 0 ? s - 1 : 0));
+      countdownInterval.current = setInterval(() => {
+        setSecondsRemaining(s => (s > 0 ? s - 1 : 0));
       }, 1000);
-    }, tempoInatividadeMs - antecedenciaAvisoMs);
+    }, idleTimeoutMs - warningLeadTimeMs);
 
-    timerExpiracao.current = setTimeout(() => {
-      limparTimers();
-      setAvisoVisivel(false);
-      aoExpirarRef.current();
-    }, tempoInatividadeMs);
-  }, [habilitado, tempoInatividadeMs, antecedenciaAvisoMs, limparTimers]);
+    expirationTimer.current = setTimeout(() => {
+      clearTimers();
+      setIsWarningVisible(false);
+      onExpireRef.current();
+    }, idleTimeoutMs);
+  }, [enabled, idleTimeoutMs, warningLeadTimeMs, clearTimers]);
 
   /** Reinicia a contagem e esconde o aviso — usado por interação e pelos botões. */
-  const reiniciar = useCallback(() => {
-    setAvisoVisivel(false);
-    agendarTimers();
-  }, [agendarTimers]);
+  const reset = useCallback(() => {
+    setIsWarningVisible(false);
+    scheduleTimers();
+  }, [scheduleTimers]);
 
   useEffect(() => {
-    if (!habilitado) {
-      // Sem setState aqui: o aviso exposto já é derivado de `habilitado`
+    if (!enabled) {
+      // Sem setState aqui: o aviso exposto já é derivado de `enabled`
       // (ver o retorno do hook), então basta parar os timers.
-      limparTimers();
+      clearTimers();
       return;
     }
 
-    agendarTimers();
+    scheduleTimers();
 
     // Enquanto o aviso está na tela, mover o mouse NÃO deve cancelá-lo: o
     // usuário precisa confirmar de forma consciente que continua ali. Sem isso,
     // o modal sumiria sozinho por um esbarrão no mouse e a contagem reiniciaria
     // sem ninguém de fato presente.
-    const aoInteragir = () => {
-      if (!avisoVisivel) reiniciar();
+    const handleInteraction = () => {
+      if (!isWarningVisible) reset();
     };
 
-    for (const evento of EVENTOS_ATIVIDADE) {
-      window.addEventListener(evento, aoInteragir, { passive: true });
+    for (const event of ACTIVITY_EVENTS) {
+      window.addEventListener(event, handleInteraction, { passive: true });
     }
 
     return () => {
-      for (const evento of EVENTOS_ATIVIDADE) {
-        window.removeEventListener(evento, aoInteragir);
+      for (const event of ACTIVITY_EVENTS) {
+        window.removeEventListener(event, handleInteraction);
       }
-      limparTimers();
+      clearTimers();
     };
-  }, [habilitado, avisoVisivel, agendarTimers, reiniciar, limparTimers]);
+  }, [enabled, isWarningVisible, scheduleTimers, reset, clearTimers]);
 
   return {
     /**
      * O aviso de expiração iminente deve ser exibido?
-     * Derivado de `habilitado` para que desligar o monitoramento nunca deixe um
+     * Derivado de `enabled` para que desligar o monitoramento nunca deixe um
      * modal órfão na tela — e sem precisar de setState dentro de efeito.
      */
-    avisoVisivel: habilitado && avisoVisivel,
+    isWarningVisible: enabled && isWarningVisible,
     /** Segundos restantes até o logout automático. */
-    segundosRestantes,
+    secondsRemaining,
     /** Continuar conectado — reinicia a contagem. */
-    continuarConectado: reiniciar,
+    stayConnected: reset,
     /** Sair agora, sem esperar a contagem. */
-    sairAgora: () => {
-      limparTimers();
-      setAvisoVisivel(false);
-      aoExpirarRef.current();
+    logoutNow: () => {
+      clearTimers();
+      setIsWarningVisible(false);
+      onExpireRef.current();
     },
   };
 }

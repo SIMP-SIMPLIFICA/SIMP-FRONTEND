@@ -79,13 +79,13 @@ export async function apiRequest<T = unknown>(
   // dispositivo/rede. Diferente de um 401 comum, renovar NÃO resolve — o token
   // novo carregaria o mesmo problema —, então vai direto para o login em vez de
   // entrar no laço de refresh.
-  if (res.status === 401 && data?.error === "SESSAO_INVALIDADA") {
+  if (res.status === 401 && data?.error === "SESSION_INVALIDATED") {
     clearAuth();
     queryClient.clear();
     if (window.location.pathname !== "/login") {
-      window.location.href = "/login?motivo=sessao-invalidada";
+      window.location.href = "/login?reason=session-invalidated";
     }
-    throw { error: "SESSAO_INVALIDADA", message: data?.message ?? "Sessão invalidada." };
+    throw { error: "SESSION_INVALIDATED", message: data?.message ?? "Sessão invalidada." };
   }
 
   if (res.status === 401 && !options.noAuth && !path.includes("/auth/login")) {

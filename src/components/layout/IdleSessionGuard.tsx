@@ -20,11 +20,11 @@ import { queryClient } from "@/lib/queryClient";
  * autenticadas e não roda no login. Após 30 minutos sem interação, limpa tokens
  * e cache e devolve o usuário ao login; no último minuto exibe um aviso.
  */
-export function SessaoInativaGuard() {
+export function IdleSessionGuard() {
   const navigate = useNavigate();
 
-  const { avisoVisivel, segundosRestantes, continuarConectado, sairAgora } = useIdleTimer({
-    aoExpirar: () => {
+  const { isWarningVisible, secondsRemaining, stayConnected, logoutNow } = useIdleTimer({
+    onExpire: () => {
       // Mesma limpeza do logout manual: token em memória, refresh de
       // impersonação e cache de dados. Sem limpar o cache, dados da sessão
       // encerrada continuariam visíveis para quem logasse em seguida.
@@ -35,7 +35,7 @@ export function SessaoInativaGuard() {
   });
 
   return (
-    <Dialog open={avisoVisivel} onOpenChange={aberto => { if (!aberto) continuarConectado() }}>
+    <Dialog open={isWarningVisible} onOpenChange={isOpen => { if (!isOpen) stayConnected() }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
@@ -44,11 +44,11 @@ export function SessaoInativaGuard() {
           <DialogTitle className="text-center">Sua sessão vai expirar</DialogTitle>
           <DialogDescription className="text-center">
             Por segurança, sessões inativas são encerradas automaticamente.
-            {segundosRestantes > 0 && (
+            {secondsRemaining > 0 && (
               <>
                 {" "}Você será desconectado em{" "}
                 <span className="font-semibold text-slate-700">
-                  {segundosRestantes} segundo{segundosRestantes === 1 ? "" : "s"}
+                  {secondsRemaining} segundo{secondsRemaining === 1 ? "" : "s"}
                 </span>.
               </>
             )}
@@ -56,10 +56,10 @@ export function SessaoInativaGuard() {
         </DialogHeader>
 
         <DialogFooter className="sm:justify-center gap-2">
-          <Button variant="outline" onClick={sairAgora}>
+          <Button variant="outline" onClick={logoutNow}>
             Sair agora
           </Button>
-          <Button onClick={continuarConectado}>
+          <Button onClick={stayConnected}>
             Continuar conectado
           </Button>
         </DialogFooter>

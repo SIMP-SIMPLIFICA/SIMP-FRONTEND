@@ -8,7 +8,7 @@ import { UniversalFinanceModal } from "@/components/finance/UniversalFinanceModa
 import { UniversalProcessModalProvider } from "@/context/UniversalProcessModalContext";
 import { UniversalProcessModal } from "@/components/processos-virtuais/UniversalProcessModal";
 import { SupportWidget } from "@/components/support/SupportWidget";
-import { SessaoInativaGuard } from "@/components/layout/SessaoInativaGuard";
+import { IdleSessionGuard } from "@/components/layout/IdleSessionGuard";
 
 const titleByPath: Record<string, string> = {
   "/": "Dashboard",
@@ -53,7 +53,7 @@ export function AppLayout() {
         <UniversalProcessModal />
         <SupportWidget />
         {/* Expiração de sessão por inatividade — vale para todas as telas autenticadas */}
-        <SessaoInativaGuard />
+        <IdleSessionGuard />
       </UniversalProcessModalProvider>
     </UniversalFinanceModalProvider>
   );
