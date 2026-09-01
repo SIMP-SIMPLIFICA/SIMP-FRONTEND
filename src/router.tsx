@@ -10,6 +10,7 @@ import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import SuspendedAccess from "@/pages/SuspendedAccess";
+import DocumentValidation from "@/pages/public/DocumentValidation";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -52,6 +53,12 @@ export const router = createBrowserRouter([
   // Pública de propósito: a sessão é limpa antes do redirecionamento, então uma
   // rota protegida cairia no login e criaria laço de redirecionamento.
   { path: "/acesso-suspenso", element: <SuspendedAccess /> },
+
+  // Portal de Validação Pública (Épico 3, Task 3.3).
+  // Fica FORA de ProtectedRoute de propósito: quem abre é o cidadão ou o
+  // fiscal vindo do QR Code, sem conta no sistema. Colocá-la sob autenticação
+  // jogaria essa pessoa na tela de login e inutilizaria o QR Code impresso.
+  { path: "/validar-documento/:uuid", element: <DocumentValidation /> },
 
   // Rotas protegidas — Super Admin
   {
