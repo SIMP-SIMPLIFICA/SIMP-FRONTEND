@@ -6,6 +6,7 @@ import {
   CheckCircle, XCircle, Loader2, Save, Pencil, X,
 } from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import { LogoUpload } from "./LogoUpload";
 import { toast } from "@/hooks/use-toast";
 import { MODULE_LABELS } from "@/lib/moduleLabels";
 
@@ -39,6 +40,8 @@ type OrgDetail = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  /** fileKey da logo no storage, ou null. Ver LogoUpload. */
+  logoUrl: string | null;
   _count: { users: number; workspaces: number };
   modules: OrgModule[];
   users: OrgUser[];
@@ -296,6 +299,14 @@ export default function AdminOrganizationDetailPage() {
             />
           ))}
         </div>
+      </section>
+
+      {/* ── Personalização Visual (Épico 3, Task 3.4) ── */}
+      <section className="rounded-2xl bg-white border border-slate-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">
+          Personalização Visual
+        </h2>
+        <LogoUpload organizationId={org.id} logoUrl={org.logoUrl} />
       </section>
 
       {/* ── Dados da organização ── */}

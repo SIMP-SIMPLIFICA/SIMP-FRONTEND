@@ -11,6 +11,8 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import SuspendedAccess from "@/pages/SuspendedAccess";
 import DocumentValidation from "@/pages/public/DocumentValidation";
+import DailyAllowanceList from "@/pages/daily-allowances/DailyAllowanceList";
+import FleetFuelingList from "@/pages/fleet-fuelings/FleetFuelingList";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -163,6 +165,30 @@ export const router = createBrowserRouter([
               element: <PermissionGate anyOf={["protocols:read", "protocols:write", "protocols:admin"]} />,
               children: [
                 { path: "/protocolos", element: <OfficialProtocolsPage /> },
+              ],
+            }],
+          },
+
+          // Gestão Municipal (Épico 3). Dupla proteção, como no resto do
+          // sistema: ModuleGate confere a feature flag da organização e
+          // PermissionGate confere a permissão do usuário. Sem as duas, a rota
+          // continuaria acessível por digitação direta da URL, mesmo com o item
+          // oculto na sidebar.
+          {
+            element: <ModuleGate module="dailyAllowances" />,
+            children: [{
+              element: <PermissionGate anyOf={["dailyAllowances:read", "dailyAllowances:write", "dailyAllowances:issue", "dailyAllowances:delete"]} />,
+              children: [
+                { path: "/daily-allowances", element: <DailyAllowanceList /> },
+              ],
+            }],
+          },
+          {
+            element: <ModuleGate module="fleetFuelings" />,
+            children: [{
+              element: <PermissionGate anyOf={["fleetFuelings:read", "fleetFuelings:write", "fleetFuelings:issue", "fleetFuelings:delete"]} />,
+              children: [
+                { path: "/fleet-fuelings", element: <FleetFuelingList /> },
               ],
             }],
           },

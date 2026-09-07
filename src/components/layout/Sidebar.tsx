@@ -26,6 +26,7 @@ import {
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/useMe";
+import { Fuel, Plane } from "lucide-react";
 import { hasAnyPermission } from "@/lib/permissions";
 import { clearAccessToken } from "@/lib/auth";
 
@@ -131,6 +132,35 @@ const NAV_SECTIONS: NavSection[] = [
         icon: <Landmark className="h-4 w-4" />,
         module: "councils",
         anyOf: ["councils:read", "councils:write", "councils:admin"],
+      },
+    ],
+  },
+  {
+    label: "Gestão Municipal",
+    items: [
+      {
+        label: "Diárias",
+        to: "/daily-allowances",
+        icon: <Plane className="h-4 w-4" />,
+        module: "dailyAllowances",
+        anyOf: [
+          "dailyAllowances:read",
+          "dailyAllowances:write",
+          "dailyAllowances:issue",
+          "dailyAllowances:delete",
+        ],
+      },
+      {
+        label: "Frota",
+        to: "/fleet-fuelings",
+        icon: <Fuel className="h-4 w-4" />,
+        module: "fleetFuelings",
+        anyOf: [
+          "fleetFuelings:read",
+          "fleetFuelings:write",
+          "fleetFuelings:issue",
+          "fleetFuelings:delete",
+        ],
       },
     ],
   },
