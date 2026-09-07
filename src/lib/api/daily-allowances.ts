@@ -19,7 +19,8 @@ export interface DailyAllowance {
   id: string
   publicId: string
   organizationId: string
-  userId: string
+  /** Nome de quem viajou, gravado como texto no documento. */
+  beneficiaryName: string
   createdById: string
   destination: string
   purpose: string
@@ -34,12 +35,11 @@ export interface DailyAllowance {
   pdfFileKey: string | null
   createdAt: string
   updatedAt: string
-  user?: DailyAllowanceUser
   createdBy?: DailyAllowanceUser
 }
 
 export interface CreateDailyAllowanceDTO {
-  userId: string
+  beneficiaryName: string
   destination: string
   purpose: string
   departureDate: string
@@ -53,7 +53,7 @@ export type UpdateDailyAllowanceDTO = Partial<CreateDailyAllowanceDTO>
 export interface DailyAllowanceListParams {
   page?: number
   limit?: number
-  userId?: string
+  beneficiaryName?: string
   issued?: boolean
   startDate?: string
   endDate?: string

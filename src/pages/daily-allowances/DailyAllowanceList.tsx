@@ -138,6 +138,7 @@ export default function DailyAllowanceList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Beneficiário</TableHead>
                 <TableHead>Destino</TableHead>
                 <TableHead>Período</TableHead>
                 <TableHead className="text-right">Diárias</TableHead>
@@ -154,6 +155,10 @@ export default function DailyAllowanceList() {
                 return (
                   <TableRow key={allowance.id}>
                     <TableCell className="font-medium text-slate-800">
+                      {allowance.beneficiaryName}
+                    </TableCell>
+
+                    <TableCell className="text-slate-600">
                       {allowance.destination}
                     </TableCell>
 

@@ -32,6 +32,7 @@ import {
   formatCurrency,
   toDateInputValue,
 } from "@/lib/official-documents";
+import { BeneficiaryCombobox } from "./BeneficiaryCombobox";
 
 /**
  * Formulário de Diária (Épico 3, FE.2).
@@ -43,6 +44,11 @@ import {
 
 const schema = z
   .object({
+    beneficiaryName: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome do beneficiário.")
+      .max(200, "Nome muito longo."),
     destination: z.string().trim().min(1, "Informe o destino."),
     purpose: z.string().trim().min(1, "Informe o motivo do deslocamento."),
     departureDate: z.string().min(1, "Informe a data de saída."),
@@ -71,6 +77,7 @@ interface Props {
 }
 
 const EMPTY: FormValues = {
+  beneficiaryName: "",
   destination: "",
   purpose: "",
   departureDate: "",
@@ -96,6 +103,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -108,6 +116,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
     reset(
       allowance
         ? {
+            beneficiaryName: allowance.beneficiaryName,
             destination: allowance.destination,
             purpose: allowance.purpose,
             departureDate: toDateInputValue(allowance.departureDate),
@@ -130,6 +139,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
 
   async function persist(values: FormValues): Promise<string | null> {
     const payload = {
+      beneficiaryName: values.beneficiaryName,
       destination: values.destination,
       purpose: values.purpose,
       departureDate: values.departureDate,
@@ -143,12 +153,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
       return allowance.id;
     }
 
-    // O beneficiário ainda é o próprio usuário: a seleção de outro servidor
-    // depende de um endpoint de listagem que o backend não expõe hoje.
-    const created = await create.mutateAsync({
-      ...payload,
-      userId: me?.user?.id ?? "",
-    });
+    const created = await create.mutateAsync(payload);
     return created.id;
   }
 
@@ -211,6 +216,18 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
         )}
 
         <form className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="beneficiaryName">Beneficiário (quem vai viajar)</Label>
+            <BeneficiaryCombobox
+              value={watch("beneficiaryName") ?? ""}
+              onChange={name =>
+                setValue("beneficiaryName", name, { shouldValidate: false })
+              }
+              disabled={readOnly}
+              error={errors.beneficiaryName?.message}
+            />
+          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="destination">Destino</Label>
             <Input
