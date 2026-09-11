@@ -351,17 +351,25 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
     return items
       .map((item) => {
         if (item.to === "/organizacao") return orgName ? item : null;
-        // Module check
-        if (item.module && !enabledModules.includes(item.module)) return null;
-        // Permission check
-        if (item.anyOf) {
-          if (!data) return null;
-          if (!hasAnyPermission(data, item.anyOf)) return null;
+
+        // Super admin vê tudo. O backend já o isenta de requireModule e de
+        // requirePermission; sem a mesma isenção AQUI, a sidebar escondia itens
+        // que a API deixaria ele acessar — e um super admin sem organização
+        // (o caso normal) recebe enabledModules vazio, ficando sem navegação
+        // nenhuma para os módulos.
+        if (!isSuperAdmin) {
+          // Module check
+          if (item.module && !enabledModules.includes(item.module)) return null;
+          // Permission check
+          if (item.anyOf) {
+            if (!data) return null;
+            if (!hasAnyPermission(data, item.anyOf)) return null;
+          }
         }
         // Filter children by module
         if (item.children) {
           const visibleChildren = item.children.filter(
-            (c) => !c.module || enabledModules.includes(c.module)
+            (c) => isSuperAdmin || !c.module || enabledModules.includes(c.module)
           );
           if (visibleChildren.length === 0) return null;
           return { ...item, children: visibleChildren };

@@ -17,9 +17,20 @@ const ALL_MODULES = [
   { key: "notes",             label: "Notas" },
   { key: "departments",       label: "Departamentos" },
   { key: "virtual_processes", label: "Processos Virtuais" },
+  { key: "dailyAllowances",   label: "Diárias" },
+  { key: "fleetFuelings",     label: "Frota" },
 ];
 
-const DEFAULT_ENABLED = ["tasks", "finance", "communication", "calendar", "notes", "departments"];
+const DEFAULT_ENABLED = [
+  "tasks",
+  "finance",
+  "communication",
+  "calendar",
+  "notes",
+  "departments",
+  "dailyAllowances",
+  "fleetFuelings",
+];
 
 // ---------------------------------------------------------------------------
 // Types
