@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Loader2, ShieldQuestion } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Search,
+  ShieldQuestion,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
- * Portal de Validação Pública (Épico 3, Task 3.3).
+ * Portal de Validação Pública de Documentos.
  *
- * Página ABERTA, sem autenticação: quem chega aqui apontou a câmera do celular
- * para o QR Code impresso no rodapé de um documento oficial.
+ * Página ABERTA, renderizada dentro do PublicLayout: quem chega aqui apontou a
+ * câmera do celular para o QR Code de um documento oficial, ou digitou o código
+ * de verificação.
  *
  * DESENHO PENSADO PARA O CELULAR EM CAMPO:
  *   O fiscal está de pé, na rua, com o papel numa mão e o telefone na outra. O
@@ -29,9 +38,12 @@ interface ValidatedDocument {
   sha256Hash: string;
   issuedAt: string | null;
   organization: { name: string };
+  /** Já ofuscado na origem (ex: "Carlos M. A. S***"). */
+  exporterName?: string;
 }
 
 type ValidationState =
+  | { status: "idle" }
   | { status: "loading" }
   | { status: "valid"; document: ValidatedDocument }
   | { status: "invalid" }
@@ -54,10 +66,11 @@ export default function DocumentValidation() {
 
   // Estado inicial DERIVADO do parâmetro da URL, e não definido dentro do
   // efeito: um setState síncrono em efeito dispara render em cascata
-  // (react-hooks/set-state-in-effect). Sem uuid não há o que consultar, então a
-  // página já nasce no veredito negativo.
+  // (react-hooks/set-state-in-effect). Sem código na URL a página começa no
+  // estado de BUSCA — quem veio pela página inicial do portal ainda não digitou
+  // nada, e acusá-lo de documento inválido seria absurdo.
   const [state, setState] = useState<ValidationState>(() =>
-    uuid ? { status: "loading" } : { status: "invalid" }
+    uuid ? { status: "loading" } : { status: "idle" }
   );
 
   useEffect(() => {
@@ -105,28 +118,69 @@ export default function DocumentValidation() {
   }, [uuid]);
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
-      <div className="mx-auto w-full max-w-xl">
-        <header className="mb-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
-            Verificação de Documento Oficial
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Confira abaixo a autenticidade do documento
-          </p>
-        </header>
+    <div className="mx-auto w-full max-w-xl px-4 py-8 sm:py-12">
+      <header className="mb-6 text-center">
+        <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
+          Verificação de Documento Oficial
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {state.status === "idle"
+            ? "Informe o código de verificação impresso no documento"
+            : "Confira abaixo a autenticidade do documento"}
+        </p>
+      </header>
 
-        {state.status === "loading" && <LoadingCard />}
-        {state.status === "valid" && <ValidCard document={state.document} />}
-        {state.status === "invalid" && <InvalidCard uuid={uuid} />}
-        {state.status === "error" && <ErrorCard />}
+      {state.status === "idle" && <SearchCard />}
+      {state.status === "loading" && <LoadingCard />}
+      {state.status === "valid" && <ValidCard document={state.document} />}
+      {state.status === "invalid" && <InvalidCard uuid={uuid} />}
+      {state.status === "error" && <ErrorCard />}
 
-        <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
-          Esta verificação confirma que o documento foi emitido por este sistema e
-          não foi alterado desde a emissão.
+      <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
+        Esta verificação confirma que o documento foi emitido por este sistema e
+        não foi alterado desde a emissão.
+      </p>
+    </div>
+  );
+}
+
+/** Entrada manual do código, para quem não pôde ler o QR Code. */
+function SearchCard() {
+  const navigate = useNavigate();
+  const [code, setCode] = useState("");
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmed = code.trim();
+    if (trimmed) navigate(`/validar-documento/${encodeURIComponent(trimmed)}`);
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <div className="space-y-1.5">
+        <label htmlFor="code" className="text-sm font-medium text-slate-700">
+          Código de verificação
+        </label>
+        <Input
+          id="code"
+          value={code}
+          onChange={event => setCode(event.target.value)}
+          placeholder="Ex.: 3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+          autoComplete="off"
+        />
+        <p className="text-xs text-slate-500">
+          O código aparece no rodapé do documento, ao lado do QR Code.
         </p>
       </div>
-    </div>
+
+      <Button type="submit" className="w-full" disabled={!code.trim()}>
+        <Search className="mr-2 h-4 w-4" />
+        Verificar documento
+      </Button>
+    </form>
   );
 }
 
@@ -159,9 +213,21 @@ function ValidCard({ document }: { document: ValidatedDocument }) {
         <Field label="Tipo de documento" value={document.typeLabel} />
         <Field label="Órgão emissor" value={document.organization.name} />
         <Field label="Data de emissão" value={formatDateTime(document.issuedAt)} />
+        {/* Nome já ofuscado na origem — o banco nunca guardou o nome completo. */}
+        {document.exporterName && (
+          <Field label="Emitido por" value={document.exporterName} />
+        )}
         <Field label="Código de verificação" value={document.publicId} mono />
         <Field label="Código de integridade (SHA-256)" value={document.sha256Hash} mono />
       </dl>
+
+      <div className="border-t border-slate-100 bg-slate-50 px-5 py-3.5 sm:px-6">
+        <p className="text-xs leading-relaxed text-slate-500">
+          Para conferir o arquivo que você tem em mãos, calcule o SHA-256 dele e
+          compare com o código de integridade acima. Qualquer alteração no
+          documento muda esse código.
+        </p>
+      </div>
     </div>
   );
 }

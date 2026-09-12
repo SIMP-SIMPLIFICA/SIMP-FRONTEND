@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react'
 import {
+  COMUNICACAO_TYPES as SHARED_COMUNICACAO_TYPES,
+  NORMATIVO_TYPES as SHARED_NORMATIVO_TYPES,
+} from '@/lib/protocolTypes'
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -18,8 +22,9 @@ import type { OfficialDocument, DocumentCategory } from '@/lib/api/protocols'
 
 // ─── Document type options by category ───────────────────────────────────────
 
-const COMUNICACAO_TYPES = ['Ofício', 'Ofício Circular', 'Memorando', 'CI', 'Nota Informativa']
-const NORMATIVO_TYPES   = ['Lei', 'Decreto', 'Portaria', 'Edital', 'Resolução', 'Instrução Normativa']
+// Listas compartilhadas com o modal de relatório — ver lib/protocolTypes.ts.
+const COMUNICACAO_TYPES = SHARED_COMUNICACAO_TYPES
+const NORMATIVO_TYPES = SHARED_NORMATIVO_TYPES
 
 // ─── Form state ───────────────────────────────────────────────────────────────
 

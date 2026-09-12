@@ -1,4 +1,4 @@
-import { api } from '../api'
+import { api, apiRequest } from '../api'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +55,15 @@ export interface GenerateDocumentDTO {
   year?: number
 }
 
+export interface ProtocolReportFilters {
+  /** Formato YYYY-MM-DD. */
+  startDate?: string
+  endDate?: string
+  documentCategory?: DocumentCategory
+  /** Nome do tipo, ex: "Ofício". */
+  type?: string
+}
+
 export interface UpdateDocumentStatusDTO {
   status: 'EMITIDO' | 'CANCELADO'
   cancelReason?: string
@@ -86,6 +95,26 @@ export const protocolService = {
     const qs = q.toString() ? `?${q.toString()}` : ''
     const res = await api.get<OfficialDocumentListResponse>(`/protocols/${qs}`)
     return res.data
+  },
+
+  /**
+   * Baixa o Relatório de Protocolos em PDF.
+   *
+   * `responseType: 'blob'` é obrigatório: sem ele o corpo é lido como texto e
+   * os bytes do PDF chegam corrompidos. O download passa pelo cliente
+   * autenticado porque a rota exige token — um <a href> receberia 401.
+   */
+  downloadReport: (filters: ProtocolReportFilters = {}) => {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(filters)) {
+      if (value) query.set(key, value)
+    }
+    const qs = query.toString() ? `?${query.toString()}` : ''
+
+    return apiRequest<Blob>(`/protocols/report${qs}`, {
+      method: 'GET',
+      responseType: 'blob',
+    })
   },
 
   generate: async (data: GenerateDocumentDTO) => {

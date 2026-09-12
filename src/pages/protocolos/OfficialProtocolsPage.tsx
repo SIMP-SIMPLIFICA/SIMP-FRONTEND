@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer, Paperclip,
+  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer, Paperclip, FileDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ProtocolReportModal } from './ProtocolReportModal'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -97,6 +98,7 @@ export default function OfficialProtocolsPage() {
   const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
   const [attachTarget, setAttachTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
+  const [reportOpen, setReportOpen]       = useState(false)
 
   const { data, isLoading } = useProtocols({
     page,
@@ -162,6 +164,10 @@ export default function OfficialProtocolsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-1.5" onClick={() => setReportOpen(true)}>
+              <FileDown className="h-4 w-4" />
+              Relatório em PDF
+            </Button>
             <Button variant="outline" className="gap-1.5" onClick={handlePrint}>
               <Printer className="h-4 w-4" />
               Imprimir Extrato
@@ -363,6 +369,8 @@ export default function OfficialProtocolsPage() {
         onClose={() => setViewTarget(null)}
       />
       <AttachDocumentModal doc={attachTarget} onClose={() => setAttachTarget(null)} />
+      <ProtocolReportModal open={reportOpen} onOpenChange={setReportOpen} />
+
       <GenerateProtocolModal
         key={categoryTab}
         open={generateOpen}
