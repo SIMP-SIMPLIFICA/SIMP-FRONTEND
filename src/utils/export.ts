@@ -1,142 +1,40 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import type { FinanceEntry } from "@/pages/financeiro/types";
+import { financeService } from "@/lib/api/finance";
+
+// ─── Helpers usados pelos exports Excel ───────────────────────────────────────
+
+const formatDate = (isoString: string) =>
+    format(new Date(isoString), "dd/MM/yyyy");
 
 /**
- * Formata moeda para BRL (usado nas exportações)
+ * Gera o Relatório de Lançamentos Financeiros via backend.
+ *
+ * O PDF é produzido server-side com QR code de validação e hash SHA-256,
+ * seguindo o mesmo padrão dos documentos oficiais (Diárias, Abastecimento,
+ * Calendário de Conselhos). O arquivo é devolvido como Blob e o download
+ * é disparado automaticamente no browser.
+ *
+ * @param filters - Filtros ativos na tela (replicados para o backend)
  */
-const formatBRL = (cents: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-    }).format(cents / 100);
-};
+export const exportToPDF = async (filters: {
+    type?: "INCOME" | "EXPENSE";
+    search?: string;
+    categoryNames?: string[];
+    startDate?: string;
+    endDate?: string;
+}): Promise<void> => {
+    const blob = await financeService.downloadPdfReport(filters);
 
-/**
- * Formata data no padrão brasileiro
- */
-const formatDate = (isoString: string) => {
-    return format(new Date(isoString), "dd/MM/yyyy");
-};
-
-/**
- * Exporta um array de FinanceEntry para um documento PDF profissional com AutoTable.
- */
-export const exportToPDF = (
-    entries: FinanceEntry[],
-    workspaceName: string,
-    summary: { income: number; expense: number; balance: number }
-) => {
-    const doc = new jsPDF("p", "pt", "A4");
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // --- CABEÇALHO BRANDED ---
-    doc.setFillColor(10, 91, 196); // SIMP Blue
-    doc.rect(0, 0, pageWidth, 5, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(15, 23, 42); // slate-900
-    doc.text("Relatório de Lançamentos", 40, 50);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(`Workspace: ${workspaceName}`, 40, 68);
-    // [BUGFIX]: escape 'às' so it doesn't parse 's' as seconds
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}`, 40, 82);
-
-    doc.setDrawColor(226, 232, 240); // slate-200
-    doc.line(40, 95, pageWidth - 40, 95);
-
-    // --- RESUMO FINANCEIRO ---
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text("Consolidado do Período", 40, 125);
-
-    autoTable(doc, {
-        startY: 135,
-        head: [["Total Receitas", "Total Despesas", "Saldo Líquido"]],
-        body: [[
-            formatBRL(summary.income),
-            formatBRL(summary.expense),
-            formatBRL(summary.balance)
-        ]],
-        theme: "plain",
-        headStyles: { fillColor: [248, 250, 252], textColor: [100, 116, 139], fontStyle: "bold", halign: "center" },
-        bodyStyles: { fontStyle: "bold", halign: "center", fontSize: 14 },
-        columnStyles: {
-            0: { textColor: [16, 185, 129] }, // emerald-500
-            1: { textColor: [244, 63, 94] },  // rose-500
-            2: { textColor: summary.balance >= 0 ? [16, 185, 129] : [244, 63, 94] }
-        },
-        styles: {
-            cellPadding: 8,
-            lineWidth: 1,
-            lineColor: [226, 232, 240] // border-slate-200
-        }
-    });
-
-    // --- TABELA DE LANÇAMENTOS ---
-    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || 190;
-
-    const tableColumn = ["Data", "Descrição", "Categoria", "Tipo", "Valor"];
-    const tableRows = entries.map((entry) => [
-        formatDate(entry.occurredAt),
-        entry.description,
-        entry.categoryName || "Geral",
-        entry.type === "INCOME" ? "Receita" : "Despesa",
-        formatBRL(entry.amountCents)
-    ]);
-
-    autoTable(doc, {
-        startY: finalY + 30,
-        head: [tableColumn],
-        body: tableRows,
-        theme: "striped",
-        headStyles: { fillColor: [10, 91, 196] }, // SIMP Blue
-        styles: { fontSize: 9, cellPadding: 6 },
-        alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
-        columnStyles: {
-            0: { cellWidth: 70 },
-            4: { halign: "right", fontStyle: "bold" }
-        },
-        willDrawCell: (data) => {
-            // Apply RED for Expense values and GREEN for Income values dynamically in the table
-            if (data.section === "body" && data.column.index === 4) {
-                const tipo = entries[data.row.index].type;
-                if (tipo === "EXPENSE") {
-                    data.cell.styles.textColor = [244, 63, 94]; // Red
-                } else {
-                    data.cell.styles.textColor = [16, 185, 129]; // Emerald
-                }
-            }
-        },
-        didDrawPage: (_data) => {
-            // --- RODAPÉ COM PAGINAÇÃO ---
-            const str = `Página ${doc.getNumberOfPages()}`;
-            doc.setFontSize(8);
-            doc.setTextColor(148, 163, 184); // slate-400
-            doc.text(
-                str,
-                pageWidth - 40 - doc.getTextWidth(str),
-                pageHeight - 30
-            );
-            doc.text(
-                "Gerado por SIMP - Sistema Integrado de Municípios",
-                40,
-                pageHeight - 30
-            );
-        }
-    });
-
-    // --- SALVAR PDF ---
-    const safeName = workspaceName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    doc.save(`SIMP_Relatorio_Financeiro_${safeName}_${format(new Date(), "yyyyMMdd")}.pdf`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `SIMP_Relatorio_Financeiro_${format(new Date(), "yyyyMMdd")}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
 
 /**

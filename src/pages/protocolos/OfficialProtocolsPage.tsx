@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Printer, Paperclip, FileDown,
+  Search, Plus, Hash, ChevronLeft, ChevronRight, Eye, Loader2, Printer, Paperclip,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProtocolReportModal } from './ProtocolReportModal'
@@ -13,6 +13,7 @@ import { ptBR } from 'date-fns/locale'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { useProtocols } from '@/hooks/useProtocols'
+import { protocolService } from '@/lib/api/protocols'
 import type { OfficialDocument, DocumentCategory, DocumentStatus } from '@/lib/api/protocols'
 import GenerateProtocolModal from './GenerateProtocolModal'
 import ProtocolViewSheet from './ProtocolViewSheet'
@@ -98,7 +99,7 @@ export default function OfficialProtocolsPage() {
   const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
   const [attachTarget, setAttachTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
-  const [reportOpen, setReportOpen]       = useState(false)
+  const [isPdfLoading, setIsPdfLoading]   = useState(false)
 
   const { data, isLoading } = useProtocols({
     page,
@@ -122,8 +123,23 @@ export default function OfficialProtocolsPage() {
     statusFilter   !== 'ALL' ? STATUS_CONFIG[statusFilter].label : null,
   ].filter(Boolean).join(' · ')
 
-  function handlePrint() {
-    window.print()
+  async function handlePrint() {
+    setIsPdfLoading(true)
+    try {
+      const blob = await protocolService.downloadReport({ documentCategory: categoryTab })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `SIMP_Protocolos_${categoryTab}_${format(new Date(), 'yyyyMMdd')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('[PDF Export Error]', err)
+    } finally {
+      setIsPdfLoading(false)
+    }
   }
 
   return (
@@ -164,13 +180,11 @@ export default function OfficialProtocolsPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-1.5" onClick={() => setReportOpen(true)}>
-              <FileDown className="h-4 w-4" />
-              Relatório em PDF
-            </Button>
-            <Button variant="outline" className="gap-1.5" onClick={handlePrint}>
-              <Printer className="h-4 w-4" />
-              Imprimir Extrato
+            <Button variant="outline" className="gap-1.5" onClick={handlePrint} disabled={isPdfLoading}>
+              {isPdfLoading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Printer className="h-4 w-4" />}
+              {isPdfLoading ? 'Gerando...' : 'Imprimir Extrato'}
             </Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 gap-1.5" onClick={() => setGenerateOpen(true)}>
               <Plus className="h-4 w-4" />

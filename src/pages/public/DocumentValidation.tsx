@@ -1,14 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Loader2,
-  Search,
-  ShieldQuestion,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { AlertTriangle, Check, CheckCircle2, Copy, Loader2, Search, ShieldQuestion } from "lucide-react";
 
 /**
  * Portal de Validação Pública de Documentos.
@@ -63,18 +55,21 @@ function formatDateTime(iso: string | null): string {
 
 export default function DocumentValidation() {
   const { uuid } = useParams<{ uuid: string }>();
+  const navigate = useNavigate();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Estado inicial DERIVADO do parâmetro da URL, e não definido dentro do
   // efeito: um setState síncrono em efeito dispara render em cascata
-  // (react-hooks/set-state-in-effect). Sem código na URL a página começa no
-  // estado de BUSCA — quem veio pela página inicial do portal ainda não digitou
-  // nada, e acusá-lo de documento inválido seria absurdo.
+  // (react-hooks/set-state-in-effect). Sem uuid a página exibe o formulário.
   const [state, setState] = useState<ValidationState>(() =>
     uuid ? { status: "loading" } : { status: "idle" }
   );
 
   useEffect(() => {
-    if (!uuid) return;
+    if (!uuid) {
+      setState({ status: "idle" });
+      return;
+    }
 
     // Evita atualizar estado depois que o componente saiu da tela.
     let active = true;
@@ -117,24 +112,63 @@ export default function DocumentValidation() {
     };
   }, [uuid]);
 
-  return (
-    <div className="mx-auto w-full max-w-xl px-4 py-8 sm:py-12">
-      <header className="mb-6 text-center">
-        <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
-          Verificação de Documento Oficial
-        </h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {state.status === "idle"
-            ? "Informe o código de verificação impresso no documento"
-            : "Confira abaixo a autenticidade do documento"}
-        </p>
-      </header>
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const value = inputRef.current?.value.trim();
+    if (value) navigate(`/validar-documento/${encodeURIComponent(value)}`);
+  }
 
-      {state.status === "idle" && <SearchCard />}
-      {state.status === "loading" && <LoadingCard />}
-      {state.status === "valid" && <ValidCard document={state.document} />}
-      {state.status === "invalid" && <InvalidCard uuid={uuid} />}
-      {state.status === "error" && <ErrorCard />}
+  return (
+    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:py-12">
+      <div className="mx-auto w-full max-w-xl">
+        <header className="mb-6 text-center">
+          <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
+            Verificação de Documento Oficial
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {uuid
+              ? "Confira abaixo a autenticidade do documento"
+              : "Cole o código de verificação do documento para confirmar sua autenticidade"}
+          </p>
+        </header>
+
+        {state.status === "idle" && (
+          <SearchCard inputRef={inputRef} onSubmit={handleSearch} />
+        )}
+        {state.status === "loading" && <LoadingCard />}
+        {state.status === "valid" && (
+          <>
+            <ValidCard document={state.document} />
+            <button
+              onClick={() => navigate("/validar-documento")}
+              className="mt-4 w-full text-center text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
+            >
+              Verificar outro documento
+            </button>
+          </>
+        )}
+        {state.status === "invalid" && (
+          <>
+            <InvalidCard uuid={uuid} />
+            <button
+              onClick={() => navigate("/validar-documento")}
+              className="mt-4 w-full text-center text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
+            >
+              Tentar com outro código
+            </button>
+          </>
+        )}
+        {state.status === "error" && (
+          <>
+            <ErrorCard />
+            <button
+              onClick={() => navigate("/validar-documento")}
+              className="mt-4 w-full text-center text-sm text-slate-500 underline underline-offset-2 hover:text-slate-700"
+            >
+              Tentar novamente
+            </button>
+          </>
+        )}
 
       <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
         Esta verificação confirma que o documento foi emitido por este sistema e
@@ -180,6 +214,47 @@ function SearchCard() {
         <Search className="mr-2 h-4 w-4" />
         Verificar documento
       </Button>
+    </form>
+  );
+}
+
+function SearchCard({
+  inputRef,
+  onSubmit,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onSubmit: (e: React.FormEvent) => void;
+}) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <label
+        htmlFor="uuid-input"
+        className="mb-2 block text-sm font-medium text-slate-700"
+      >
+        Código de verificação
+      </label>
+      <input
+        id="uuid-input"
+        ref={inputRef}
+        type="text"
+        placeholder="Ex: 550e8400-e29b-41d4-a716-446655440000"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2.5 font-mono text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        autoFocus
+        spellCheck={false}
+      />
+      <p className="mt-2 text-xs text-slate-400">
+        O código está impresso no rodapé do documento, abaixo do QR Code.
+      </p>
+      <button
+        type="submit"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800"
+      >
+        <Search className="h-4 w-4" aria-hidden="true" />
+        Verificar documento
+      </button>
     </form>
   );
 }
@@ -292,17 +367,40 @@ function ErrorCard() {
 }
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
     <div className="px-5 py-3.5 sm:px-6">
       <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
         {label}
       </dt>
-      <dd
-        className={`mt-1 text-slate-800 ${
-          mono ? "break-all font-mono text-xs" : "text-sm font-medium"
-        }`}
-      >
-        {value}
+      <dd className="mt-1 flex items-start gap-2">
+        <span
+          className={`flex-1 text-slate-800 ${
+            mono ? "break-all font-mono text-xs" : "text-sm font-medium"
+          }`}
+        >
+          {value}
+        </span>
+        {mono && (
+          <button
+            onClick={handleCopy}
+            title="Copiar"
+            className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          >
+            {copied
+              ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+              : <Copy className="h-3.5 w-3.5" />
+            }
+          </button>
+        )}
       </dd>
     </div>
   );
