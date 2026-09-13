@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download, Check } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, FileText, AlertTriangle, Filter, Image as ImageIcon, TrendingUp, TrendingDown, Scale, Download, Check, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { exportToPDF, exportToExcel } from "@/utils/export";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -70,6 +70,8 @@ export default function Lancamentos() {
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletingEntry, setDeletingEntry] = useState<FinanceEntry | null>(null);
+
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
 
   const [viewingAttachmentsId, setViewingAttachmentsId] = useState<string | null>(null);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
@@ -214,18 +216,32 @@ export default function Lancamentos() {
             <Button
               variant="outline"
               className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-              onClick={() => {
+              onClick={async () => {
+                setIsPdfLoading(true);
                 try {
-                  exportToPDF(filtered, "Financeiro", { income: filteredIncome, expense: filteredExpense, balance: filteredBalance });
+                  await exportToPDF({
+                    type: filterType !== "ALL" ? filterType : undefined,
+                    search: query.trim() || undefined,
+                    categoryNames: filterCategory.length > 0 ? filterCategory : undefined,
+                  });
                 } catch (err) {
                   console.error("[PDF Export Error]", err);
-                  toast({ title: "Erro ao gerar PDF", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+                  const msg = err instanceof Error
+                    ? err.message
+                    : (err as Record<string, string>)?.message
+                      ?? (err as Record<string, string>)?.error
+                      ?? JSON.stringify(err);
+                  toast({ title: "Erro ao gerar PDF", description: msg, variant: "destructive" });
+                } finally {
+                  setIsPdfLoading(false);
                 }
               }}
-              disabled={filtered.length === 0}
+              disabled={filtered.length === 0 || isPdfLoading}
             >
-              <FileText className="h-4 w-4" />
-              PDF
+              {isPdfLoading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <FileText className="h-4 w-4" />}
+              {isPdfLoading ? "Gerando..." : "PDF"}
             </Button>
             <Button
               variant="outline"

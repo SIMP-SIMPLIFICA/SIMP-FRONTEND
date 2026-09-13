@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil, Lock, FileDown } from 'lucide-react'
+import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil, Lock, FileDown, Loader2 } from 'lucide-react'
 import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
 import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
 import { CreateMeetingModal } from '@/components/councils/CreateMeetingModal'
@@ -14,7 +14,7 @@ import { useCouncil, useCouncilMembers, useCouncilMeetings } from '@/hooks/useCo
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { COUNCIL_ROLE_LABELS as ROLE_LABELS } from '@/lib/councilRoles'
-import { exportCouncilCalendarPdf } from '@/utils/councilCalendarPdf'
+import { getAccessToken } from '@/lib/auth'
 import type { MeetingStatus, CouncilMembership, CouncilMeeting } from '@/lib/api/councils'
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -223,6 +223,7 @@ function MeetingsTab({ councilId, councilName }: MeetingsTabProps) {
 
   const currentYear = new Date().getFullYear()
   const [exportYear, setExportYear] = useState(currentYear)
+  const [isPdfLoading, setIsPdfLoading] = useState(false)
 
   // Anos com reuniões + ano corrente, para o usuário não exportar um ano vazio sem querer
   const availableYears = Array.from(
@@ -233,17 +234,34 @@ function MeetingsTab({ councilId, councilName }: MeetingsTabProps) {
     navigate(`/conselhos/${councilId}/reunioes/${meeting.id}`)
   }
 
-  function handleExport() {
-    exportCouncilCalendarPdf({
-      organizationName: me?.user?.organization?.name ?? 'Prefeitura Municipal',
-      councilName,
-      year: exportYear,
-      meetings: meetings.filter(m => new Date(m.scheduledAt).getFullYear() === exportYear),
-      memberships,
-      statusLabels: Object.fromEntries(
-        (Object.keys(MEETING_STATUS_CONFIG) as MeetingStatus[]).map(s => [s, MEETING_STATUS_CONFIG[s].label])
-      ) as Record<MeetingStatus, string>,
-    })
+  async function handleExport() {
+    if (!councilId) return
+    setIsPdfLoading(true)
+    try {
+      const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+      const token = getAccessToken()
+      const res = await fetch(`${API_URL}/councils/${councilId}/calendar/${exportYear}/pdf`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Accept: 'application/pdf',
+        },
+        credentials: 'include',
+      })
+      if (!res.ok) throw await res.json().catch(() => ({}))
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `SIMP_Calendario_Conselhos_${exportYear}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('[Calendar PDF Error]', err)
+    } finally {
+      setIsPdfLoading(false)
+    }
   }
 
   return (
@@ -258,9 +276,9 @@ function MeetingsTab({ councilId, councilName }: MeetingsTabProps) {
         >
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={handleExport}>
-          <FileDown className="h-3.5 w-3.5" />
-          Exportar Calendário Anual
+        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={handleExport} disabled={isPdfLoading}>
+          {isPdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+          {isPdfLoading ? 'Gerando...' : 'Exportar Calendário Anual'}
         </Button>
       </div>
 
