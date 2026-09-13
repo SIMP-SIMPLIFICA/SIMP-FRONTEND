@@ -214,7 +214,14 @@ export default function Lancamentos() {
             <Button
               variant="outline"
               className="h-11 flex-1 sm:flex-none rounded-2xl gap-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-              onClick={() => exportToPDF(filtered, "Financeiro", { income: filteredIncome, expense: filteredExpense, balance: filteredBalance })}
+              onClick={() => {
+                try {
+                  exportToPDF(filtered, "Financeiro", { income: filteredIncome, expense: filteredExpense, balance: filteredBalance });
+                } catch (err) {
+                  console.error("[PDF Export Error]", err);
+                  toast({ title: "Erro ao gerar PDF", description: err instanceof Error ? err.message : String(err), variant: "destructive" });
+                }
+              }}
               disabled={filtered.length === 0}
             >
               <FileText className="h-4 w-4" />

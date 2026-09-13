@@ -107,9 +107,12 @@ export const exportToPDF = (
         },
         willDrawCell: (data) => {
             // Apply RED for Expense values and GREEN for Income values dynamically in the table
+            // Use data.row.raw (the rendered string array) instead of entries[data.row.index],
+            // because data.row.index is page-local in jspdf-autotable v5 and resets on each page.
             if (data.section === "body" && data.column.index === 4) {
-                const tipo = entries[data.row.index].type;
-                if (tipo === "EXPENSE") {
+                const rowRaw = data.row.raw as string[];
+                const tipo = rowRaw[3]; // "Receita" or "Despesa"
+                if (tipo === "Despesa") {
                     data.cell.styles.textColor = [244, 63, 94]; // Red
                 } else {
                     data.cell.styles.textColor = [16, 185, 129]; // Emerald
