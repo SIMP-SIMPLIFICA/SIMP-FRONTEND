@@ -5,9 +5,6 @@ import { financeService } from "@/lib/api/finance";
 
 // ─── Helpers usados pelos exports Excel ───────────────────────────────────────
 
-const formatBRL = (cents: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
-
 const formatDate = (isoString: string) =>
     format(new Date(isoString), "dd/MM/yyyy");
 

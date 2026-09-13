@@ -215,11 +215,9 @@ interface MeetingsTabProps {
   councilName: string
 }
 
-function MeetingsTab({ councilId, councilName }: MeetingsTabProps) {
+function MeetingsTab({ councilId }: MeetingsTabProps) {
   const navigate = useNavigate()
   const { data: meetings = [], isLoading } = useCouncilMeetings(councilId)
-  const { data: memberships = [] } = useCouncilMembers(councilId)
-  const { data: me } = useMe()
 
   const currentYear = new Date().getFullYear()
   const [exportYear, setExportYear] = useState(currentYear)
