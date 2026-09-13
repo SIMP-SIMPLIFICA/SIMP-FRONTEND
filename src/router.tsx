@@ -62,8 +62,20 @@ export const router = createBrowserRouter([
   // Fica FORA de ProtectedRoute de propósito: quem abre é o cidadão ou o
   // fiscal vindo do QR Code, sem conta no sistema. Colocá-la sob autenticação
   // jogaria essa pessoa na tela de login e inutilizaria o QR Code impresso.
-  { path: "/validar-documento", element: <DocumentValidation /> },
-  { path: "/validar-documento/:uuid", element: <DocumentValidation /> },
+  // ── Portal Público do Cidadão (monólito modular) ──
+  // Fora de ProtectedRoute de propósito: quem abre é o cidadão vindo do QR Code
+  // impresso, sem conta no sistema. O PublicLayout não monta sidebar, AppLayout
+  // nem guarda de sessão — o shell administrativo traria o timer de inatividade
+  // e o interceptor de refresh para uma página que nada disso atende.
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: "/portal", element: <PublicHome /> },
+      // Sem código na URL a página pede o código; com código, valida direto.
+      { path: "/validar-documento", element: <DocumentValidation /> },
+      { path: "/validar-documento/:uuid", element: <DocumentValidation /> },
+    ],
+  },
 
   // Rotas protegidas — Super Admin
   {

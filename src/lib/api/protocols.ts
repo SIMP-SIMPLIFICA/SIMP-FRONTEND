@@ -1,7 +1,5 @@
-import { api } from '../api'
-import { getAccessToken } from '../auth'
+import { api, apiRequest } from '../api'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -134,32 +132,4 @@ export const protocolService = {
     await api.delete(`/protocols/${id}`)
   },
 
-  downloadReport: async (params?: {
-    documentCategory?: DocumentCategory
-    startDate?: string
-    endDate?: string
-    type?: string
-  }): Promise<Blob> => {
-    const q = new URLSearchParams()
-    if (params?.documentCategory) q.append('documentCategory', params.documentCategory)
-    if (params?.startDate)        q.append('startDate', params.startDate)
-    if (params?.endDate)          q.append('endDate', params.endDate)
-    if (params?.type)             q.append('type', params.type)
-
-    const token = getAccessToken()
-    const res = await fetch(`${API_URL}/protocols/report?${q.toString()}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        Accept: 'application/pdf',
-      },
-      credentials: 'include',
-    })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw err
-    }
-
-    return res.blob()
-  },
 }

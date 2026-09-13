@@ -99,6 +99,7 @@ export default function OfficialProtocolsPage() {
   const [viewTarget, setViewTarget]       = useState<OfficialDocument | null>(null)
   const [attachTarget, setAttachTarget]   = useState<OfficialDocument | null>(null)
   const [generateOpen, setGenerateOpen]   = useState(false)
+  const [reportOpen, setReportOpen]       = useState(false)
   const [isPdfLoading, setIsPdfLoading]   = useState(false)
 
   const { data, isLoading } = useProtocols({
