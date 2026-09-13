@@ -63,7 +63,10 @@ export default function DocumentValidation() {
   );
 
   useEffect(() => {
-    if (!uuid) return;
+    if (!uuid) {
+      setState({ status: "idle" });
+      return;
+    }
 
     // Evita atualizar estado depois que o componente saiu da tela.
     let active = true;
