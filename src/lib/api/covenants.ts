@@ -41,6 +41,8 @@ export interface Concedente {
 export interface Covenant {
   id: string
   organizationId: string
+  /** Secretaria responsável pela execução (Épico 4). */
+  departmentId?: string | null
   number: string
   typeId?: string | null
   proponentId?: string | null
@@ -74,6 +76,8 @@ export interface CovenantListResponse {
 }
 
 export interface CreateCovenantDTO {
+  /** `null` desvincula o setor; `undefined` não mexe no campo. */
+  departmentId?: string | null
   number: string
   typeId?: string
   proponentId?: string

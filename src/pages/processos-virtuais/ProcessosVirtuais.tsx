@@ -26,6 +26,7 @@ import {
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
+import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
 import { PROCESS_STATUSES } from '@/types/virtual-process'
 import type { VirtualProcess, UnifiedProcessDoc } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
@@ -107,7 +108,7 @@ type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void }
 
 function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [form, setForm] = useState({
-    processNumber: '', secretaria: '', source: '', subject: '',
+    processNumber: '', departmentId: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
     bankAccountId: '', bankAccount: '', agency: '', bankName: '',
   })
@@ -123,14 +124,17 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const { data: companies = [] } = useVirtualProcessCompanies(undefined)
   const { data: bankAccounts = [] } = useFinanceBankAccounts()
   const { data: deptData } = useDepartmentOptions()
-  const departments = (deptData?.data ?? []).filter(d => d.isActive)
+  // O nome vem da lista, não do que o usuário digitou: é o que mantém o
+  // texto e a chave estrangeira contando a mesma história.
+  const selectedDepartmentName =
+    (deptData?.data ?? []).find(d => d.id === form.departmentId)?.name ?? ''
   const { open: openProcessModal } = useUniversalProcessModal()
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
+    setForm({ processNumber: '', departmentId: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
     setStartDate(undefined); setEndDate(undefined)
     setValidityDate(undefined); setTotalValue('')
   }
@@ -150,7 +154,11 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
     try {
       await create({
         processNumber: num,
-        secretaria: form.secretaria.trim(),
+        departmentId: form.departmentId || null,
+        // `secretaria` segue sendo coluna obrigatória do processo e é o que
+        // aparece nas listagens; passa a ser DERIVADA do setor escolhido,
+        // para o texto não divergir da chave que agora manda no vínculo.
+        secretaria: selectedDepartmentName || form.secretaria.trim(),
         source: form.source.trim(),
         subject: form.subject.trim(),
         category: form.category,
@@ -193,26 +201,11 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Secretaria <span className="text-red-500">*</span></Label>
-                {departments.length > 0 ? (
-                  <Select
-                    value={form.secretaria}
-                    onValueChange={v => setForm(f => ({ ...f, secretaria: v }))}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar secretaria..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(d => (
-                        <SelectItem key={d.id} value={d.name}>
-                          {d.code} — {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
-                )}
+                <DepartmentSelect
+                  value={form.departmentId || null}
+                  onChange={next => setForm(f => ({ ...f, departmentId: next ?? '' }))}
+                  placeholder="Selecionar secretaria..."
+                />
               </div>
             </div>
 

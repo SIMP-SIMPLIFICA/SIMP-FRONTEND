@@ -14,6 +14,7 @@ import { CalendarIcon, Loader2, Plus } from 'lucide-react'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from '@/hooks/use-toast'
+import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
 import { useCreateCovenant, useUpdateCovenant } from '@/hooks/useCovenants'
 import { useCovenantTypes, useCreateCovenantType } from '@/hooks/useCovenants'
 import { useConvenentes, useCreateConvenente } from '@/hooks/useCovenants'
@@ -208,6 +209,7 @@ function CreateTypeDialog({
 // ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
+  departmentId: string
   number: string; typeId: string; proponentId: string
   convenenteId: string; concedenteId: string
   processObject: string; budgetaryAction: string; status: CovenantStatus | ''
@@ -217,6 +219,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
+  departmentId: '',
   number: '', typeId: '', proponentId: '', convenenteId: '', concedenteId: '',
   processObject: '', budgetaryAction: '', status: '',
   executionStartDate: undefined, validityStartDate: undefined, validityEndDate: undefined,
@@ -236,6 +239,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
   const [form, setForm] = useState<FormState>(() => {
     if (covenant) {
       return {
+        departmentId:       covenant.departmentId ?? '',
         number:             covenant.number,
         typeId:             covenant.typeId        ?? '',
         proponentId:        covenant.proponentId   ?? '',
@@ -328,7 +332,15 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
       toast({ title: 'Status é obrigatório.', variant: 'destructive' })
       return
     }
+    // Obrigatório na CRIAÇÃO apenas: convênios antigos foram cadastrados antes
+    // de o setor existir, e exigi-lo na edição impediria de salvar qualquer
+    // outra correção neles.
+    if (!covenant && !form.departmentId) {
+      toast({ title: 'Selecione a secretaria responsável.', variant: 'destructive' })
+      return
+    }
     const payload: CreateCovenantDTO = {
+      departmentId:  form.departmentId || null,
       number:        form.number,
       processObject: form.processObject,
       status:        form.status as CovenantStatus,
@@ -422,6 +434,21 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
                     onAddNew={() => setConcedenteDialogOpen(true)}
                     isLoading={loadingConcedentes}
                   />
+                </div>
+
+                {/* Secretaria/Departamento */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="departmentId">
+                    Secretaria / Departamento <span className="text-red-500">*</span>
+                  </Label>
+                  <DepartmentSelect
+                    id="departmentId"
+                    value={form.departmentId || null}
+                    onChange={next => set('departmentId', next ?? '')}
+                  />
+                  <p className="text-xs text-slate-400">
+                    Setor responsável pela execução do convênio.
+                  </p>
                 </div>
 
                 {/* Objeto */}

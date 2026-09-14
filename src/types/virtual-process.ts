@@ -45,6 +45,8 @@ export interface VirtualProcess {
   id: string
   organizationId: string
   processNumber: string
+  /** Secretaria responsavel (FK). Epico 4. */
+  departmentId?: string | null
   secretaria: string
   source: string
   sourceDetail?: string | null
@@ -79,6 +81,8 @@ export interface VirtualProcessListResponse {
 }
 
 export interface CreateVirtualProcessPayload {
+  /** Secretaria responsavel (FK). Epico 4. */
+  departmentId?: string | null
   processNumber: string
   secretaria: string
   source: string
