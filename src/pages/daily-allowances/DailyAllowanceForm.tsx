@@ -27,20 +27,28 @@ import {
   useIssueDailyAllowance,
   useUpdateDailyAllowance,
 } from "@/hooks/useDailyAllowances";
+import { useDepartment } from "@/hooks/useDepartments";
 import {
   describeDocumentError,
   formatCurrency,
   toDateInputValue,
 } from "@/lib/official-documents";
+import { formatCnpj } from "@/utils/cnpj";
 import { BeneficiaryCombobox } from "./BeneficiaryCombobox";
+import { QddItemSelect } from "./QddItemSelect";
 import { DepartmentSelect } from "@/components/departments/DepartmentSelect";
 
 /**
- * Formulário de Diária (Épico 3, FE.2).
+ * Formulário de Diária (Épico 3, FE.2; Épico 4, Fase 3).
  *
  * DOIS ESTADOS, NÃO UM: rascunho editável e documento emitido em somente
  * leitura. A emissão é irreversível — gera o hash publicado no QR Code — então
  * a interface precisa deixar claro, ANTES do clique, que aquilo não tem volta.
+ *
+ * QUATRO BLOCOS, na ordem em que a decisão se desenrola na prática: primeiro
+ * QUEM concede (o órgão, com o CNPJ e o Ordenador que vão carimbar o
+ * documento), depois QUEM viaja, depois O QUÊ (a viagem em si), e por último
+ * COM QUE DINHEIRO — a dotação só faz sentido depois de já se saber o setor.
  */
 
 const schema = z
@@ -48,6 +56,10 @@ const schema = z
     // Obrigatório também AQUI, não só no servidor: despesa sem setor não tem
     // ordenador responsável, e o backend recusa com 400 desde a Fase 3.
     departmentId: z.string().min(1, "Selecione o órgão concedente."),
+    // Opcional de propósito: nem todo setor já tem QDD lançado, e travar a
+    // diária por isso engessaria o município — o backend apenas deixa de
+    // computar estouro de dotação quando a ficha não é informada.
+    qddItemId: z.string().optional(),
     beneficiaryName: z
       .string()
       .trim()
@@ -82,6 +94,7 @@ interface Props {
 
 const EMPTY: FormValues = {
   departmentId: "",
+  qddItemId: "",
   beneficiaryName: "",
   destination: "",
   purpose: "",
@@ -90,6 +103,39 @@ const EMPTY: FormValues = {
   dailyRate: "" as unknown as number,
   dayCount: "" as unknown as number,
 };
+
+/** Cabeçalho numerado de bloco — a separação visual que a Cartilha exige. */
+function FormBlock({
+  number,
+  title,
+  description,
+  children,
+}: {
+  number: number;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold text-white">
+          {number}
+        </span>
+        <div>
+          <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+          {description && <p className="text-xs text-slate-400">{description}</p>}
+        </div>
+      </div>
+      {/* A régua vertical acompanha o conteúdo do bloco: é o que amarra
+          visualmente "isto pertence a este passo", sem depender só do
+          espaçamento entre blocos. */}
+      <div className="space-y-4 border-l-2 border-slate-100 pl-4 sm:pl-[1.4rem]">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
   const { toast } = useToast();
@@ -122,6 +168,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
       allowance
         ? {
             departmentId: allowance.departmentId ?? "",
+            qddItemId: allowance.qddItemId ?? "",
             beneficiaryName: allowance.beneficiaryName,
             destination: allowance.destination,
             purpose: allowance.purpose,
@@ -133,6 +180,14 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
         : EMPTY
     );
   }, [allowance, reset]);
+
+  const departmentId = watch("departmentId");
+
+  // Bloco 1 — cabeçalho do órgão concedente. `enabled` interno ao hook cuida
+  // de não consultar nada enquanto não há setor escolhido.
+  const { data: department, isLoading: loadingDepartment } = useDepartment(
+    departmentId || undefined
+  );
 
   // Prévia do total. É apenas informativa: o valor que vale é o que o SERVIDOR
   // calcula, justamente porque este número não pode depender do navegador.
@@ -146,6 +201,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
   async function persist(values: FormValues): Promise<string | null> {
     const payload = {
       departmentId: values.departmentId,
+      qddItemId: values.qddItemId || undefined,
       beneficiaryName: values.beneficiaryName,
       destination: values.destination,
       purpose: values.purpose,
@@ -196,7 +252,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {readOnly
@@ -222,145 +278,216 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
           </div>
         )}
 
-        <form className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="departmentId">Órgão concedente (setor da despesa)</Label>
-            <DepartmentSelect
-              id="departmentId"
-              value={watch("departmentId") || null}
-              onChange={next =>
-                setValue("departmentId", next ?? "", { shouldValidate: true })
-              }
-              disabled={readOnly}
-            />
-            {errors.departmentId && (
-              <p className="text-xs text-red-600">{errors.departmentId.message}</p>
-            )}
-          </div>
+        <form className="space-y-6">
+          {/* ── Bloco 1: Órgão Concedente ── */}
+          <FormBlock
+            number={1}
+            title="Órgão concedente"
+            description="Setor que autoriza e responde pela despesa."
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="departmentId">Secretaria / Departamento</Label>
+              <DepartmentSelect
+                id="departmentId"
+                value={departmentId || null}
+                onChange={next => {
+                  const changed = (next ?? "") !== departmentId;
+                  setValue("departmentId", next ?? "", { shouldValidate: true });
+                  // Trocar de setor invalida a ficha escolhida no Bloco 4: uma
+                  // dotação de outra secretaria não pode lastrear esta despesa.
+                  // Atrelado ao onChange, não a um efeito — é o próprio evento
+                  // de mudança que decide, sem re-sincronizar por baixo.
+                  if (changed) {
+                    setValue("qddItemId", "", { shouldValidate: false });
+                  }
+                }}
+                disabled={readOnly}
+              />
+              {errors.departmentId && (
+                <p className="text-xs text-red-600">{errors.departmentId.message}</p>
+              )}
+            </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="beneficiaryName">Beneficiário (quem vai viajar)</Label>
-            <BeneficiaryCombobox
-              value={watch("beneficiaryName") ?? ""}
-              onChange={name =>
-                setValue("beneficiaryName", name, { shouldValidate: false })
-              }
-              disabled={readOnly}
-              onSelectBeneficiary={beneficiary => {
-                // SUGESTÃO a partir da lotação do servidor, não imposição: só
-                // preenche o que está vazio. Sobrescrever um setor já escolhido
-                // desfaria, em silêncio, a decisão de quem preenche — servidor
-                // cedido viaja a serviço de outra pasta, e a despesa corre por
-                // quem a autorizou.
-                if (beneficiary.departmentId && !watch("departmentId")) {
-                  setValue("departmentId", beneficiary.departmentId, {
-                    shouldValidate: true,
-                  });
+            {/* Espelho, não campo: CNPJ e Ordenador vêm do cadastro do setor
+                e não entram no payload da diária — o backend já resolve o
+                Ordenador a partir do departamentId na hora de montar o PDF. */}
+            {departmentId && (
+              <div className="grid grid-cols-1 gap-3 rounded-md bg-slate-50 px-3 py-2.5 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-400">CNPJ</p>
+                  <p className="text-sm text-slate-700">
+                    {loadingDepartment
+                      ? "Carregando..."
+                      : formatCnpj(department?.cnpj) || "Não informado"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                    Ordenador de despesa
+                  </p>
+                  <p className="text-sm text-slate-700">
+                    {loadingDepartment ? "Carregando..." : department?.chiefName || "Não informado"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </FormBlock>
+
+          {/* ── Bloco 2: Beneficiário ── */}
+          <FormBlock
+            number={2}
+            title="Beneficiário"
+            description="Quem vai viajar. Nomes novos entram na lista automaticamente."
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="beneficiaryName">Nome do servidor</Label>
+              <BeneficiaryCombobox
+                value={watch("beneficiaryName") ?? ""}
+                onChange={name =>
+                  setValue("beneficiaryName", name, { shouldValidate: false })
                 }
-              }}
-              error={errors.beneficiaryName?.message}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="destination">Destino</Label>
-            <Input
-              id="destination"
-              placeholder="Brasília/DF"
-              disabled={readOnly}
-              {...register("destination")}
-            />
-            {errors.destination && (
-              <p className="text-sm text-red-600">{errors.destination.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="purpose">Motivo do deslocamento</Label>
-            <Textarea
-              id="purpose"
-              rows={3}
-              placeholder="Reunião no ministério para tratar do convênio"
-              disabled={readOnly}
-              {...register("purpose")}
-            />
-            {errors.purpose && (
-              <p className="text-sm text-red-600">{errors.purpose.message}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="departureDate">Data de saída</Label>
-              <Input
-                id="departureDate"
-                type="date"
                 disabled={readOnly}
-                {...register("departureDate")}
+                onSelectBeneficiary={beneficiary => {
+                  // SUGESTÃO a partir da lotação do servidor, não imposição: só
+                  // preenche o que está vazio. Sobrescrever um setor já escolhido
+                  // desfaria, em silêncio, a decisão de quem preenche — servidor
+                  // cedido viaja a serviço de outra pasta, e a despesa corre por
+                  // quem a autorizou.
+                  if (beneficiary.departmentId && !departmentId) {
+                    setValue("departmentId", beneficiary.departmentId, {
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                error={errors.beneficiaryName?.message}
               />
-              {errors.departureDate && (
-                <p className="text-sm text-red-600">{errors.departureDate.message}</p>
+            </div>
+          </FormBlock>
+
+          {/* ── Bloco 3: Descrição da Viagem ── */}
+          <FormBlock number={3} title="Descrição da viagem">
+            <div className="space-y-1.5">
+              <Label htmlFor="destination">Destino</Label>
+              <Input
+                id="destination"
+                placeholder="Brasília/DF"
+                disabled={readOnly}
+                {...register("destination")}
+              />
+              {errors.destination && (
+                <p className="text-sm text-red-600">{errors.destination.message}</p>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="returnDate">Data de retorno</Label>
-              <Input
-                id="returnDate"
-                type="date"
+              <Label htmlFor="purpose">Motivo do deslocamento</Label>
+              <Textarea
+                id="purpose"
+                rows={3}
+                placeholder="Reunião no ministério para tratar do convênio"
                 disabled={readOnly}
-                {...register("returnDate")}
+                {...register("purpose")}
               />
-              {errors.returnDate && (
-                <p className="text-sm text-red-600">{errors.returnDate.message}</p>
+              {errors.purpose && (
+                <p className="text-sm text-red-600">{errors.purpose.message}</p>
               )}
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="departureDate">Data de saída</Label>
+                <Input
+                  id="departureDate"
+                  type="date"
+                  disabled={readOnly}
+                  {...register("departureDate")}
+                />
+                {errors.departureDate && (
+                  <p className="text-sm text-red-600">{errors.departureDate.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="returnDate">Data de retorno</Label>
+                <Input
+                  id="returnDate"
+                  type="date"
+                  disabled={readOnly}
+                  {...register("returnDate")}
+                />
+                {errors.returnDate && (
+                  <p className="text-sm text-red-600">{errors.returnDate.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="dailyRate">Valor unitário da diária</Label>
+                <Input
+                  id="dailyRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="350,00"
+                  disabled={readOnly}
+                  {...register("dailyRate")}
+                />
+                {errors.dailyRate && (
+                  <p className="text-sm text-red-600">{errors.dailyRate.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="dayCount">Quantidade de diárias</Label>
+                <Input
+                  id="dayCount"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  placeholder="2,5"
+                  disabled={readOnly}
+                  {...register("dayCount")}
+                />
+                {/* Meia diária é praxe quando não há pernoite. */}
+                <p className="text-xs text-slate-500">Use 0,5 para meia diária.</p>
+                {errors.dayCount && (
+                  <p className="text-sm text-red-600">{errors.dayCount.message}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-md bg-slate-50 px-3 py-2.5">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Valor total previsto
+              </p>
+              <p className="text-lg font-semibold text-slate-800">
+                {formatCurrency(readOnly && allowance ? allowance.totalAmount : previewTotal)}
+              </p>
+            </div>
+          </FormBlock>
+
+          {/* ── Bloco 4: Controle Orçamentário ── */}
+          <FormBlock
+            number={4}
+            title="Controle orçamentário"
+            description="A ficha do QDD que lastreia esta despesa. Opcional, mas é o que aciona o alerta de estouro de dotação."
+          >
             <div className="space-y-1.5">
-              <Label htmlFor="dailyRate">Valor unitário da diária</Label>
-              <Input
-                id="dailyRate"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="350,00"
+              <Label htmlFor="qddItemId">Ficha orçamentária (QDD)</Label>
+              <QddItemSelect
+                departmentId={departmentId || null}
+                value={watch("qddItemId") || null}
+                onChange={next => setValue("qddItemId", next ?? "", { shouldValidate: false })}
                 disabled={readOnly}
-                {...register("dailyRate")}
               />
-              {errors.dailyRate && (
-                <p className="text-sm text-red-600">{errors.dailyRate.message}</p>
+              {!departmentId && (
+                <p className="text-xs text-slate-400">
+                  Escolha o órgão concedente no Bloco 1 para ver as fichas dele.
+                </p>
               )}
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="dayCount">Quantidade de diárias</Label>
-              <Input
-                id="dayCount"
-                type="number"
-                step="0.5"
-                min="0"
-                placeholder="2,5"
-                disabled={readOnly}
-                {...register("dayCount")}
-              />
-              {/* Meia diária é praxe quando não há pernoite. */}
-              <p className="text-xs text-slate-500">Use 0,5 para meia diária.</p>
-              {errors.dayCount && (
-                <p className="text-sm text-red-600">{errors.dayCount.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-md bg-slate-50 px-3 py-2.5">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Valor total previsto
-            </p>
-            <p className="text-lg font-semibold text-slate-800">
-              {formatCurrency(readOnly && allowance ? allowance.totalAmount : previewTotal)}
-            </p>
-          </div>
+          </FormBlock>
         </form>
 
         <DialogFooter className="gap-2 sm:justify-end">

@@ -25,6 +25,9 @@ export interface DailyAllowance {
   /** Setor ao qual a despesa é imputada (Épico 4). */
   departmentId?: string | null
   department?: { id: string; name: string; code: string } | null
+  /** Ficha do QDD que lastreia a despesa. Opcional até a Fase 3 completa. */
+  qddItemId?: string | null
+  qddItem?: { id: string; ficha: string; fonte: string; naturezaDespesa: string; year: number } | null
   /** Situação do ciclo de vida. */
   status?: 'PENDING' | 'ISSUED' | 'ACCOUNTED'
   /** Calculada NO SERVIDOR — o frontend nunca recalcula prazo. */
@@ -47,6 +50,10 @@ export interface DailyAllowance {
 }
 
 export interface CreateDailyAllowanceDTO {
+  /** Obrigatório: despesa sem setor não tem ordenador responsável — o backend recusa com 400. */
+  departmentId: string
+  /** Ficha do QDD que lastreia a despesa. Sem ela, a diária é emitida sem alerta de estouro. */
+  qddItemId?: string
   beneficiaryName: string
   destination: string
   purpose: string

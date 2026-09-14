@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Trash2, UserRound } from "lucide-react";
+import { IdCard, Loader2, Trash2, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -7,6 +7,7 @@ import {
   useCreateBeneficiary,
   useDeleteBeneficiary,
 } from "@/hooks/useBeneficiaries";
+import { maskCpfInput, normalizeCpf } from "@/utils/cpf";
 import type { Beneficiary } from "@/lib/api/beneficiaries";
 
 /**
@@ -46,6 +47,9 @@ export function BeneficiaryCombobox({
 }: Props) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
+  // CPF que o USUÁRIO está digitando agora — nunca o que vem da API, que já
+  // chega mascarado de propósito (ver comentário no topo do arquivo).
+  const [cpfDraft, setCpfDraft] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -75,20 +79,32 @@ export function BeneficiaryCombobox({
 
   /** O nome digitado já existe na lista? Comparação sem caixa nem espaços extras. */
   const normalized = value.trim().replace(/\s+/g, " ").toUpperCase();
-  const alreadyRegistered = beneficiaries.some(b => b.name === normalized);
+  const matched = beneficiaries.find(b => b.name === normalized);
+
+  // CPF já cadastrado: mostra a forma MASCARADA que a API devolveu, em modo
+  // leitura — editar um CPF existente não é o que esta tela resolve. Sem
+  // cadastro ainda, ou nome novo: o campo fica livre para digitação.
+  const cpfReadOnly = Boolean(matched?.cpf);
+  const cpfDisplayValue = cpfReadOnly ? (matched?.cpf ?? "") : cpfDraft;
 
   /**
-   * Cadastra o nome digitado, se for novo.
+   * Cadastra o nome digitado, ou completa o CPF de um já cadastrado.
    *
    * A chamada é segura mesmo com nome repetido: o backend é idempotente e
-   * devolve o registro existente em vez de erro. Ainda assim, a verificação
-   * local evita uma requisição inútil no caso mais comum.
+   * devolve o registro existente em vez de erro. Roda quando: (a) o nome é
+   * novo, com ou sem CPF digitado; ou (b) o nome já existe mas SEM CPF, e um
+   * foi digitado agora — é o fluxo normal da criação rápida, nome primeiro,
+   * CPF depois. Nome já cadastrado COM CPF não dispara nada: não há o que
+   * completar, e sobrescrever em silêncio trocaria o CPF de alguém.
    */
   async function registerIfNew() {
-    if (!normalized || alreadyRegistered || disabled) return;
+    if (!normalized || disabled) return;
+
+    const cpfDigits = normalizeCpf(cpfDraft);
+    if (matched && (!cpfDigits || matched.cpf)) return;
 
     try {
-      await createBeneficiary.mutateAsync(normalized);
+      await createBeneficiary.mutateAsync({ name: normalized, cpf: cpfDigits || undefined });
     } catch {
       // Falhar aqui não pode travar o preenchimento: o nome digitado continua
       // válido para a diária, apenas não entrou na lista de sugestões.
@@ -125,6 +141,10 @@ export function BeneficiaryCombobox({
         disabled={disabled}
         onChange={event => {
           onChange(event.target.value);
+          // Trocar de nome descarta o rascunho de CPF anterior: um CPF
+          // digitado para "João" não pode grudar em "Maria" se o campo de
+          // nome for corrigido antes de sair do formulário.
+          setCpfDraft("");
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
@@ -171,6 +191,7 @@ export function BeneficiaryCombobox({
                   // click e fecharia a lista.
                   event.preventDefault();
                   onChange(beneficiary.name);
+                  setCpfDraft("");
                   onSelectBeneficiary?.(beneficiary);
                   setIsOpen(false);
                 }}
@@ -198,6 +219,28 @@ export function BeneficiaryCombobox({
                 </span>
               </button>
             ))}
+        </div>
+      )}
+
+      {/* CPF: aparece assim que há um nome, cadastrado ou novo. Sem cadastro
+          nenhum de propósito — Q-3: o CPF entra na CRIAÇÃO RÁPIDA, aqui
+          mesmo, sem uma tela dedicada de beneficiários. */}
+      {normalized && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <IdCard className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+          <Input
+            aria-label="CPF do beneficiário"
+            placeholder="CPF (opcional)"
+            inputMode="numeric"
+            value={cpfDisplayValue}
+            disabled={disabled || cpfReadOnly}
+            readOnly={cpfReadOnly}
+            onChange={event => setCpfDraft(maskCpfInput(event.target.value))}
+            className="h-8 max-w-[180px] text-sm"
+          />
+          {cpfReadOnly && (
+            <span className="text-xs text-slate-400">já cadastrado</span>
+          )}
         </div>
       )}
 

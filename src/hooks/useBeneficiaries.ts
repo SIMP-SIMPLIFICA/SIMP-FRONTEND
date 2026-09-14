@@ -24,7 +24,15 @@ export function useBeneficiaries(enabled = true) {
 export function useCreateBeneficiary() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) => beneficiaryService.create(name),
+    mutationFn: ({
+      name,
+      cpf,
+      departmentId,
+    }: {
+      name: string
+      cpf?: string | null
+      departmentId?: string | null
+    }) => beneficiaryService.create(name, { cpf, departmentId }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [KEY] }),
   })
 }
