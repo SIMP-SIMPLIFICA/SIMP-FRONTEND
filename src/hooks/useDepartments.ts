@@ -18,6 +18,39 @@ export function useDepartmentOptions() {
   })
 }
 
+/** Um setor, com CNPJ, ordenador e as contagens dos vínculos. */
+export function useDepartment(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id],
+    queryFn: () => departmentService.getById(id!),
+    enabled: !!id,
+  })
+}
+
+export function useDepartmentCouncils(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id, 'councils'],
+    queryFn: () => departmentService.listCouncils(id!),
+    enabled: !!id,
+  })
+}
+
+export function useDepartmentCovenants(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id, 'covenants'],
+    queryFn: () => departmentService.listCovenants(id!),
+    enabled: !!id,
+  })
+}
+
+export function useDepartmentVirtualProcesses(id: string | undefined) {
+  return useQuery({
+    queryKey: [KEY, id, 'virtual-processes'],
+    queryFn: () => departmentService.listVirtualProcesses(id!),
+    enabled: !!id,
+  })
+}
+
 export function useCreateDepartment() {
   const qc = useQueryClient()
   return useMutation({
