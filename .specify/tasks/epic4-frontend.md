@@ -8,34 +8,34 @@
 
 ## Fase 0 — Pré-requisitos de API (bloqueante)
 
-- [ ] **T001** `[BE]` `GET /departments/:id` com `cnpj`, `chiefName` e contagem de vínculos. 404 fora da organização.
-- [ ] **T002** `[BE]` `cnpj` e `chiefName` nos schemas Zod de criar/editar setor, com validação de dígito verificador do CNPJ.
-- [ ] **T003** `[BE]` `qdd-item.service.ts` — CRUD escopado por organização; P2002 de `[departmentId, year, ficha]` vira erro de domínio.
-- [ ] **T004** `[BE]` `qdd-item.controller.ts` + `qdd-item.routes.ts` sob `departments:read` / `departments:write`.
-- [ ] **T005** `[BE]` Testes de `QddItem`: unicidade da ficha, isolamento entre organizações, recusa de exclusão de ficha já usada.
-- [ ] **T006** `[BE]` `GET /departments/:id/councils`, `/covenants`, `/virtual-processes`.
-- [ ] **T007** `[BE]` `departmentId` nos schemas de convênio e processo virtual, conferindo a organização do setor.
-- [ ] **T008** `[BE]` `GET /departments/:id/dossier` **pelo motor universal**, com as **seis** seções por query param (servidores, CNPJ, conselhos, QDD, convênios, processos — Q-4), registrado em `ExportedDocument`.
-- [ ] **T009** `[BE]` Teste E2E do dossiê: rodapé de validação presente e seções não pedidas ausentes do PDF.
-- [ ] **T010** `[BE]` `cpf` em criar/buscar beneficiário, normalizado para dígitos; busca exata.
-- [ ] **T011** `[BE]` Rodar `type-check`, `lint`, unitários e E2E. **Portão da Fase 0.**
+- [x] **T001** `[BE]` `GET /departments/:id` com `cnpj`, `chiefName` e contagem de vínculos. 404 fora da organização.
+- [x] **T002** `[BE]` `cnpj` e `chiefName` nos schemas Zod de criar/editar setor, com validação de dígito verificador do CNPJ.
+- [x] **T003** `[BE]` `qdd-item.service.ts` — CRUD escopado por organização; P2002 de `[departmentId, year, ficha]` vira erro de domínio.
+- [x] **T004** `[BE]` `qdd-item.controller.ts` + `qdd-item.routes.ts` sob `departments:read` / `departments:write`.
+- [x] **T005** `[BE]` Testes de `QddItem`: unicidade da ficha, isolamento entre organizações, recusa de exclusão de ficha já usada.
+- [x] **T006** `[BE]` `GET /departments/:id/councils`, `/covenants`, `/virtual-processes`.
+- [x] **T007** `[BE]` `departmentId` nos schemas de convênio e processo virtual, conferindo a organização do setor.
+- [x] **T008** `[BE]` `GET /departments/:id/dossier` **pelo motor universal**, com as **seis** seções por query param (servidores, CNPJ, conselhos, QDD, convênios, processos — Q-4), registrado em `ExportedDocument`.
+- [x] **T009** `[BE]` Teste E2E do dossiê: rodapé de validação presente e seções não pedidas ausentes do PDF.
+- [x] **T010** `[BE]` `cpf` em criar/buscar beneficiário, normalizado para dígitos; busca exata.
+- [x] **T011** `[BE]` Rodar `type-check`, `lint`, unitários e E2E. **Portão da Fase 0.**
 
 ---
 
 ## Fase 1 — Detalhe do Departamento
 
-- [ ] **T012** Estender `src/lib/api/departments.ts`: `cnpj`, `chiefName`, `getById`, vínculos e dossiê.
-- [ ] **T013** `DepartmentDetailPage` com cabeçalho e casca das abas; rota `/departamentos/:id` no `router.tsx`, sob `PermissionGate` de `departments:read`.
-- [ ] **T014** Navegação da listagem para o detalhe.
-- [ ] **T015** `[P]` `CouncilsTab` com estado vazio e link para o conselho.
-- [ ] **T016** `[P]` `CovenantsTab`, idem.
-- [ ] **T017** `[P]` `VirtualProcessesTab`, idem.
-- [ ] **T018** `DepartmentSelect` reaproveitável, alimentado por `departmentService.list()`.
-- [ ] **T019** Trocar o campo de departamento do `CovenantFormDialog` pelo `DepartmentSelect`; obrigatório na criação.
-- [ ] **T020** Mesma troca no modal de Processo Virtual.
-- [ ] **T021** `ExportDossierDialog` com as seis caixas de seleção (Q-4); exige ao menos uma marcada.
-- [ ] **T022** Ligar o download do dossiê por `apiRequest(..., { responseType: 'blob' })` (Q-1), com estado de carregamento e erro em pt-BR.
-- [ ] **T023** Validação da Fase 1: `tsc`, `lint`, `build`.
+- [x] **T012** Estender `src/lib/api/departments.ts`: `cnpj`, `chiefName`, `getById`, vínculos e dossiê.
+- [x] **T013** `DepartmentDetailPage` com cabeçalho e casca das abas; rota `/departamentos/:id` no `router.tsx`, sob `PermissionGate` de `departments:read`.
+- [x] **T014** Navegação da listagem para o detalhe.
+- [x] **T015** `[P]` `CouncilsTab` com estado vazio e link para o conselho.
+- [x] **T016** `[P]` `CovenantsTab`, idem.
+- [x] **T017** `[P]` `VirtualProcessesTab`, idem.
+- [x] **T018** `DepartmentSelect` reaproveitável, alimentado por `departmentService.list()`.
+- [x] **T019** Trocar o campo de departamento do `CovenantFormDialog` pelo `DepartmentSelect`; obrigatório na criação.
+- [x] **T020** Mesma troca no modal de Processo Virtual.
+- [x] **T021** `ExportDossierDialog` com as seis caixas de seleção (Q-4); exige ao menos uma marcada.
+- [x] **T022** Ligar o download do dossiê por `apiRequest(..., { responseType: 'blob' })` (Q-1), com estado de carregamento e erro em pt-BR.
+- [x] **T023** Validação da Fase 1: `tsc`, `lint`, `build`.
 
 ---
 
