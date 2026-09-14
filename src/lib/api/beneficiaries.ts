@@ -11,6 +11,11 @@ import { api } from '../api'
 export interface Beneficiary {
   id: string
   name: string
+  /** JÁ MASCARADO pela API (`***.123.456-**`). O número inteiro nunca sai do backend. */
+  cpf?: string | null
+  /** Lotação do servidor — alimenta a sugestão de setor no formulário de diária. */
+  departmentId?: string | null
+  department?: { id: string; name: string; code: string } | null
   createdAt: string
 }
 
@@ -29,7 +34,8 @@ export const beneficiaryService = {
    * existente em vez de erro. Por isso a interface pode chamar sem antes
    * verificar se o nome já está na lista.
    */
-  create: (name: string) => api.post<Beneficiary>(BASE, { name }).then(r => r.data),
+  create: (name: string, extra?: { cpf?: string | null; departmentId?: string | null }) =>
+    api.post<Beneficiary>(BASE, { name, ...extra }).then(r => r.data),
 
   remove: (id: string) => api.delete<void>(`${BASE}/${id}`).then(r => r.data),
 }

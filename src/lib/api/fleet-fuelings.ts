@@ -18,6 +18,9 @@ export interface FleetFueling {
   publicId: string
   organizationId: string
   createdById: string
+  /** Setor ao qual a despesa é imputada (Épico 4). */
+  departmentId?: string | null
+  department?: { id: string; name: string; code: string } | null
   /** Sempre normalizada pelo backend: maiúsculas, sem hífen. */
   licensePlate: string
   odometer: number
@@ -46,6 +49,7 @@ export type UpdateFleetFuelingDTO = Partial<CreateFleetFuelingDTO>
 export interface FleetFuelingListParams {
   page?: number
   limit?: number
+  departmentId?: string
   licensePlate?: string
   issued?: boolean
   startDate?: string

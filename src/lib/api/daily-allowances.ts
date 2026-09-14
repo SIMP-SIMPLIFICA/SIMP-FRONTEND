@@ -22,6 +22,14 @@ export interface DailyAllowance {
   /** Nome de quem viajou, gravado como texto no documento. */
   beneficiaryName: string
   createdById: string
+  /** Setor ao qual a despesa é imputada (Épico 4). */
+  departmentId?: string | null
+  department?: { id: string; name: string; code: string } | null
+  /** Situação do ciclo de vida. */
+  status?: 'PENDING' | 'ISSUED' | 'ACCOUNTED'
+  /** Calculada NO SERVIDOR — o frontend nunca recalcula prazo. */
+  isLate?: boolean
+  budgetOverrun?: boolean
   destination: string
   purpose: string
   departureDate: string
@@ -53,6 +61,7 @@ export type UpdateDailyAllowanceDTO = Partial<CreateDailyAllowanceDTO>
 export interface DailyAllowanceListParams {
   page?: number
   limit?: number
+  departmentId?: string
   beneficiaryName?: string
   issued?: boolean
   startDate?: string

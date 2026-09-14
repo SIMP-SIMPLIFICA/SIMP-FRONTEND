@@ -33,6 +33,7 @@ import {
   toDateInputValue,
 } from "@/lib/official-documents";
 import { BeneficiaryCombobox } from "./BeneficiaryCombobox";
+import { DepartmentSelect } from "@/components/departments/DepartmentSelect";
 
 /**
  * Formulário de Diária (Épico 3, FE.2).
@@ -44,6 +45,9 @@ import { BeneficiaryCombobox } from "./BeneficiaryCombobox";
 
 const schema = z
   .object({
+    // Obrigatório também AQUI, não só no servidor: despesa sem setor não tem
+    // ordenador responsável, e o backend recusa com 400 desde a Fase 3.
+    departmentId: z.string().min(1, "Selecione o órgão concedente."),
     beneficiaryName: z
       .string()
       .trim()
@@ -77,6 +81,7 @@ interface Props {
 }
 
 const EMPTY: FormValues = {
+  departmentId: "",
   beneficiaryName: "",
   destination: "",
   purpose: "",
@@ -116,6 +121,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
     reset(
       allowance
         ? {
+            departmentId: allowance.departmentId ?? "",
             beneficiaryName: allowance.beneficiaryName,
             destination: allowance.destination,
             purpose: allowance.purpose,
@@ -139,6 +145,7 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
 
   async function persist(values: FormValues): Promise<string | null> {
     const payload = {
+      departmentId: values.departmentId,
       beneficiaryName: values.beneficiaryName,
       destination: values.destination,
       purpose: values.purpose,
@@ -217,6 +224,21 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
 
         <form className="space-y-4">
           <div className="space-y-1.5">
+            <Label htmlFor="departmentId">Órgão concedente (setor da despesa)</Label>
+            <DepartmentSelect
+              id="departmentId"
+              value={watch("departmentId") || null}
+              onChange={next =>
+                setValue("departmentId", next ?? "", { shouldValidate: true })
+              }
+              disabled={readOnly}
+            />
+            {errors.departmentId && (
+              <p className="text-xs text-red-600">{errors.departmentId.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="beneficiaryName">Beneficiário (quem vai viajar)</Label>
             <BeneficiaryCombobox
               value={watch("beneficiaryName") ?? ""}
@@ -224,6 +246,18 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
                 setValue("beneficiaryName", name, { shouldValidate: false })
               }
               disabled={readOnly}
+              onSelectBeneficiary={beneficiary => {
+                // SUGESTÃO a partir da lotação do servidor, não imposição: só
+                // preenche o que está vazio. Sobrescrever um setor já escolhido
+                // desfaria, em silêncio, a decisão de quem preenche — servidor
+                // cedido viaja a serviço de outra pasta, e a despesa corre por
+                // quem a autorizou.
+                if (beneficiary.departmentId && !watch("departmentId")) {
+                  setValue("departmentId", beneficiary.departmentId, {
+                    shouldValidate: true,
+                  });
+                }
+              }}
               error={errors.beneficiaryName?.message}
             />
           </div>

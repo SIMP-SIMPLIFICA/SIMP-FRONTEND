@@ -26,6 +26,12 @@ import {
 } from '@/hooks/useDepartments'
 import type { Department, CreateDepartmentDTO, UpdateDepartmentDTO } from '@/lib/api/departments'
 import { maskCnpjInput, normalizeCnpj } from '@/utils/cnpj'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DepartmentLogoField } from '@/components/departments/DepartmentLogoField'
+import { formatUserLabel, useOrganizationUsers } from '@/hooks/useOrganizationUsers'
+
+/** Sentinela do item "sem chefe": o Radix nao aceita value vazio. */
+const NO_MANAGER = '__none__'
 
 // ─── Form Dialog ─────────────────────────────────────────────────────────────
 
@@ -50,8 +56,12 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
   // para dígitos acontece só no envio. Guardar os dígitos e reformatar a cada
   // tecla faria o cursor pular para o fim a cada edição no meio do número.
   const [cnpj, setCnpj] = useState(maskCnpjInput(editing?.cnpj ?? ''))
-  const [chiefName, setChiefName] = useState(editing?.chiefName ?? '')
+  // O Ordenador de Despesa NÃO é mais texto livre: é o chefe do setor. Guardar
+  // um nome solto fazia o impresso nos empenhos divergir de quem realmente
+  // responde pela pasta assim que o secretário mudava.
+  const [managerId, setManagerId] = useState(editing?.managerId ?? '')
 
+  const { data: users = [], isLoading: loadingUsers } = useOrganizationUsers()
   const isPending = createMut.isPending || updateMut.isPending
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,7 +90,7 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
           // String vazia LIMPA o valor gravado; é o que permite apagar um CNPJ
           // digitado errado, em vez de ficar preso a ele para sempre.
           cnpj:        cleanCnpj,
-          chiefName:   chiefName.trim() || null,
+          managerId:   managerId || null,
         }
         await updateMut.mutateAsync({ id: editing.id, data })
         toast({ title: 'Departamento atualizado.' })
@@ -88,7 +98,7 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
         const data: CreateDepartmentDTO = { name: name.trim(), code: code.trim().toUpperCase() }
         if (description.trim()) data.description = description.trim()
         if (cleanCnpj) data.cnpj = cleanCnpj
-        if (chiefName.trim()) data.chiefName = chiefName.trim()
+        if (managerId) data.managerId = managerId
         await createMut.mutateAsync(data)
         toast({ title: 'Departamento criado.' })
       }
@@ -155,19 +165,35 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
               </div>
 
               <div className="space-y-1.5">
-                <Label>Ordenador de Despesa</Label>
-                <Input
-                  placeholder="Nome de quem assina os empenhos"
-                  value={chiefName}
-                  onChange={e => setChiefName(e.target.value)}
-                  disabled={isPending}
-                  maxLength={150}
-                />
+                <Label>Secretário / Chefe do Setor</Label>
+                <Select
+                  value={managerId || NO_MANAGER}
+                  onValueChange={v => setManagerId(v === NO_MANAGER ? '' : v)}
+                  disabled={isPending || loadingUsers}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingUsers ? 'Carregando...' : 'Selecione o chefe do setor'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_MANAGER}>Sem chefe definido</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {formatUserLabel(user)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-slate-400">
-                  Autoridade que responde pelo empenho. Nem sempre é usuário do sistema —
-                  por isso é um nome, e não o gestor do setor.
+                  É ele o <strong>Ordenador de Despesa</strong>: o nome impresso nos documentos
+                  do setor vem daqui. Trocar o chefe troca o ordenador em todo lugar de uma vez.
                 </p>
               </div>
+
+              {/* Logo só na EDIÇÃO: o upload precisa do id do setor, que ainda
+                  não existe enquanto ele está sendo criado. */}
+              {isEditing && editing && (
+                <DepartmentLogoField department={editing} disabled={isPending} />
+              )}
 
               <div className="space-y-1.5">
                 <Label>Descrição</Label>

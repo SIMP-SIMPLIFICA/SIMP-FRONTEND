@@ -7,6 +7,7 @@ import {
   useCreateBeneficiary,
   useDeleteBeneficiary,
 } from "@/hooks/useBeneficiaries";
+import type { Beneficiary } from "@/lib/api/beneficiaries";
 
 /**
  * Autocomplete de beneficiários da diária.
@@ -24,11 +25,25 @@ import {
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  /**
+   * Disparado ao escolher alguem JA CADASTRADO.
+   *
+   * Separado de `onChange`, que so carrega o texto: o formulario precisa do
+   * registro inteiro para sugerir a lotacao do servidor. Digitar um nome novo
+   * nao dispara — nao ha cadastro de onde tirar setor.
+   */
+  onSelectBeneficiary?: (beneficiary: Beneficiary) => void;
   disabled?: boolean;
   error?: string;
 }
 
-export function BeneficiaryCombobox({ value, onChange, disabled, error }: Props) {
+export function BeneficiaryCombobox({
+  value,
+  onChange,
+  onSelectBeneficiary,
+  disabled,
+  error,
+}: Props) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -156,12 +171,18 @@ export function BeneficiaryCombobox({ value, onChange, disabled, error }: Props)
                   // click e fecharia a lista.
                   event.preventDefault();
                   onChange(beneficiary.name);
+                  onSelectBeneficiary?.(beneficiary);
                   setIsOpen(false);
                 }}
               >
                 <span className="flex items-center gap-2 truncate text-slate-700">
                   <UserRound className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
                   <span className="truncate">{beneficiary.name}</span>
+                  {/* CPF ja chega mascarado da API — o numero inteiro nunca
+                      sai do backend, entao nao ha o que ocultar aqui. */}
+                  {beneficiary.cpf && (
+                    <span className="shrink-0 text-xs text-slate-400">{beneficiary.cpf}</span>
+                  )}
                 </span>
 
                 <span

@@ -20,11 +20,15 @@ export interface Department {
   /** Só dígitos — use `formatCnpj` para exibir. */
   cnpj?: string | null
   /**
-   * Ordenador de despesa: quem responde juridicamente pelo empenho.
-   * DISTINTO de `manager`, que é o usuário do sistema — o ordenador
-   * frequentemente não tem login.
+   * Ordenador de Despesa, DERIVADO do gestor pelo backend — não é coluna.
+   *
+   * Vem pronto para que tela e PDF exibam exatamente o mesmo nome. Para
+   * alterá-lo, troca-se o `managerId`: é o chefe do setor que ordena a despesa.
+   * Só presente em `getById`.
    */
   chiefName?: string | null
+  /** fileKey da logo própria do setor. Ausente, usa a logo da organização. */
+  logoUrl?: string | null
   isActive: boolean
   managerId?: string | null
   manager?: { id: string; firstName: string | null; lastName: string | null } | null
@@ -110,7 +114,8 @@ export interface CreateDepartmentDTO {
   description?: string
   /** Só dígitos, ou string vazia para não informar. */
   cnpj?: string | null
-  chiefName?: string | null
+  /** Secretário / Chefe do Setor — é dele que sai o Ordenador de Despesa. */
+  managerId?: string | null
 }
 
 export interface UpdateDepartmentDTO {
@@ -121,7 +126,6 @@ export interface UpdateDepartmentDTO {
   managerId?: string | null
   /** String vazia LIMPA o valor gravado; `undefined` não mexe no campo. */
   cnpj?: string | null
-  chiefName?: string | null
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -171,6 +175,26 @@ export const departmentService = {
       method: 'GET',
       responseType: 'blob',
     })
+  },
+
+  /**
+   * Envia a logo própria do setor (PNG ou JPEG, até 2 MB).
+   *
+   * `FormData` cru, SEM definir `Content-Type` à mão: o navegador precisa
+   * inserir o `boundary` do multipart, e declarar o cabeçalho manualmente o
+   * omite — o servidor então não consegue separar as partes do corpo.
+   */
+  uploadLogo: async (id: string, file: File) => {
+    const body = new FormData()
+    body.append('file', file)
+    const res = await api.post<Department>(`/departments/${id}/logo`, body)
+    return res.data
+  },
+
+  /** Remove a logo do setor; os documentos voltam à logo da organização. */
+  removeLogo: async (id: string) => {
+    const res = await api.delete<Department>(`/departments/${id}/logo`)
+    return res.data
   },
 
   create: async (data: CreateDepartmentDTO) => {

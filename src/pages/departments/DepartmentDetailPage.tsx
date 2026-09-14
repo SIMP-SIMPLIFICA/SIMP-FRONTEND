@@ -6,8 +6,11 @@ import {
   Building2,
   FileDown,
   FolderArchive,
+  Fuel,
   Handshake,
   Landmark,
+  Plane,
+  Users,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +24,9 @@ import { ExportDossierDialog } from './ExportDossierDialog'
 import { CouncilsTab } from './tabs/CouncilsTab'
 import { CovenantsTab } from './tabs/CovenantsTab'
 import { VirtualProcessesTab } from './tabs/VirtualProcessesTab'
+import { MembersTab } from './tabs/MembersTab'
+import { DailyAllowancesTab } from './tabs/DailyAllowancesTab'
+import { FleetFuelingsTab } from './tabs/FleetFuelingsTab'
 
 /**
  * Detalhe do Departamento (Épico 4, Fase 1).
@@ -162,8 +168,14 @@ export default function DepartmentDetailPage() {
 
       {/* ── Abas ── */}
       <div className="flex-1 overflow-auto px-6 py-4">
-        <Tabs defaultValue="councils">
-          <TabsList className="mb-4">
+        <Tabs defaultValue="members">
+          {/* `flex-wrap`: são seis abas, e numa tela de notebook elas não cabem
+              numa linha só — sem isso a última sairia da área visível. */}
+          <TabsList className="mb-4 flex-wrap h-auto">
+            <TabsTrigger value="members">
+              <Users className="h-4 w-4 mr-1.5" />
+              Servidores ({counts.members ?? counts.users ?? 0})
+            </TabsTrigger>
             <TabsTrigger value="councils">
               <Landmark className="h-4 w-4 mr-1.5" />
               Conselhos ({counts.councils ?? 0})
@@ -176,11 +188,25 @@ export default function DepartmentDetailPage() {
               <FolderArchive className="h-4 w-4 mr-1.5" />
               Processos ({counts.virtualProcesses ?? 0})
             </TabsTrigger>
+            {/* Diárias e abastecimentos não trazem contagem no rótulo: o
+                `_count` do setor não as inclui, e exibir "(0)" antes de abrir a
+                aba afirmaria que não há nenhuma — o que seria mentira. */}
+            <TabsTrigger value="allowances">
+              <Plane className="h-4 w-4 mr-1.5" />
+              Diárias
+            </TabsTrigger>
+            <TabsTrigger value="fuelings">
+              <Fuel className="h-4 w-4 mr-1.5" />
+              Abastecimentos
+            </TabsTrigger>
           </TabsList>
 
           {/* Cada aba busca a própria lista só quando aberta: o Radix não monta
               o conteúdo das abas inativas, então um setor com 300 processos não
               paga essa consulta para quem só quer ver os conselhos. */}
+          <TabsContent value="members">
+            <MembersTab departmentId={department.id} />
+          </TabsContent>
           <TabsContent value="councils">
             <CouncilsTab departmentId={department.id} />
           </TabsContent>
@@ -189,6 +215,12 @@ export default function DepartmentDetailPage() {
           </TabsContent>
           <TabsContent value="processes">
             <VirtualProcessesTab departmentId={department.id} />
+          </TabsContent>
+          <TabsContent value="allowances">
+            <DailyAllowancesTab departmentId={department.id} />
+          </TabsContent>
+          <TabsContent value="fuelings">
+            <FleetFuelingsTab departmentId={department.id} />
           </TabsContent>
         </Tabs>
       </div>
