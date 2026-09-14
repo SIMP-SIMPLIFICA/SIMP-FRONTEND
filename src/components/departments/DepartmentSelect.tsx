@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -17,6 +18,12 @@ import { useDepartmentOptions } from '@/hooks/useDepartments'
  * Mostra `CÓDIGO - Nome`: numa prefeitura, "Secretaria de Administração" e
  * "Secretaria de Administração e Finanças" só se distinguem com folga pela
  * sigla, e é pela sigla que o servidor conhece o setor.
+ *
+ * TRÊS ESTADOS EXPLÍCITOS além da lista normal — carregando, erro e vazio —
+ * de propósito: um `limit` da consulta acima do teto que o backend aceita já
+ * fez este seletor abrir SEM NENHUM item, em silêncio, em toda tela que o
+ * usava. Um Select que nunca diz "deu errado" esconde exatamente esse tipo de
+ * falha até alguém clicar nele no navegador.
  */
 
 interface Props {
@@ -31,8 +38,9 @@ interface Props {
   id?: string
 }
 
-/** Valor sentinela do item "sem setor": o Radix não aceita `value=""`. */
+/** Sentinelas dos itens informativos — o Radix não aceita `value=""`. */
 const NONE = '__none__'
+const EMPTY = '__empty__'
 
 export function DepartmentSelect({
   value,
@@ -43,7 +51,7 @@ export function DepartmentSelect({
   disabled,
   id,
 }: Props) {
-  const { data, isLoading } = useDepartmentOptions()
+  const { data, isLoading, isError } = useDepartmentOptions()
 
   const departments = (data?.data ?? []).filter(
     department =>
@@ -54,17 +62,40 @@ export function DepartmentSelect({
       !excludeIds?.has(department.id)
   )
 
+  const triggerPlaceholder = isLoading
+    ? 'Carregando...'
+    : isError
+      ? 'Erro ao carregar departamentos'
+      : placeholder
+
   return (
     <Select
       value={value ?? NONE}
       onValueChange={next => onChange(next === NONE ? null : next)}
+      // Trigger fica navegável mesmo sem opção nenhuma: é o que deixa o
+      // usuário ABRIR o Select e ler por que está vazio, em vez de encarar um
+      // campo cinza sem explicação nenhuma.
       disabled={disabled || isLoading}
     >
       <SelectTrigger id={id}>
-        <SelectValue placeholder={isLoading ? 'Carregando...' : placeholder} />
+        <SelectValue placeholder={triggerPlaceholder} />
       </SelectTrigger>
       <SelectContent>
+        {isError && (
+          <div className="flex items-start gap-2 px-2 py-2 text-xs text-red-600">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>Não foi possível carregar os departamentos. Recarregue a página.</span>
+          </div>
+        )}
+
+        {!isError && !isLoading && departments.length === 0 && (
+          <SelectItem value={EMPTY} disabled>
+            Nenhum departamento cadastrado
+          </SelectItem>
+        )}
+
         {clearLabel && <SelectItem value={NONE}>{clearLabel}</SelectItem>}
+
         {departments.map(department => (
           <SelectItem key={department.id} value={department.id}>
             {department.code} - {department.name}

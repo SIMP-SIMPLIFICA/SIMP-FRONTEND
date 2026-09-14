@@ -10,10 +10,19 @@ export function useDepartments(params?: { page?: number; limit?: number; search?
   })
 }
 
+/**
+ * 100, não 200: é o teto de página que o backend aceita
+ * (`MAX_PAGE_SIZE`, em `constants/pagination.ts`). Pedir acima disso faz o
+ * `listSchema.parse` do controller rejeitar com 400 — a requisição inteira
+ * falhava, `data` nunca chegava a existir, e todo `DepartmentSelect` do
+ * sistema abria vazio e em silêncio, sem nenhum aviso de erro.
+ */
+const OPTIONS_LIMIT = 100
+
 export function useDepartmentOptions() {
   return useQuery({
     queryKey:  [KEY, 'options'],
-    queryFn:   () => departmentService.list({ limit: 200 }),
+    queryFn:   () => departmentService.list({ limit: OPTIONS_LIMIT }),
     staleTime: 1000 * 60 * 5,
   })
 }
