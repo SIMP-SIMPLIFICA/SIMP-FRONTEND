@@ -11,6 +11,7 @@ import {
   Landmark,
   Plane,
   Users,
+  Wallet,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +28,7 @@ import { VirtualProcessesTab } from './tabs/VirtualProcessesTab'
 import { MembersTab } from './tabs/MembersTab'
 import { DailyAllowancesTab } from './tabs/DailyAllowancesTab'
 import { FleetFuelingsTab } from './tabs/FleetFuelingsTab'
+import { BudgetTab } from './qdd/BudgetTab'
 
 /**
  * Detalhe do Departamento (Épico 4, Fase 1).
@@ -79,6 +81,7 @@ export default function DepartmentDetailPage() {
 
   const { data: me } = useMe()
   const canExport = hasAnyPermission(me, ['departments:read', 'departments:write'])
+  const canWriteDepartment = hasAnyPermission(me, ['departments:write'])
   const { data: department, isLoading, isError } = useDepartment(id)
 
   if (isLoading) return <PageSkeleton />
@@ -169,7 +172,7 @@ export default function DepartmentDetailPage() {
       {/* ── Abas ── */}
       <div className="flex-1 overflow-auto px-6 py-4">
         <Tabs defaultValue="members">
-          {/* `flex-wrap`: são seis abas, e numa tela de notebook elas não cabem
+          {/* `flex-wrap`: são sete abas, e numa tela de notebook elas não cabem
               numa linha só — sem isso a última sairia da área visível. */}
           <TabsList className="mb-4 flex-wrap h-auto">
             <TabsTrigger value="members">
@@ -199,6 +202,10 @@ export default function DepartmentDetailPage() {
               <Fuel className="h-4 w-4 mr-1.5" />
               Abastecimentos
             </TabsTrigger>
+            <TabsTrigger value="budget">
+              <Wallet className="h-4 w-4 mr-1.5" />
+              Orçamento &amp; QDD ({counts.qddItems ?? 0})
+            </TabsTrigger>
           </TabsList>
 
           {/* Cada aba busca a própria lista só quando aberta: o Radix não monta
@@ -221,6 +228,9 @@ export default function DepartmentDetailPage() {
           </TabsContent>
           <TabsContent value="fuelings">
             <FleetFuelingsTab departmentId={department.id} />
+          </TabsContent>
+          <TabsContent value="budget">
+            <BudgetTab departmentId={department.id} canWrite={canWriteDepartment} />
           </TabsContent>
         </Tabs>
       </div>
