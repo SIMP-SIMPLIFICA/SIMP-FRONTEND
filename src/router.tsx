@@ -44,6 +44,7 @@ import LibraryPage from "@/pages/library/LibraryPage"
 import CovenantsPage from "@/pages/convenios/CovenantsPage";
 import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
 import DepartmentsPage from "@/pages/Departments";
+import DepartmentDetailPage from "@/pages/departments/DepartmentDetailPage";
 import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
@@ -225,7 +226,10 @@ export const router = createBrowserRouter([
           },
           {
             element: <PermissionGate anyOf={["departments:read", "departments:write", "departments:delete"]} />,
-            children: [{ path: "/departamentos", element: <DepartmentsPage /> }],
+            children: [
+              { path: "/departamentos", element: <DepartmentsPage /> },
+              { path: "/departamentos/:id", element: <DepartmentDetailPage /> },
+            ],
           },
           {
             // TODO: wrap children in PermissionGate anyOf={["councils:read","councils:write","councils:admin"]} when permission keys are configured

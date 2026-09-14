@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
   AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
@@ -892,7 +893,11 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
 
 // --- Main Page ---
 export default function ProcessosVirtuais() {
-  const [search, setSearch] = useState('')
+  // Semeada por `?busca=`, pelo mesmo motivo do convênio: não há rota de
+  // detalhe de processo, então a aba do departamento navega para cá já
+  // filtrado pelo número.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('busca') ?? '')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [selectedId, setSelectedId] = useState<string | null>(null)

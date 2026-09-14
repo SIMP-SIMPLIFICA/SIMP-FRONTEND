@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Building2, Plus, Search, Loader2, Pencil, Trash2, Users,
 } from 'lucide-react'
@@ -277,7 +278,18 @@ export default function DepartmentsPage() {
                     {dept.code}
                   </code>
                 </TableCell>
-                <TableCell className="font-medium text-slate-800">{dept.name}</TableCell>
+                <TableCell className="font-medium text-slate-800">
+                  {/* O nome é a porta de entrada do detalhe. As ações da linha
+                      (membros, editar, excluir) seguem sendo botões próprios:
+                      tornar a LINHA inteira clicável faria cada clique em
+                      "Excluir" também navegar. */}
+                  <Link
+                    to={`/departamentos/${dept.id}`}
+                    className="hover:text-blue-600 hover:underline"
+                  >
+                    {dept.name}
+                  </Link>
+                </TableCell>
                 <TableCell className="hidden md:table-cell text-sm text-slate-500 max-w-xs truncate">
                   {dept.description ?? '—'}
                 </TableCell>

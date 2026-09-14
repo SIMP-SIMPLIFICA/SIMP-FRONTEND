@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Search, Plus, Handshake, ChevronRight, Loader2, AlertTriangle, Trash2, Pencil,
 } from 'lucide-react'
@@ -72,7 +73,12 @@ export default function CovenantsPage() {
   const { data: me } = useMe()
   const canDelete = hasAnyPermission(me, ['covenants:delete']) || !!me?.user?.isSuperAdmin
 
-  const [search, setSearch]       = useState('')
+  // Semeada por `?busca=`: é o que faz a aba "Convênios" do departamento
+  // conseguir apontar para um registro específico. Não existe rota de detalhe
+  // de convênio — o detalhe é uma gaveta dentro desta listagem —, então a
+  // navegação possível é chegar aqui com o filtro já aplicado.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch]       = useState(() => searchParams.get('busca') ?? '')
   const [statusFilter, setStatus] = useState<CovenantStatus | 'ALL'>('ALL')
   const [typeFilter, setType]     = useState<string>('')
   const [page, setPage]           = useState(1)
