@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Landmark, AlertTriangle, Plus, Users, Pencil, Lock, FileDown, Loader2 } from 'lucide-react'
+import { ArrowLeft, Building2, Landmark, AlertTriangle, Plus, Users, Pencil, Lock, FileDown, Loader2 } from 'lucide-react'
+import { CouncilDepartmentsTab } from '@/components/councils/CouncilDepartmentsTab'
 import { ManageMembersModal } from '@/components/councils/ManageMembersModal'
 import { CouncilFormModal } from '@/components/councils/CouncilFormModal'
 import { CreateMeetingModal } from '@/components/councils/CreateMeetingModal'
@@ -449,6 +450,10 @@ export default function CouncilDetailPage() {
                 <Landmark className="h-4 w-4 mr-1.5" />
                 Reuniões
               </TabsTrigger>
+              <TabsTrigger value="departments">
+                <Building2 className="h-4 w-4 mr-1.5" />
+                Departamentos
+              </TabsTrigger>
             </TabsList>
 
           </div>
@@ -494,6 +499,10 @@ export default function CouncilDetailPage() {
               )}
             </div>
             <MeetingsTab councilId={councilId} councilName={council.name} />
+          </TabsContent>
+
+          <TabsContent value="departments">
+            <CouncilDepartmentsTab councilId={councilId} canWrite={canWrite} />
           </TabsContent>
         </Tabs>
       </div>

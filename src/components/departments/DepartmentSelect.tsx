@@ -24,6 +24,8 @@ interface Props {
   onChange: (value: string | null) => void
   /** Texto do item que limpa a escolha. Ausente = campo obrigatório. */
   clearLabel?: string
+  /** Ids fora da lista — ex: setores já vinculados num diálogo de vínculo. */
+  excludeIds?: Set<string>
   placeholder?: string
   disabled?: boolean
   id?: string
@@ -36,6 +38,7 @@ export function DepartmentSelect({
   value,
   onChange,
   clearLabel,
+  excludeIds,
   placeholder = 'Selecione o departamento',
   disabled,
   id,
@@ -43,10 +46,12 @@ export function DepartmentSelect({
   const { data, isLoading } = useDepartmentOptions()
 
   const departments = (data?.data ?? []).filter(
-    // Setor inativo não entra em cadastro NOVO, mas precisa continuar
-    // aparecendo quando já é o valor gravado — senão, editar um convênio antigo
-    // apagaria o setor dele sem que ninguém pedisse.
-    department => department.isActive || department.id === value
+    department =>
+      // Setor inativo não entra em cadastro NOVO, mas precisa continuar
+      // aparecendo quando já é o valor gravado — senão, editar um convênio
+      // antigo apagaria o setor dele sem que ninguém pedisse.
+      (department.isActive || department.id === value) &&
+      !excludeIds?.has(department.id)
   )
 
   return (
