@@ -20,6 +20,12 @@ export interface QddItem {
   naturezaDespesa: string
   /** Decimal do Prisma chega como string — usar `parseBRL`/`Number()` antes de calcular. */
   valorOrcado: string
+  /**
+   * Calculados NA LEITURA pelo servidor (Épico 8, FR-008) — nunca gravados,
+   * sempre presentes na resposta de `list`/`getById`.
+   */
+  valorUtilizado: string
+  saldoRestante: string
   createdAt: string
   updatedAt: string
 }
@@ -34,9 +40,31 @@ export interface CreateQddItemDTO {
   valorOrcado: number
 }
 
-/** O departamento não muda na edição — mover a ficha de setor reescreveria o
- *  lastro de despesas já imputadas. Para trocar, exclui-se e recadastra-se. */
-export type UpdateQddItemDTO = Partial<Omit<CreateQddItemDTO, 'departmentId'>>
+/**
+ * O departamento não muda na edição — mover a ficha de setor reescreveria o
+ * lastro de despesas já imputadas. Para trocar, exclui-se e recadastra-se.
+ *
+ * `reason` é obrigatório no SERVIDOR só quando `valorOrcado` muda de fato
+ * (Épico 8, FR-013) — toda suplementação/redução precisa ficar registrada.
+ */
+export type UpdateQddItemDTO = Partial<Omit<CreateQddItemDTO, 'departmentId'>> & {
+  reason?: string
+}
+
+/** Um registro do histórico de suplementação/redução do valor orçado. */
+export interface BudgetHistory {
+  id: string
+  organizationId: string
+  qddItemId: string
+  previousValue: string
+  newValue: string
+  /** Nulo quando `previousValue` era zero — percentual sobre base zero não tem sentido. */
+  changePercent: string | null
+  reason: string
+  changedById: string
+  changedBy?: { id: string; firstName?: string | null; lastName?: string | null }
+  createdAt: string
+}
 
 const BASE = '/qdd-items'
 
@@ -55,4 +83,7 @@ export const qddItemService = {
     api.patch<QddItem>(`${BASE}/${id}`, data).then(r => r.data),
 
   remove: (id: string) => api.delete<void>(`${BASE}/${id}`).then(r => r.data),
+
+  /** Histórico de suplementação/redução da ficha, mais recente primeiro. */
+  getHistory: (id: string) => api.get<BudgetHistory[]>(`${BASE}/${id}/history`).then(r => r.data),
 }

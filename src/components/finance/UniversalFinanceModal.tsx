@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Landmark, Tag, Loader2, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, Tag, Loader2, AlertTriangle, ArrowLeft, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   useUpdateFinanceCategory,
   useDeleteFinanceCategory,
 } from "@/hooks/useFinance";
+import { DepartmentSelect } from "@/components/departments/DepartmentSelect";
 import type { BankAccount, FinanceCategory } from "@/lib/api/finance";
 import { useUniversalFinanceModal } from "@/context/UniversalFinanceModalContext";
 
@@ -26,21 +27,10 @@ function formatCurrency(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 }
 
-function parseCurrencyInput(val: string): number {
-  const digits = val.replace(/\D/g, "");
-  return digits ? parseInt(digits, 10) : 0;
-}
-
-function formatCurrencyInput(val: string): string {
-  const digits = val.replace(/\D/g, "");
-  if (!digits) return "";
-  return (parseInt(digits, 10) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-}
-
 // ─── Aba Contas Bancárias ──────────────────────────────────────────────────────
 
-type AccountForm = { name: string; agency: string; accountNumber: string; initialBalanceCents: string };
-const emptyAccountForm: AccountForm = { name: "", agency: "", accountNumber: "", initialBalanceCents: "" };
+type AccountForm = { name: string; agency: string; accountNumber: string; departmentId: string };
+const emptyAccountForm: AccountForm = { name: "", agency: "", accountNumber: "", departmentId: "" };
 
 function ContasTab() {
   const { data: accounts = [], isLoading } = useFinanceBankAccounts(undefined);
@@ -66,9 +56,7 @@ function ContasTab() {
       name: a.name,
       agency: a.agency ?? "",
       accountNumber: a.accountNumber ?? "",
-      initialBalanceCents: a.initialBalanceCents
-        ? (a.initialBalanceCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-        : "",
+      departmentId: a.departmentId,
     });
     setMode("form");
   }
@@ -81,13 +69,19 @@ function ContasTab() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
+    if (!form.departmentId) {
+      toast({ title: "Selecione o departamento responsável pela conta.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
+      // `initialBalanceCents` NÃO entra no payload de propósito (Épico 8,
+      // FR-016) — o servidor ignora esse campo mesmo se enviado.
       const payload = {
         name: form.name.trim(),
         agency: form.agency.trim() || undefined,
         accountNumber: form.accountNumber.trim() || undefined,
-        initialBalanceCents: parseCurrencyInput(form.initialBalanceCents),
+        departmentId: form.departmentId,
       };
       if (editing) {
         await update({ id: editing.id, data: payload });
@@ -139,9 +133,28 @@ function ContasTab() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Saldo Inicial (R$)</Label>
-            <Input placeholder="0,00" value={form.initialBalanceCents}
-              onChange={e => setForm(f => ({ ...f, initialBalanceCents: formatCurrencyInput(e.target.value) }))} />
+            <Label>Secretaria / Departamento <span className="text-red-500">*</span></Label>
+            <DepartmentSelect
+              value={form.departmentId || null}
+              onChange={next => setForm(f => ({ ...f, departmentId: next ?? "" }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              Saldo Inicial (R$)
+              <span
+                title="Este valor será populado automaticamente por uma futura integração bancária via API. Não é possível editá-lo manualmente."
+                className="inline-flex cursor-help text-slate-400"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
+            </Label>
+            <Input
+              disabled
+              readOnly
+              value={formatCurrency(editing?.initialBalanceCents ?? 0)}
+              title="Este valor será populado automaticamente por uma futura integração bancária via API. Não é possível editá-lo manualmente."
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={backToList} disabled={saving}>Cancelar</Button>
@@ -202,8 +215,12 @@ function ContasTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 truncate">{a.name}</p>
                   <p className="text-xs text-slate-400 truncate">
-                    {[a.agency && `Ag: ${a.agency}`, a.accountNumber && `C/C: ${a.accountNumber}`, formatCurrency(a.initialBalanceCents)]
-                      .filter(Boolean).join(" · ")}
+                    {[
+                      a.agency && `Ag: ${a.agency}`,
+                      a.accountNumber && `C/C: ${a.accountNumber}`,
+                      formatCurrency(a.initialBalanceCents),
+                      a.department && `${a.department.code} - ${a.department.name}`,
+                    ].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <div className="flex gap-1 shrink-0">

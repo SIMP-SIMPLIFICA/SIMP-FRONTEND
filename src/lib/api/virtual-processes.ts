@@ -1,5 +1,5 @@
 import { api } from '../api'
-import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPayload, UpdateValidityPayload } from '@/types/virtual-process'
+import type { VirtualProcess, VirtualProcessListResponse, CreateVirtualProcessPayload, UpdateBudgetPayload, UpdateValidityPayload } from '@/types/virtual-process'
 
 export interface VirtualProcessCategory {
   id: string
@@ -66,6 +66,12 @@ export const virtualProcessService = {
 
   updateValidity: async (id: string, data: UpdateValidityPayload) => {
     const res = await api.patch<VirtualProcess>(`/virtual-processes/${id}/validity`, data)
+    return res.data
+  },
+
+  /** Vínculo com o QDD e/ou fase da despesa (Épico 8, FR-011/FR-019). */
+  updateBudget: async (id: string, data: UpdateBudgetPayload) => {
+    const res = await api.patch<VirtualProcess>(`/virtual-processes/${id}/budget`, data)
     return res.data
   },
 

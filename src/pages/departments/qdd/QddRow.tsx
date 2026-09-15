@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
-import { Check, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { Check, History, Pencil, Loader2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { formatBRL } from "@/utils/currency";
+import { cn } from "@/lib/utils";
+import { formatBRL, parseBRL } from "@/utils/currency";
 import type { QddItem } from "@/lib/api/qdd-items";
 
 /**
@@ -15,6 +16,11 @@ import type { QddItem } from "@/lib/api/qdd-items";
  *
  * `Enter` salva, `Esc` descarta — sem botão de confirmação obrigatório, porque
  * a tela existe para lançar rápido.
+ *
+ * MOTIVO DA SUPLEMENTAÇÃO (Épico 8, FR-013): o campo só aparece quando o
+ * valor digitado difere do valor orçado atual da ficha — editar ficha/fonte/
+ * natureza sem mexer no valor não é suplementação, e não deveria pedir
+ * justificativa nenhuma.
  */
 
 export interface QddRowValues {
@@ -23,6 +29,7 @@ export interface QddRowValues {
   projetoAtividade: string;
   naturezaDespesa: string;
   valorOrcado: string; // texto digitado, ainda não convertido
+  reason: string;
 }
 
 const EMPTY: QddRowValues = {
@@ -31,6 +38,7 @@ const EMPTY: QddRowValues = {
   projetoAtividade: "",
   naturezaDespesa: "",
   valorOrcado: "",
+  reason: "",
 };
 
 interface Props {
@@ -44,6 +52,7 @@ interface Props {
   onCancel: () => void;
   onSave: (values: QddRowValues) => void;
   onDelete?: () => void;
+  onShowHistory?: () => void;
 }
 
 export function QddRow({
@@ -56,6 +65,7 @@ export function QddRow({
   onCancel,
   onSave,
   onDelete,
+  onShowHistory,
 }: Props) {
   const [values, setValues] = useState<QddRowValues>(
     item
@@ -65,6 +75,7 @@ export function QddRow({
           projetoAtividade: item.projetoAtividade,
           naturezaDespesa: item.naturezaDespesa,
           valorOrcado: formatBRL(item.valorOrcado).replace("R$", "").trim(),
+          reason: "",
         }
       : EMPTY
   );
@@ -88,6 +99,11 @@ export function QddRow({
     }
   }
 
+  // Ficha nova nunca pede motivo — não existe valor anterior para comparar.
+  const isChangingValue = item !== null && parseBRL(values.valorOrcado) !== Number(item.valorOrcado);
+
+  const saldoNegativo = item && Number(item.saldoRestante) < 0;
+
   if (!editing) {
     return (
       <TableRow className="group">
@@ -102,24 +118,44 @@ export function QddRow({
         <TableCell className="text-right tabular-nums text-slate-800 font-medium">
           {formatBRL(item?.valorOrcado)}
         </TableCell>
-        <TableCell className="text-right">
-          {canWrite && (
-            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onStartEdit}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-              {onDelete && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-500 hover:text-red-700"
-                  onClick={onDelete}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
+        <TableCell className="text-right tabular-nums text-slate-600">
+          {formatBRL(item?.valorUtilizado)}
+        </TableCell>
+        {/* Saldo negativo é situação VÁLIDA (remanejamento é rotina), só
+            precisa saltar aos olhos — Épico 8, FR-010. */}
+        <TableCell
+          className={cn(
+            "text-right tabular-nums font-medium",
+            saldoNegativo ? "text-red-600" : "text-slate-800"
           )}
+        >
+          {formatBRL(item?.saldoRestante)}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {onShowHistory && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onShowHistory} title="Histórico de suplementação">
+                <History className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {canWrite && (
+              <>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onStartEdit}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                {onDelete && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-red-500 hover:text-red-700"
+                    onClick={onDelete}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
         </TableCell>
       </TableRow>
     );
@@ -181,6 +217,12 @@ export function QddRow({
           disabled={saving}
         />
       </TableCell>
+      <TableCell className="p-1.5 text-right tabular-nums text-sm text-slate-400">
+        {formatBRL(item?.valorUtilizado)}
+      </TableCell>
+      <TableCell className="p-1.5 text-right tabular-nums text-sm text-slate-400">
+        {formatBRL(item?.saldoRestante)}
+      </TableCell>
       <TableCell className="p-1.5">
         <div className="flex items-center justify-end gap-1">
           {saving ? (
@@ -210,11 +252,26 @@ export function QddRow({
         </div>
       </TableCell>
     </TableRow>
+    {/* Motivo da suplementação — só aparece quando o valor de fato mudou. */}
+    {isChangingValue && (
+      <TableRow className="bg-blue-50/40 hover:bg-blue-50/40">
+        <TableCell colSpan={8} className="pt-0 pb-1.5">
+          <Input
+            value={values.reason}
+            onChange={e => set("reason", e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Motivo da alteração do valor orçado (obrigatório)"
+            className="h-8 text-sm"
+            disabled={saving}
+          />
+        </TableCell>
+      </TableRow>
+    )}
     {/* Linha própria para o erro — uma célula com colSpan DENTRO da linha que
-        já tem seis campos duplicaria colunas e quebraria a tabela. */}
+        já tem oito campos duplicaria colunas e quebraria a tabela. */}
     {error && (
       <TableRow className="bg-blue-50/40 hover:bg-blue-50/40">
-        <TableCell colSpan={6} className="pt-0 pb-1.5">
+        <TableCell colSpan={8} className="pt-0 pb-1.5">
           <p className="text-xs text-red-600">{error}</p>
         </TableCell>
       </TableRow>

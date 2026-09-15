@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { FileCheck2, Loader2, Lock, Save } from "lucide-react";
+import { AlertTriangle, FileCheck2, Loader2, Lock, Save } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,11 +15,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useMe } from "@/hooks/useMe";
 import { hasPermission } from "@/lib/permissions";
 import {
   type DailyAllowance,
+  FUNDING_SOURCE_LABELS,
+  TRANSPORT_MEANS_LABELS,
   isIssued,
 } from "@/lib/api/daily-allowances";
 import {
@@ -28,15 +37,21 @@ import {
   useUpdateDailyAllowance,
 } from "@/hooks/useDailyAllowances";
 import { useDepartment } from "@/hooks/useDepartments";
+import { useHolidays } from "@/hooks/useHolidays";
 import {
   describeDocumentError,
   formatCurrency,
   toDateInputValue,
 } from "@/lib/official-documents";
 import { formatCnpj } from "@/utils/cnpj";
+import { normalizeCpf } from "@/utils/cpf";
+import { touchesWeekendOrHoliday } from "@/utils/weekend-holiday";
 import { BeneficiaryCombobox } from "./BeneficiaryCombobox";
 import { QddItemSelect } from "./QddItemSelect";
 import { DepartmentSelect } from "@/components/departments/DepartmentSelect";
+
+/** Sentinela do item "não informado" — o Radix não aceita value vazio. */
+const NONE = "__none__";
 
 /**
  * Formulário de Diária (Épico 3, FE.2; Épico 4, Fase 3).
@@ -75,6 +90,34 @@ const schema = z
     dayCount: z.coerce
       .number({ invalid_type_error: "Informe um número." })
       .positive("A quantidade de diárias deve ser maior que zero."),
+
+    // ── Matriz de 20 campos do Anexo I — todos opcionais AQUI pelo mesmo
+    // motivo do backend: o formulário físico tem casos legítimos de campo em
+    // branco ("EM ABERTO"), e travar a diária por um RG que ainda não se sabe
+    // engessaria o município. O CPF é o único com uma regra de FORMATO: se
+    // for informado, precisa ter os 11 dígitos — mesma checagem do servidor,
+    // só que na hora, sem esperar o 400 de volta.
+    beneficiaryCpf: z
+      .string()
+      .optional()
+      .refine(v => !v || normalizeCpf(v).length === 11, {
+        message: "CPF inválido. Confira os 11 dígitos.",
+      }),
+    beneficiaryRegistrationNumber: z.string().trim().optional(),
+    beneficiaryRg: z.string().trim().optional(),
+    beneficiaryRgIssuer: z.string().trim().optional(),
+    beneficiaryJobTitle: z.string().trim().optional(),
+    beneficiaryLotacao: z.string().trim().optional(),
+    beneficiaryBankName: z.string().trim().optional(),
+    beneficiaryBankAgency: z.string().trim().optional(),
+    beneficiaryBankAccount: z.string().trim().optional(),
+    departureTime: z.string().trim().optional(),
+    arrivalTime: z.string().trim().optional(),
+    transportMeans: z.enum(["RODOVIARIO", "AEREO", "VEICULO_OFICIAL", "OUTRO"]).optional(),
+    fundingSource: z.enum(["PROPRIO", "CONVENIO"]).optional(),
+    // Regra do TCE (Épico 8, FR-021/FR-022) — a EXIGÊNCIA de verdade é do
+    // servidor, na emissão; aqui é só o texto que a tela envia quando visível.
+    weekendHolidayJustification: z.string().trim().optional(),
   })
   // Mesma regra do backend, verificada aqui para o usuário saber na hora, sem
   // precisar de uma ida ao servidor para descobrir.
@@ -102,6 +145,20 @@ const EMPTY: FormValues = {
   returnDate: "",
   dailyRate: "" as unknown as number,
   dayCount: "" as unknown as number,
+  beneficiaryCpf: "",
+  beneficiaryRegistrationNumber: "",
+  beneficiaryRg: "",
+  beneficiaryRgIssuer: "",
+  beneficiaryJobTitle: "",
+  beneficiaryLotacao: "",
+  beneficiaryBankName: "",
+  beneficiaryBankAgency: "",
+  beneficiaryBankAccount: "",
+  departureTime: "",
+  arrivalTime: "",
+  transportMeans: undefined,
+  fundingSource: undefined,
+  weekendHolidayJustification: "",
 };
 
 /** Cabeçalho numerado de bloco — a separação visual que a Cartilha exige. */
@@ -176,6 +233,20 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
             returnDate: toDateInputValue(allowance.returnDate),
             dailyRate: Number(allowance.dailyRate) as unknown as number,
             dayCount: Number(allowance.dayCount) as unknown as number,
+            beneficiaryCpf: allowance.beneficiaryCpf ?? "",
+            beneficiaryRegistrationNumber: allowance.beneficiaryRegistrationNumber ?? "",
+            beneficiaryRg: allowance.beneficiaryRg ?? "",
+            beneficiaryRgIssuer: allowance.beneficiaryRgIssuer ?? "",
+            beneficiaryJobTitle: allowance.beneficiaryJobTitle ?? "",
+            beneficiaryLotacao: allowance.beneficiaryLotacao ?? "",
+            beneficiaryBankName: allowance.beneficiaryBankName ?? "",
+            beneficiaryBankAgency: allowance.beneficiaryBankAgency ?? "",
+            beneficiaryBankAccount: allowance.beneficiaryBankAccount ?? "",
+            departureTime: allowance.departureTime ?? "",
+            arrivalTime: allowance.arrivalTime ?? "",
+            transportMeans: allowance.transportMeans ?? undefined,
+            fundingSource: allowance.fundingSource ?? undefined,
+            weekendHolidayJustification: allowance.weekendHolidayJustification ?? "",
           }
         : EMPTY
     );
@@ -195,6 +266,16 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
   const dayCount = Number(watch("dayCount")) || 0;
   const previewTotal = dailyRate * dayCount;
 
+  // Alerta de fim de semana/feriado (Épico 8, FR-021/FR-022) — regra do TCE.
+  // Só um AVISO nesta tela: quem trava de verdade é o servidor, na emissão.
+  const departureDate = watch("departureDate");
+  const returnDate = watch("returnDate");
+  const { data: holidays } = useHolidays();
+  const showsWeekendAlert = useMemo(
+    () => touchesWeekendOrHoliday(departureDate, returnDate, holidays ?? []),
+    [departureDate, returnDate, holidays]
+  );
+
   const saving = create.isPending || update.isPending;
   const issuing = issue.isPending;
 
@@ -209,6 +290,20 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
       returnDate: values.returnDate,
       dailyRate: Number(values.dailyRate),
       dayCount: Number(values.dayCount),
+      beneficiaryCpf: values.beneficiaryCpf || undefined,
+      beneficiaryRegistrationNumber: values.beneficiaryRegistrationNumber || undefined,
+      beneficiaryRg: values.beneficiaryRg || undefined,
+      beneficiaryRgIssuer: values.beneficiaryRgIssuer || undefined,
+      beneficiaryJobTitle: values.beneficiaryJobTitle || undefined,
+      beneficiaryLotacao: values.beneficiaryLotacao || undefined,
+      beneficiaryBankName: values.beneficiaryBankName || undefined,
+      beneficiaryBankAgency: values.beneficiaryBankAgency || undefined,
+      beneficiaryBankAccount: values.beneficiaryBankAccount || undefined,
+      departureTime: values.departureTime || undefined,
+      arrivalTime: values.arrivalTime || undefined,
+      transportMeans: values.transportMeans || undefined,
+      fundingSource: values.fundingSource || undefined,
+      weekendHolidayJustification: values.weekendHolidayJustification || undefined,
     };
 
     if (allowance) {
@@ -260,6 +355,12 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
               : allowance
                 ? "Editar rascunho de diária"
                 : "Nova diária"}
+            {/* "Número da Diária" (Épico 8, FR-002) — só existe depois de criado o rascunho. */}
+            {allowance?.formattedNumber && (
+              <span className="ml-2 font-mono text-sm font-normal text-slate-400">
+                Nº {allowance.formattedNumber}
+              </span>
+            )}
           </DialogTitle>
           <DialogDescription>
             {readOnly
@@ -346,21 +447,138 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
                 onChange={name =>
                   setValue("beneficiaryName", name, { shouldValidate: false })
                 }
+                cpfValue={watch("beneficiaryCpf") ?? ""}
+                onCpfChange={cpf => setValue("beneficiaryCpf", cpf, { shouldValidate: false })}
+                registryDraft={{
+                  registrationNumber: watch("beneficiaryRegistrationNumber") || undefined,
+                  rg: watch("beneficiaryRg") || undefined,
+                  jobTitle: watch("beneficiaryJobTitle") || undefined,
+                  lotacao: watch("beneficiaryLotacao") || undefined,
+                  bankName: watch("beneficiaryBankName") || undefined,
+                  bankAgency: watch("beneficiaryBankAgency") || undefined,
+                  bankAccount: watch("beneficiaryBankAccount") || undefined,
+                }}
                 disabled={readOnly}
                 onSelectBeneficiary={beneficiary => {
-                  // SUGESTÃO a partir da lotação do servidor, não imposição: só
-                  // preenche o que está vazio. Sobrescrever um setor já escolhido
-                  // desfaria, em silêncio, a decisão de quem preenche — servidor
-                  // cedido viaja a serviço de outra pasta, e a despesa corre por
-                  // quem a autorizou.
+                  // SUGESTÃO a partir do cadastro, não imposição: só preenche o
+                  // que está vazio. Sobrescrever um dado já digitado desfaria,
+                  // em silêncio, uma correção de quem preenche — servidor
+                  // cedido viaja a serviço de outra pasta, ou muda de cargo
+                  // entre uma diária e outra, e a despesa corre por quem a
+                  // autorizou agora, não por quem autorizou da última vez.
                   if (beneficiary.departmentId && !departmentId) {
                     setValue("departmentId", beneficiary.departmentId, {
                       shouldValidate: true,
                     });
                   }
+                  if (beneficiary.registrationNumber && !watch("beneficiaryRegistrationNumber")) {
+                    setValue("beneficiaryRegistrationNumber", beneficiary.registrationNumber);
+                  }
+                  if (beneficiary.rg && !watch("beneficiaryRg")) {
+                    setValue("beneficiaryRg", beneficiary.rg);
+                  }
+                  if (beneficiary.jobTitle && !watch("beneficiaryJobTitle")) {
+                    setValue("beneficiaryJobTitle", beneficiary.jobTitle);
+                  }
+                  if (beneficiary.lotacao && !watch("beneficiaryLotacao")) {
+                    setValue("beneficiaryLotacao", beneficiary.lotacao);
+                  }
+                  if (beneficiary.bankName && !watch("beneficiaryBankName")) {
+                    setValue("beneficiaryBankName", beneficiary.bankName);
+                  }
+                  if (beneficiary.bankAgency && !watch("beneficiaryBankAgency")) {
+                    setValue("beneficiaryBankAgency", beneficiary.bankAgency);
+                  }
+                  if (beneficiary.bankAccount && !watch("beneficiaryBankAccount")) {
+                    setValue("beneficiaryBankAccount", beneficiary.bankAccount);
+                  }
                 }}
                 error={errors.beneficiaryName?.message}
               />
+              {errors.beneficiaryCpf && (
+                <p className="text-xs text-red-600">{errors.beneficiaryCpf.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="beneficiaryRegistrationNumber">Matrícula funcional</Label>
+                <Input
+                  id="beneficiaryRegistrationNumber"
+                  placeholder="5240"
+                  disabled={readOnly}
+                  {...register("beneficiaryRegistrationNumber")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="beneficiaryRg">RG</Label>
+                <Input
+                  id="beneficiaryRg"
+                  placeholder="32000002"
+                  disabled={readOnly}
+                  {...register("beneficiaryRg")}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                {/* Campo da cartilha oficial de prestação de contas (Épico 8) —
+                    ausente do cadastro original do beneficiário. */}
+                <Label htmlFor="beneficiaryRgIssuer">Órgão emissor do RG</Label>
+                <Input
+                  id="beneficiaryRgIssuer"
+                  placeholder="SSP/GO"
+                  disabled={readOnly}
+                  {...register("beneficiaryRgIssuer")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="beneficiaryJobTitle">Cargo / Função</Label>
+                <Input
+                  id="beneficiaryJobTitle"
+                  placeholder="Coordenadora do Bolsa Família"
+                  disabled={readOnly}
+                  {...register("beneficiaryJobTitle")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="beneficiaryLotacao">Lotação</Label>
+                <Input
+                  id="beneficiaryLotacao"
+                  placeholder="Fundo Municipal de Assistência Social"
+                  disabled={readOnly}
+                  {...register("beneficiaryLotacao")}
+                />
+              </div>
+            </div>
+
+            {/* Dados bancários: uma célula só no formulário físico (campo 10),
+                mas três campos aqui — digitar tudo junto seria pedir para o
+                usuário inventar a formatação "Banco · AG: x · Conta: y" de
+                cabeça. O servidor é quem junta na hora de montar o PDF. */}
+            <div className="space-y-1.5">
+              <Label>Dados bancários</Label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Input
+                  aria-label="Banco"
+                  placeholder="Banco"
+                  disabled={readOnly}
+                  {...register("beneficiaryBankName")}
+                />
+                <Input
+                  aria-label="Agência"
+                  placeholder="Agência"
+                  disabled={readOnly}
+                  {...register("beneficiaryBankAgency")}
+                />
+                <Input
+                  aria-label="Conta"
+                  placeholder="Conta"
+                  disabled={readOnly}
+                  {...register("beneficiaryBankAccount")}
+                />
+              </div>
             </div>
           </FormBlock>
 
@@ -421,6 +639,81 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
               </div>
             </div>
 
+            {/* Regra do TCE (Épico 8, FR-021/FR-022): período em fim de semana
+                ou feriado cadastrado exige justificativa — o servidor recusa a
+                EMISSÃO sem ela, este bloco só antecipa o aviso. */}
+            {showsWeekendAlert && (
+              <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <div className="flex items-start gap-2 text-sm text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    O período cai em sábado, domingo ou feriado cadastrado. O
+                    Tribunal de Contas exige uma justificativa legal para
+                    emitir a diária nessas condições.
+                  </span>
+                </div>
+                <Textarea
+                  id="weekendHolidayJustification"
+                  rows={2}
+                  placeholder="Ex: Evento com início no sábado, conforme convocação oficial."
+                  disabled={readOnly}
+                  {...register("weekendHolidayJustification")}
+                />
+              </div>
+            )}
+
+            {/* Horários e meio de transporte ficam em branco quando ainda não
+                se sabe — "EM ABERTO" é a convenção do papel físico, não erro
+                de preenchimento, e é assim que o PDF mostra também. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="departureTime">Horário de saída</Label>
+                <Input
+                  id="departureTime"
+                  type="time"
+                  disabled={readOnly}
+                  {...register("departureTime")}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="arrivalTime">Horário de chegada</Label>
+                <Input
+                  id="arrivalTime"
+                  type="time"
+                  disabled={readOnly}
+                  {...register("arrivalTime")}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="transportMeans">Meio de transporte</Label>
+                <Select
+                  value={watch("transportMeans") || NONE}
+                  onValueChange={next =>
+                    setValue(
+                      "transportMeans",
+                      next === NONE ? undefined : (next as FormValues["transportMeans"]),
+                      { shouldValidate: false }
+                    )
+                  }
+                  disabled={readOnly}
+                >
+                  <SelectTrigger id="transportMeans">
+                    <SelectValue placeholder="Não informado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Não informado</SelectItem>
+                    {Object.entries(TRANSPORT_MEANS_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="dailyRate">Valor unitário da diária</Label>
@@ -455,6 +748,33 @@ export function DailyAllowanceForm({ open, onOpenChange, allowance }: Props) {
                   <p className="text-sm text-red-600">{errors.dayCount.message}</p>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="fundingSource">Recursos</Label>
+              <Select
+                value={watch("fundingSource") || NONE}
+                onValueChange={next =>
+                  setValue(
+                    "fundingSource",
+                    next === NONE ? undefined : (next as FormValues["fundingSource"]),
+                    { shouldValidate: false }
+                  )
+                }
+                disabled={readOnly}
+              >
+                <SelectTrigger id="fundingSource" className="sm:max-w-xs">
+                  <SelectValue placeholder="Não informado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>Não informado</SelectItem>
+                  {Object.entries(FUNDING_SOURCE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="rounded-md bg-slate-50 px-3 py-2.5">

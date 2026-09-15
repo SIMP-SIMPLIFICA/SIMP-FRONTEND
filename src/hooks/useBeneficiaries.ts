@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { beneficiaryService } from '@/lib/api/beneficiaries'
+import { type BeneficiaryRegistryInput, beneficiaryService } from '@/lib/api/beneficiaries'
 
 const KEY = 'beneficiaries'
 
@@ -28,11 +28,13 @@ export function useCreateBeneficiary() {
       name,
       cpf,
       departmentId,
+      ...registry
     }: {
       name: string
       cpf?: string | null
       departmentId?: string | null
-    }) => beneficiaryService.create(name, { cpf, departmentId }),
+    } & BeneficiaryRegistryInput) =>
+      beneficiaryService.create(name, { cpf, departmentId, ...registry }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [KEY] }),
   })
 }

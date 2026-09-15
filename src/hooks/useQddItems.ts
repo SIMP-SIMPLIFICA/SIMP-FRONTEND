@@ -39,3 +39,12 @@ export function useDeleteQddItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   })
 }
+
+/** Histórico de suplementação/redução do valor orçado (Épico 8, FR-013). */
+export function useQddItemHistory(id: string | null) {
+  return useQuery({
+    queryKey: [KEY, 'history', id],
+    queryFn: () => qddItemService.getHistory(id!),
+    enabled: Boolean(id),
+  })
+}

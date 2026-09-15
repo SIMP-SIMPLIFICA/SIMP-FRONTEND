@@ -22,13 +22,14 @@ import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
-  useUpdateProcessValidity,
+  useUpdateProcessValidity, useUpdateProcessBudget,
 } from '@/hooks/useVirtualProcesses'
 import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
-import { PROCESS_STATUSES } from '@/types/virtual-process'
-import type { VirtualProcess, UnifiedProcessDoc } from '@/types/virtual-process'
+import { QddItemSelect } from '@/pages/daily-allowances/QddItemSelect'
+import { PROCESS_STATUSES, EXPENSE_PHASE_LABELS } from '@/types/virtual-process'
+import type { VirtualProcess, UnifiedProcessDoc, ExpensePhase } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
 import { libraryService } from '@/lib/api/library'
 import { formatCurrencyBRL, formatCurrencyInput, sanitizeCurrencyInput, parseCurrencyInput } from '@/lib/currency'
@@ -572,6 +573,25 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
                 <div className="font-medium text-slate-700">{formatCurrencyBRL(process.totalValue)}</div>
               </div>
             )}
+            {process.qddItem && (
+              <div>
+                <div className="text-xs text-slate-400">Ficha orçamentária (QDD)</div>
+                <div className="font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                  {process.qddItem.ficha} · {process.qddItem.naturezaDespesa}
+                  {process.budgetOverrun && (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                      Estouro de dotação
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {process.expensePhase && (
+              <div>
+                <div className="text-xs text-slate-400">Fase da despesa</div>
+                <div className="font-medium text-slate-700">{EXPENSE_PHASE_LABELS[process.expensePhase]}</div>
+              </div>
+            )}
             <div>
               <div className="text-xs text-slate-400">Autuado em</div>
               <div className="font-medium text-slate-700">{formatDate(process.createdAt)}</div>
@@ -811,7 +831,10 @@ function ProcessItem({ process, selected, onClick, onEditValidity }: {
   )
 }
 
-// --- Editar prazo/valor de um processo já existente ---
+/** Sentinela do item "sem fase definida" — o Radix não aceita value vazio. */
+const NO_EXPENSE_PHASE = '__none__'
+
+// --- Editar prazo/valor/orçamento de um processo já existente ---
 function EditValidityDialog({ process, onClose }: { process: VirtualProcess | null; onClose: () => void }) {
   // O pai monta este componente com `key={process.id}`, então ele remonta a cada
   // processo diferente — inicializar o estado aqui basta, sem efeito de sincronização.
@@ -821,7 +844,16 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
   const [value, setValue] = useState(
     process?.totalValue != null ? formatCurrencyInput(String(Number(process.totalValue))) : ''
   )
-  const { mutateAsync: updateValidity, isPending } = useUpdateProcessValidity()
+  // Épico 8 (FR-011/FR-019): dotação do QDD e fase da despesa — dimensões
+  // orçamentárias do processo, separadas de prazo/valor no BACKEND
+  // (`/:id/budget` é uma rota própria), mas reunidas nesta MESMA tela para não
+  // multiplicar diálogos por uma ou duas linhas de conteúdo cada.
+  const [qddItemId, setQddItemId] = useState<string | null>(process?.qddItemId ?? null)
+  const [expensePhase, setExpensePhase] = useState<ExpensePhase | null>(process?.expensePhase ?? null)
+
+  const { mutateAsync: updateValidity, isPending: savingValidity } = useUpdateProcessValidity()
+  const { mutateAsync: updateBudget, isPending: savingBudget } = useUpdateProcessBudget()
+  const isPending = savingValidity || savingBudget
 
   async function handleSave() {
     if (!process) return
@@ -834,7 +866,15 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
           totalValue: parseCurrencyInput(value) ?? null,
         },
       })
-      toast({ title: 'Prazo e valor atualizados' })
+
+      // Só chama o endpoint de orçamento se algo de fato mudou — evita uma
+      // segunda requisição (e um segundo lançamento na trilha de auditoria)
+      // toda vez que o usuário só mexe em prazo/valor.
+      if (qddItemId !== (process.qddItemId ?? null) || expensePhase !== (process.expensePhase ?? null)) {
+        await updateBudget({ id: process.id, data: { qddItemId, expensePhase } })
+      }
+
+      toast({ title: 'Prazo, valor e orçamento atualizados' })
       onClose()
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Tente novamente.'
@@ -846,7 +886,7 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
     <Dialog open={!!process} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Prazo e valor</DialogTitle>
+          <DialogTitle>Prazo, valor e orçamento</DialogTitle>
           <DialogDescription>
             Processo <span className="font-mono font-semibold">{process?.processNumber}</span>. A Data de Validade
             é a vigência legal — é ela que gera os alertas de vencimento.
@@ -870,6 +910,38 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
             </div>
           </div>
           <p className="text-xs text-slate-400">Deixe em branco para remover o valor já registrado.</p>
+
+          <div className="space-y-1.5 border-t border-slate-100 pt-4">
+            <Label>Ficha orçamentária (QDD)</Label>
+            <QddItemSelect
+              departmentId={process?.departmentId ?? null}
+              value={qddItemId}
+              onChange={setQddItemId}
+            />
+            {!process?.departmentId && (
+              <p className="text-xs text-slate-400">
+                Este processo não tem departamento vinculado — associe um para escolher a ficha.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Fase da despesa</Label>
+            <Select
+              value={expensePhase ?? NO_EXPENSE_PHASE}
+              onValueChange={next => setExpensePhase(next === NO_EXPENSE_PHASE ? null : (next as ExpensePhase))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Não definida" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_EXPENSE_PHASE}>Não definida</SelectItem>
+                {Object.entries(EXPENSE_PHASE_LABELS).map(([phase, label]) => (
+                  <SelectItem key={phase} value={phase}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <DialogFooter>

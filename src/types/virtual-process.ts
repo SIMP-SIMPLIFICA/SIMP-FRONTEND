@@ -2,6 +2,18 @@ export type ProcessStatus = 'Tramitando' | 'Concluído' | 'Arquivado' | 'Cancela
 
 export const PROCESS_STATUSES: ProcessStatus[] = ['Tramitando', 'Concluído', 'Arquivado', 'Cancelado']
 
+/**
+ * Fase oficial da despesa pública (Lei 4.320/64) — Épico 8, FR-019.
+ * Dimensão ADICIONAL ao `status` textual acima, nunca o substitui.
+ */
+export type ExpensePhase = 'EMPENHO' | 'LIQUIDACAO' | 'PAGAMENTO'
+
+export const EXPENSE_PHASE_LABELS: Record<ExpensePhase, string> = {
+  EMPENHO: 'Empenho',
+  LIQUIDACAO: 'Liquidação',
+  PAGAMENTO: 'Pagamento',
+}
+
 export const PROCESS_CATEGORIES = [
   'Contratos', 'Licitações', 'Convênios', 'Obras', 'Compras', 'Serviços',
   'Recursos Humanos', 'Jurídico', 'Administrativo', 'Outros'
@@ -64,6 +76,11 @@ export interface VirtualProcess {
   subject: string
   status: string
   category: string
+  /** Dotação do QDD que lastreia o processo (Épico 8, FR-011). */
+  qddItemId?: string | null
+  qddItem?: { id: string; ficha: string; fonte: string; naturezaDespesa: string; year: number } | null
+  budgetOverrun?: boolean
+  expensePhase?: ExpensePhase | null
   createdAt: string
   updatedAt: string
   createdById: string
@@ -99,10 +116,21 @@ export interface CreateVirtualProcessPayload {
   validityDate?: string
   totalValue?: number
   status?: string
+  qddItemId?: string | null
+  expensePhase?: ExpensePhase | null
 }
 
 /** Payload do PATCH /:id/validity — `null` remove o valor já gravado. */
 export interface UpdateValidityPayload {
   validityDate?: string | null
   totalValue?: number | null
+}
+
+/**
+ * Payload do PATCH /:id/budget (Épico 8, FR-011/FR-019) — `undefined` não
+ * mexe no campo, `null` limpa (desvincula ficha / remove fase), um valor define.
+ */
+export interface UpdateBudgetPayload {
+  qddItemId?: string | null
+  expensePhase?: ExpensePhase | null
 }

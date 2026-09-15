@@ -18,6 +18,14 @@ export interface BankAccount {
     name: string;
     agency?: string | null;
     accountNumber?: string | null;
+    /** Secretaria/Departamento responsável — vínculo obrigatório (Épico 8, FR-015). */
+    departmentId: string;
+    department?: { id: string; name: string; code: string };
+    /**
+     * Populado só pela futura integração bancária via API — a API MUST
+     * ignorar qualquer valor enviado pelo cliente (Épico 8, FR-016). Nunca
+     * editável na tela, mesmo que o formulário o exiba.
+     */
     initialBalanceCents: number;
     createdAt: string;
     updatedAt: string;
@@ -89,12 +97,15 @@ export const financeService = {
         return response.data;
     },
 
-    createBankAccount: async (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+    // `initialBalanceCents` NÃO faz parte do DTO de propósito (Épico 8,
+    // FR-016) — o servidor ignora esse campo mesmo se enviado; a tela nunca
+    // deveria nem tentar.
+    createBankAccount: async (data: { name: string; agency?: string; accountNumber?: string; departmentId: string }) => {
         const response = await api.post<BankAccount>(`/finance/accounts`, data);
         return response.data;
     },
 
-    updateBankAccount: async (id: string, data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+    updateBankAccount: async (id: string, data: { name?: string; agency?: string; accountNumber?: string; departmentId?: string }) => {
         const response = await api.put<BankAccount>(`/finance/accounts/${id}`, data);
         return response.data;
     },

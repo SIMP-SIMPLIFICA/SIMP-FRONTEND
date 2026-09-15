@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
-import type { CreateVirtualProcessPayload, UpdateValidityPayload } from '@/types/virtual-process'
+import type { CreateVirtualProcessPayload, UpdateBudgetPayload, UpdateValidityPayload } from '@/types/virtual-process'
 
 export function useVirtualProcesses(_workspaceId?: string | undefined, filters?: {
   page?: number; limit?: number; search?: string; status?: string;
@@ -37,6 +37,19 @@ export function useUpdateProcessValidity() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateValidityPayload }) =>
       virtualProcessService.updateValidity(id, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
+      queryClient.invalidateQueries({ queryKey: ['virtualProcess', id] })
+    },
+  })
+}
+
+/** Vínculo com o QDD e/ou fase da despesa (Épico 8, FR-011/FR-019). */
+export function useUpdateProcessBudget() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateBudgetPayload }) =>
+      virtualProcessService.updateBudget(id, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['virtualProcesses'] })
       queryClient.invalidateQueries({ queryKey: ['virtualProcess', id] })

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Landmark, Loader2, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, Loader2, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,36 +20,28 @@ import {
   useUpdateBankAccount,
   useDeleteBankAccount,
 } from "@/hooks/useFinance";
+import { DepartmentSelect } from "@/components/departments/DepartmentSelect";
 import type { BankAccount } from "@/lib/api/finance";
 
 function formatCurrency(cents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 }
 
-function formatCurrencyInput(val: string) {
-  const digits = val.replace(/\D/g, "");
-  if (!digits) return "";
-  const cents = parseInt(digits, 10);
-  return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-}
-
 type AccountFormData = {
   name: string;
   agency: string;
   accountNumber: string;
-  initialBalanceCents: string;
+  departmentId: string;
 };
 
-const emptyForm: AccountFormData = { name: "", agency: "", accountNumber: "", initialBalanceCents: "" };
+const emptyForm: AccountFormData = { name: "", agency: "", accountNumber: "", departmentId: "" };
 
 function accountToForm(a: BankAccount): AccountFormData {
   return {
     name: a.name,
     agency: a.agency ?? "",
     accountNumber: a.accountNumber ?? "",
-    initialBalanceCents: a.initialBalanceCents
-      ? (a.initialBalanceCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-      : "",
+    departmentId: a.departmentId,
   };
 }
 
@@ -76,16 +68,22 @@ function AccountFormDialog({ open, onOpenChange, account, workspaceId }: FormDia
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
+    // Departamento obrigatório também AQUI, não só no servidor (Épico 8,
+    // FR-015) — despesa sem setor identificado não tem ordenador responsável.
+    if (!form.departmentId) {
+      toast({ title: "Selecione o departamento responsável pela conta.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
-      const digits = form.initialBalanceCents.replace(/\D/g, "");
-      const cents = digits ? parseInt(digits, 10) : 0;
-
+      // `initialBalanceCents` NÃO entra no payload de propósito (Épico 8,
+      // FR-016) — o campo é só exibição; o servidor ignoraria de qualquer
+      // forma, mas a tela nem tenta enviar.
       const payload = {
         name: form.name.trim(),
         agency: form.agency.trim() || undefined,
         accountNumber: form.accountNumber.trim() || undefined,
-        initialBalanceCents: cents,
+        departmentId: form.departmentId,
       };
 
       if (account) {
@@ -144,14 +142,31 @@ function AccountFormDialog({ open, onOpenChange, account, workspaceId }: FormDia
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="initialBalance">Saldo Inicial (R$)</Label>
+            <Label htmlFor="departmentId">
+              Secretaria / Departamento <span className="text-red-500">*</span>
+            </Label>
+            <DepartmentSelect
+              id="departmentId"
+              value={form.departmentId || null}
+              onChange={(next) => setForm((f) => ({ ...f, departmentId: next ?? "" }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="initialBalance" className="flex items-center gap-1.5">
+              Saldo Inicial (R$)
+              <span
+                title="Este valor será populado automaticamente por uma futura integração bancária via API. Não é possível editá-lo manualmente."
+                className="inline-flex cursor-help text-slate-400"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
+            </Label>
             <Input
               id="initialBalance"
-              placeholder="0,00"
-              value={form.initialBalanceCents}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, initialBalanceCents: formatCurrencyInput(e.target.value) }))
-              }
+              disabled
+              readOnly
+              value={formatCurrency(account?.initialBalanceCents ?? 0)}
+              title="Este valor será populado automaticamente por uma futura integração bancária via API. Não é possível editá-lo manualmente."
             />
           </div>
           <DialogFooter className="pt-2">
@@ -248,6 +263,11 @@ export default function ContasBancarias() {
                         {[account.agency && `Ag: ${account.agency}`, account.accountNumber && `C/C: ${account.accountNumber}`]
                           .filter(Boolean)
                           .join(" · ")}
+                      </div>
+                    )}
+                    {account.department && (
+                      <div className="text-xs text-slate-400 truncate">
+                        {account.department.code} - {account.department.name}
                       </div>
                     )}
                   </div>

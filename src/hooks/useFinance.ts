@@ -80,10 +80,13 @@ export function useFinanceBankAccounts(_workspaceId?: string | undefined) {
     });
 }
 
+// `initialBalanceCents` NÃO faz parte destes DTOs de propósito (Épico 8,
+// FR-016) — o servidor ignora esse campo mesmo se enviado; a tela nunca
+// deveria nem tentar. `departmentId` obrigatório na criação (FR-015).
 export function useCreateBankAccount(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) =>
+        mutationFn: (data: { name: string; agency?: string; accountNumber?: string; departmentId: string }) =>
             financeService.createBankAccount(data),
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] }); },
     });
@@ -92,7 +95,7 @@ export function useCreateBankAccount(_workspaceId?: string | undefined) {
 export function useUpdateBankAccount(_workspaceId?: string | undefined) {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number } }) =>
+        mutationFn: ({ id, data }: { id: string; data: { name?: string; agency?: string; accountNumber?: string; departmentId?: string } }) =>
             financeService.updateBankAccount(id, data),
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["financeBankAccounts"] }); },
     });

@@ -13,6 +13,7 @@ import {
   ClipboardList,
   MessageSquare,
   Building2,
+  Landmark,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -74,6 +75,9 @@ const TYPE_MAP: Record<string, TypeConfig> = {
   message:    { icon: <MessageSquare size={13} />, color: "bg-sky-100 text-sky-600" },
   PROCESS:    { icon: <Building2 size={13} />,     color: "bg-orange-100 text-orange-600" },
   process:    { icon: <Building2 size={13} />,     color: "bg-orange-100 text-orange-600" },
+  // Vencimento de convênio — Transferegov (Épico 8, FR-023/FR-024).
+  COVENANT_EXPIRING_60: { icon: <Landmark size={13} />, color: "bg-amber-100 text-amber-600" },
+  COVENANT_EXPIRING_30: { icon: <Landmark size={13} />, color: "bg-red-100 text-red-600" },
 }
 
 const DEFAULT_TYPE_CONFIG: TypeConfig = {

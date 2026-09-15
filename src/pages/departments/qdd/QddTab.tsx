@@ -20,6 +20,7 @@ import {
 } from "@/hooks/useQddItems";
 import { formatBRL, parseBRL } from "@/utils/currency";
 import { QddRow, type QddRowValues } from "./QddRow";
+import { BudgetHistoryDialog } from "./BudgetHistoryDialog";
 
 /**
  * QDD — Quadro de Detalhamento da Despesa (Épico 4, Fase 2).
@@ -43,6 +44,7 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<{ id: string; ficha: string } | null>(null);
 
   const { data: items, isLoading, isError } = useQddItems({ departmentId, year });
   const createMut = useCreateQddItem();
@@ -108,6 +110,15 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
       return;
     }
 
+    // Motivo obrigatório só quando o valor de fato muda (Épico 8, FR-013) —
+    // o servidor recusa sem ele; conferir aqui evita a viagem de ida e volta.
+    const current = (items ?? []).find(i => i.id === id);
+    const isChangingValue = current && valorOrcado !== Number(current.valorOrcado);
+    if (isChangingValue && !values.reason.trim()) {
+      setRowErrors(prev => ({ ...prev, [id]: "Informe o motivo da alteração do valor orçado." }));
+      return;
+    }
+
     try {
       await updateMut.mutateAsync({
         id,
@@ -117,6 +128,7 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
           projetoAtividade: values.projetoAtividade.trim(),
           naturezaDespesa: values.naturezaDespesa.trim(),
           valorOrcado,
+          ...(isChangingValue ? { reason: values.reason.trim() } : {}),
         },
       });
       clearError(id);
@@ -142,6 +154,8 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
   }
 
   const total = (items ?? []).reduce((sum, item) => sum + Number(item.valorOrcado), 0);
+  const totalUtilizado = (items ?? []).reduce((sum, item) => sum + Number(item.valorUtilizado), 0);
+  const totalSaldo = (items ?? []).reduce((sum, item) => sum + Number(item.saldoRestante), 0);
 
   return (
     <div className="space-y-3">
@@ -197,7 +211,9 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
                 <TableHead className="w-24">Fonte</TableHead>
                 <TableHead>Projeto / Atividade</TableHead>
                 <TableHead>Natureza da Despesa</TableHead>
-                <TableHead className="w-36 text-right">Valor Orçado</TableHead>
+                <TableHead className="w-32 text-right">Valor Orçado</TableHead>
+                <TableHead className="w-32 text-right">Valor Utilizado</TableHead>
+                <TableHead className="w-32 text-right">Saldo Restante</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
@@ -243,6 +259,7 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
                   }}
                   onSave={values => handleSaveExisting(item.id, values)}
                   onDelete={() => setDeleteTarget(item.id)}
+                  onShowHistory={() => setHistoryTarget({ id: item.id, ficha: item.ficha })}
                 />
               ))}
             </TableBody>
@@ -254,6 +271,14 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
                   </TableCell>
                   <TableCell className="text-right font-semibold text-slate-900 tabular-nums">
                     {formatBRL(total)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-slate-900 tabular-nums">
+                    {formatBRL(totalUtilizado)}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-semibold tabular-nums ${totalSaldo < 0 ? "text-red-600" : "text-slate-900"}`}
+                  >
+                    {formatBRL(totalSaldo)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
@@ -267,9 +292,15 @@ export function QddTab({ departmentId, year, canWrite }: Props) {
         open={deleteTarget !== null}
         onCancel={() => setDeleteTarget(null)}
         title="Excluir dotação?"
-        description="Esta ação não pode ser desfeita. Fichas que já lastreiam diárias emitidas não podem ser excluídas."
+        description="Esta ação não pode ser desfeita. Fichas que já lastreiam diárias emitidas ou processos vinculados não podem ser excluídas."
         onConfirm={handleDelete}
         confirmLabel="Excluir"
+      />
+
+      <BudgetHistoryDialog
+        qddItemId={historyTarget?.id ?? null}
+        ficha={historyTarget?.ficha ?? ""}
+        onClose={() => setHistoryTarget(null)}
       />
     </div>
   );
