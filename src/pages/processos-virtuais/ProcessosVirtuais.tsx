@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
@@ -27,6 +27,7 @@ import {
 import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
 import { QddItemSelect } from '@/pages/daily-allowances/QddItemSelect'
+import { useQddItems } from '@/hooks/useQddItems'
 import { PROCESS_STATUSES, EXPENSE_PHASE_LABELS } from '@/types/virtual-process'
 import type { VirtualProcess, UnifiedProcessDoc, ExpensePhase } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
@@ -112,7 +113,7 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [form, setForm] = useState({
     processNumber: '', departmentId: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
-    bankAccountId: '', bankAccount: '', agency: '', bankName: '',
+    bankAccountId: '', bankAccount: '', agency: '', bankName: '', qddItemId: '',
   })
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
@@ -130,11 +131,22 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
     (deptData?.data ?? []).find(d => d.id === form.departmentId)?.name ?? ''
   const { open: openProcessModal } = useUniversalProcessModal()
 
+  // Cascata do QDD (Row 8): filtrado por departamento, mesmo padrão de
+  // Conta Bancária. A ficha escolhida se desfaz sozinha se o departamento
+  // mudar e ela não pertencer mais a ele.
+  const { data: qddItemsForDept } = useQddItems({ departmentId: form.departmentId || undefined })
+  useEffect(() => {
+    if (form.qddItemId && !(qddItemsForDept ?? []).some(i => i.id === form.qddItemId)) {
+      setForm(f => ({ ...f, qddItemId: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.departmentId])
+
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', departmentId: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
+    setForm({ processNumber: '', departmentId: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '', qddItemId: '' })
     setStartDate(undefined); setEndDate(undefined)
     setValidityDate(undefined); setTotalValue('')
   }
@@ -172,6 +184,7 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
         bankAccount: form.bankAccount.trim() || undefined,
         agency: form.agency.trim() || undefined,
         bankName: form.bankName.trim() || undefined,
+        qddItemId: form.qddItemId || undefined,
       })
       toast({ title: 'Processo autuado com sucesso' })
       reset()
@@ -339,6 +352,29 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
                   {[form.bankName, form.agency && `Ag. ${form.agency}`, form.bankAccount && `Cc ${form.bankAccount}`].filter(Boolean).join(' · ')}
                 </p>
               )}
+            </div>
+
+            {/* Row 8: Dotação Orçamentária (QDD) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Dotação Orçamentária (QDD) <span className="text-slate-400 font-normal">(opcional)</span></Label>
+                {form.departmentId && (
+                  <a
+                    href={`/departamentos/${form.departmentId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                    title="Abre o departamento em outra aba — o que você já preencheu aqui não se perde"
+                  >
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </a>
+                )}
+              </div>
+              <QddItemSelect
+                departmentId={form.departmentId || null}
+                value={form.qddItemId || null}
+                onChange={next => setForm(f => ({ ...f, qddItemId: next ?? '' }))}
+              />
             </div>
           </form>
         </ScrollArea>
