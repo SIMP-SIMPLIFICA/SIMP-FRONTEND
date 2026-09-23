@@ -24,7 +24,6 @@ import {
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
   useUpdateProcessValidity, useUpdateProcessBudget,
 } from '@/hooks/useVirtualProcesses'
-import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
 import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
 import { QddItemSelect } from '@/pages/daily-allowances/QddItemSelect'
@@ -37,6 +36,7 @@ import { getExpiryAlert, EXPIRING_SOON_DAYS } from '@/lib/processExpiry'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
+import { BankAccountCombobox } from './BankAccountCombobox'
 
 // --- helpers ---
 function formatDocument(val: string) {
@@ -123,7 +123,6 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const { data: categories = [] } = useVirtualProcessCategories(undefined)
   const { data: sources = [] } = useVirtualProcessSources(undefined)
   const { data: companies = [] } = useVirtualProcessCompanies(undefined)
-  const { data: bankAccounts = [] } = useFinanceBankAccounts()
   const { data: deptData } = useDepartmentOptions()
   // O nome vem da lista, não do que o usuário digitou: é o que mantém o
   // texto e a chave estrangeira contando a mesma história.
@@ -333,32 +332,17 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
             {/* Row 7: Conta Bancária */}
             <div className="space-y-1.5">
               <Label>Conta Bancária</Label>
-              <Select
-                value={form.bankAccountId}
-                onValueChange={v => {
-                  const acc = bankAccounts.find(a => a.id === v)
-                  setForm(f => ({
-                    ...f,
-                    bankAccountId: v,
-                    bankName: acc?.name ?? '',
-                    agency: acc?.agency ?? '',
-                    bankAccount: acc?.accountNumber ?? '',
-                  }))
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a conta (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.length === 0
-                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma conta cadastrada</div>
-                    : bankAccounts.map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}{a.agency ? ` — Ag. ${a.agency}` : ''}{a.accountNumber ? ` · Cc ${a.accountNumber}` : ''}
-                        </SelectItem>
-                      ))}
-                </SelectContent>
-              </Select>
+              <BankAccountCombobox
+                departmentId={form.departmentId || null}
+                value={form.bankAccountId || null}
+                onSelect={acc => setForm(f => ({
+                  ...f,
+                  bankAccountId: acc?.id ?? '',
+                  bankName: acc?.name ?? '',
+                  agency: acc?.agency ?? '',
+                  bankAccount: acc?.accountNumber ?? '',
+                }))}
+              />
               {form.bankName && (
                 <p className="text-xs text-slate-400">
                   {[form.bankName, form.agency && `Ag. ${form.agency}`, form.bankAccount && `Cc ${form.bankAccount}`].filter(Boolean).join(' · ')}
