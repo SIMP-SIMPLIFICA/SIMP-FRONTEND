@@ -37,6 +37,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
 import { BankAccountCombobox } from './BankAccountCombobox'
+import { CategoryCombobox } from './CategoryCombobox'
 
 // --- helpers ---
 function formatDocument(val: string) {
@@ -120,7 +121,6 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(undefined)
   const { data: processesResponse } = useVirtualProcesses(undefined)
-  const { data: categories = [] } = useVirtualProcessCategories(undefined)
   const { data: sources = [] } = useVirtualProcessSources(undefined)
   const { data: companies = [] } = useVirtualProcessCompanies(undefined)
   const { data: deptData } = useDepartmentOptions()
@@ -211,21 +211,12 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
 
             {/* Row 2: Categoria */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Categoria <span className="text-red-500">*</span></Label>
-                <button type="button" onClick={() => openProcessModal('categorias')}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline" tabIndex={-1}>
-                  <Settings2 className="h-3 w-3" /> Gerenciar categorias
-                </button>
-              </div>
-              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {categories.length === 0
-                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
-                    : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Categoria <span className="text-red-500">*</span></Label>
+              <CategoryCombobox
+                value={form.category}
+                onSelect={name => setForm(f => ({ ...f, category: name }))}
+                onManage={() => openProcessModal('categorias')}
+              />
             </div>
 
             {/* Row 3: Origem + Detalhe */}
