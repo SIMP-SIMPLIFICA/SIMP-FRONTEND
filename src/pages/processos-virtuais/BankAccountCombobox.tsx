@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Landmark, Plus, Search, Settings2 } from "lucide-react";
+import { AlertTriangle, Landmark, Plus, Search, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useFinanceBankAccounts } from "@/hooks/useFinance";
 import { AccountFormDialog } from "@/pages/financeiro/AccountFormDialog";
@@ -23,7 +23,7 @@ interface Props {
  * departamento ser escolhido.
  */
 export function BankAccountCombobox({ departmentId, value, onSelect }: Props) {
-  const { data: allAccounts = [], isLoading } = useFinanceBankAccounts();
+  const { data: allAccounts = [], isLoading, isError } = useFinanceBankAccounts();
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -74,6 +74,27 @@ export function BankAccountCombobox({ departmentId, value, onSelect }: Props) {
             value={isOpen ? query : selected ? label(selected) : ""}
             onFocus={() => { setQuery(""); setIsOpen(true); }}
             onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              // Achado da revisão final (Importante #1): sem isto, Enter aqui
+              // borbulha e também submete o <form> externo de "Autuar
+              // Processo" — o Select do Radix que isto substituiu não tinha
+              // esse risco por não ser um <input> de texto dentro do form.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (suggestions.length === 1) {
+                  onSelect(suggestions[0]);
+                  setIsOpen(false);
+                }
+              }
+            }}
+            onBlur={() => {
+              // Atraso curto: sem ele, o blur fecharia a lista antes de um
+              // clique numa sugestão ser registrado (mesmo padrão de
+              // BeneficiaryCombobox). Também resolve o campo "sumir" ao focar
+              // e depois sair sem escolher nada — sem isto, `isOpen` só
+              // voltava a `false` pelo listener de clique fora.
+              window.setTimeout(() => setIsOpen(false), 150);
+            }}
             disabled={isLoading}
           />
         </div>
@@ -98,7 +119,14 @@ export function BankAccountCombobox({ departmentId, value, onSelect }: Props) {
             <Plus className="h-4 w-4" /> Criar nova conta bancária
           </button>
 
-          {suggestions.length === 0 && (
+          {isError && (
+            <div className="flex items-start gap-2 px-3 py-2.5 text-xs text-red-600">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>Não foi possível carregar as contas bancárias. Recarregue a página.</span>
+            </div>
+          )}
+
+          {!isError && suggestions.length === 0 && (
             <div className="px-3 py-2.5 text-sm text-slate-500">
               Nenhuma conta encontrada para esta secretaria.
             </div>

@@ -153,6 +153,14 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Defesa extra (revisão final da Fase 1, 2026-09-24): o dialog inline de
+    // Nova Conta Bancária (dentro de BankAccountCombobox) já corta a
+    // propagação do próprio submit (`AccountFormDialog.handleSubmit`), mas
+    // este guard protege contra qualquer outro <form> aninhado que venha a
+    // existir aqui no futuro — um evento de submit vindo de dentro de um
+    // portal (Dialog) ainda sobe pela árvore de componentes do React, não
+    // pela árvore do DOM.
+    if (e.target !== e.currentTarget) return
     const num = form.processNumber.trim()
     if ((processesResponse?.data ?? []).some((p: VirtualProcess) => p.processNumber === num)) {
       toast({ title: 'Número já cadastrado', description: `O processo "${num}" já existe.`, variant: 'destructive' })

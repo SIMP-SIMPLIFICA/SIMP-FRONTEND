@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,20 +65,42 @@ export function AccountFormDialog({ open, onOpenChange, account, lockedDepartmen
   const { mutateAsync: create } = useCreateBankAccount();
   const { mutateAsync: update } = useUpdateBankAccount();
 
-  // Reset form when dialog opens
-  const handleOpenChange = (v: boolean) => {
-    if (v) {
+  // Reset form quando o dialog abre — via efeito ligado ao PROP `open`, não
+  // dentro de um wrapper de `onOpenChange`. Achado da revisão final da Fase 1
+  // (2026-09-24, Crítico #1): `open` aqui é controlado de fora (o dialog é
+  // reaberto/prefixado por `setCreateOpen(true)` em `BankAccountCombobox`,
+  // uma mudança de PROP, não uma interação do próprio Radix). O
+  // `useControllableState` do Radix só chama `onChange` quando é O PRÓPRIO
+  // Radix quem pede a mudança (Esc, clique no overlay, botão de fechar) —
+  // nunca quando o consumidor muda o prop `open` diretamente. Um
+  // `onOpenChange` embrulhado nunca via a abertura vinda de fora, e o
+  // formulário abria sempre com `emptyForm` (departamento em branco, mesmo
+  // com `lockedDepartmentId` presente) — o mesmo bug, achado aqui, também
+  // fazia "Editar"/"Nova Conta" em `/financeiro/contas` abrirem com dados
+  // residuais da última vez que o dialog foi usado.
+  useEffect(() => {
+    if (open) {
       setForm(
         account
           ? accountToForm(account)
           : { ...emptyForm, departmentId: lockedDepartmentId ?? "" }
       );
     }
-    onOpenChange(v);
-  };
+  }, [open, account, lockedDepartmentId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // Achado da revisão final (Crítico #2): este formulário é renderizado
+    // dentro do combobox de Conta Bancária, que por sua vez fica dentro do
+    // <form> de "Autuar Novo Processo". `DialogContent` é portalado para
+    // `document.body`, mas eventos sintéticos do React sobem pela árvore de
+    // COMPONENTES, não pela árvore do DOM — um `submit` daqui, sem
+    // `stopPropagation`, também dispara o `onSubmit` do formulário externo
+    // (React Portals: "an event fired from inside a portal will propagate to
+    // ancestors in the containing React tree"). Sem isto, clicar "Criar
+    // Conta" (ou apertar Enter em qualquer campo deste dialog) autuava o
+    // processo externo prematuramente, com o que já estivesse preenchido.
+    e.stopPropagation();
     if (!form.name.trim()) return;
     // Departamento obrigatório também AQUI, não só no servidor (Épico 8,
     // FR-015) — despesa sem setor identificado não tem ordenador responsável.
@@ -114,7 +136,7 @@ export function AccountFormDialog({ open, onOpenChange, account, lockedDepartmen
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{account ? "Editar Conta Bancária" : "Nova Conta Bancária"}</DialogTitle>
