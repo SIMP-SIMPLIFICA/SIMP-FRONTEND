@@ -36,10 +36,18 @@ type SimpleDialogProps = {
   /**
    * Normaliza o texto ANTES de comparar contra `existingNames` e de salvar
    * (ex: Title Case). Sem esta prop, o dialog mantém o comportamento
-   * anterior — salva exatamente como digitado. Hoje só Categoria passa isto
-   * (achado de bug, 2026-09-24: era a única das duas portas de entrada —
-   * esta e o `CategoryCombobox` do modal de Autuar Processo — sem a regra,
-   * e deixava "oBrAs" duplicar "Obras" até o servidor recusar cru).
+   * anterior — salva exatamente como digitado. Hoje só Categoria passa isto.
+   *
+   * ATENÇÃO — duplicação conhecida (achado de bug, 2026-09-24): esta tela
+   * (`/processos-virtuais/configuracoes`, link "Configurações" no menu) tem
+   * uma CÓPIA quase idêntica deste componente em
+   * `components/processos-virtuais/UniversalProcessModal.tsx` — o modal
+   * global que o botão "Gerenciar" do `CategoryCombobox` realmente abre
+   * (via `useUniversalProcessModal`, montado em `AppLayout.tsx`). As duas
+   * já divergiram uma vez (esta foi corrigida, a outra não, e "oBrAs"
+   * continuou passando pela outra porta). Ao mexer numa regra de negócio
+   * aqui, mexa na outra também — ou, melhor, extraia as duas para um
+   * componente compartilhado.
    */
   normalize?: (raw: string) => string
   /**

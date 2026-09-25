@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus, Pencil, Trash2, Loader2, AlertTriangle,
   FolderOpen, Layers, Building2,
@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useVirtualProcesses'
 import type { VirtualProcessCategory, VirtualProcessSource, VirtualProcessCompany } from '@/lib/api/virtual-processes'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
+import { toTitleCase } from '@/lib/string-utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ type CompanyItem = { id: string; name: string; cnpj?: string | null }
 // ─── Dialog de criar/editar item simples (só nome) ────────────────────────────
 
 function SimpleFormDialog({
-  open, onOpenChange, item, label, placeholder, onSave,
+  open, onOpenChange, item, label, placeholder, onSave, normalize, existingNames,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -39,21 +40,51 @@ function SimpleFormDialog({
   label: string
   placeholder: string
   onSave: (name: string, id?: string) => Promise<void>
+  /**
+   * Normaliza o texto ANTES de comparar contra `existingNames` e de salvar
+   * (ex: Title Case). Sem esta prop, salva exatamente como digitado —
+   * comportamento anterior, preservado para quem não passar (hoje: Origens
+   * e Empresas). Achado de bug (2026-09-24): este é o modal de VERDADE que
+   * o botão "Gerenciar" abre (via `useUniversalProcessModal`, montado
+   * globalmente em `AppLayout.tsx`) — uma cópia quase idêntica deste mesmo
+   * `SimpleFormDialog` existe também em `pages/processos-virtuais/Configuracoes.tsx`
+   * (acessível pelo menu "Configurações"), e só ELA tinha sido corrigida
+   * antes. "oBrAs" continuava passando batido aqui.
+   */
+  normalize?: (raw: string) => string
+  /** Nomes já cadastrados — bloqueia duplicata client-side (comparação sem caixa). */
+  existingNames?: string[]
 }) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) setName(item?.name ?? '')
-    onOpenChange(v)
-  }
+  // Reset ao abrir — via efeito ligado ao PROP `open`, não dentro de um
+  // wrapper de `onOpenChange` (mesmo achado da revisão final da Fase 1,
+  // 2026-09-24: o Radix só chama `onOpenChange` quando é ELE quem pede a
+  // mudança, nunca quando o consumidor muda o prop `open` de fora).
+  useEffect(() => {
+    if (open) setName(item?.name ?? '')
+  }, [open, item])
+
+  const normalizedName = normalize ? normalize(name) : name.trim()
+  const alreadyExists = Boolean(
+    normalizedName &&
+    existingNames?.some(
+      n =>
+        n.toLowerCase() === normalizedName.toLowerCase() &&
+        n.toLowerCase() !== (item?.name ?? '').toLowerCase()
+    )
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!normalizedName) return
+    // Defesa igual à do botão desabilitado abaixo — Enter no campo pode
+    // disparar o submit mesmo com o botão de salvar desabilitado.
+    if (alreadyExists) return
     setSaving(true)
     try {
-      await onSave(name.trim(), item?.id)
+      await onSave(normalizedName, item?.id)
       toast({ title: item ? `${label} atualizado com sucesso` : `${label} criado com sucesso` })
       onOpenChange(false)
     } catch (err: unknown) {
@@ -65,7 +96,7 @@ function SimpleFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{item ? `Editar ${label}` : `Novo ${label}`}</DialogTitle>
@@ -77,10 +108,15 @@ function SimpleFormDialog({
           <div className="space-y-2">
             <Label>Nome <span className="text-red-500">*</span></Label>
             <Input required placeholder={placeholder} value={name} onChange={e => setName(e.target.value)} />
+            {alreadyExists && (
+              <p className="text-xs text-red-600">
+                "{normalizedName}" já existe — escolha outro nome ou edite o já cadastrado na lista.
+              </p>
+            )}
           </div>
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving}>
+            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving || alreadyExists}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {item ? 'Salvar' : `Criar ${label}`}
             </Button>
@@ -378,6 +414,8 @@ export function UniversalProcessModal() {
         item={catDialog.item}
         label="Categoria"
         placeholder="Ex: Contratos, Obras, Licitações…"
+        normalize={toTitleCase}
+        existingNames={categories.map(c => c.name)}
         onSave={async (name, id) => { if (id) await updateCat({ id, data: { name } }); else await createCat({ name }) }}
       />
       <SimpleFormDialog
