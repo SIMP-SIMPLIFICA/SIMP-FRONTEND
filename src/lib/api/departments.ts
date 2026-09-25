@@ -79,6 +79,9 @@ export interface LinkedVirtualProcess {
   companyName: string | null
   startDate: string | null
   endDate: string | null
+  /** Épico Departamentos, Fase 2 (2026-09-24) — colunas Assunto/Valor da aba Processos. */
+  subject: string
+  totalValue: string | number | null
 }
 
 /** Seções do dossiê. Os nomes são contrato com o backend — não traduzir. */
