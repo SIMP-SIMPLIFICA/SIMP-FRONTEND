@@ -18,3 +18,15 @@ export function toTitleCase(raw: string): string {
     .replace(/\s+/g, " ")
     .replace(/\b\p{L}/gu, c => c.toUpperCase());
 }
+
+/**
+ * "  Recurso   Próprio  " → "Recurso Próprio". Limpa espaços sem mudar
+ * capitalização — ao contrário de `toTitleCase`, que corromperia siglas
+ * como "FPM"/"ICMS" (viraria "Fpm"/"Icms"). Usado em Origens do Recurso
+ * (achado de bug, 2026-09-24): a comparação de duplicata continua sem
+ * caixa em quem chama isto, então "fpm" ainda é pego como duplicata de
+ * "FPM" — só o texto digitado não é reescrito.
+ */
+export function collapseWhitespace(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ");
+}
