@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Pencil, Trash2, Loader2, AlertTriangle, ChevronDown, Layers, Building2, FolderOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ import {
   useUpdateVirtualProcessCompany, useDeleteVirtualProcessCompany,
 } from '@/hooks/useVirtualProcesses'
 import type { VirtualProcessCategory, VirtualProcessSource, VirtualProcessCompany } from '@/lib/api/virtual-processes'
+import { toTitleCase } from '@/lib/string-utils'
 
 // ─── Tipos genéricos ──────────────────────────────────────────────────────────
 
@@ -32,23 +33,57 @@ type SimpleDialogProps = {
   label: string
   placeholder: string
   onSave: (name: string, id?: string) => Promise<void>
+  /**
+   * Normaliza o texto ANTES de comparar contra `existingNames` e de salvar
+   * (ex: Title Case). Sem esta prop, o dialog mantém o comportamento
+   * anterior — salva exatamente como digitado. Hoje só Categoria passa isto
+   * (achado de bug, 2026-09-24: era a única das duas portas de entrada —
+   * esta e o `CategoryCombobox` do modal de Autuar Processo — sem a regra,
+   * e deixava "oBrAs" duplicar "Obras" até o servidor recusar cru).
+   */
+  normalize?: (raw: string) => string
+  /**
+   * Nomes já cadastrados, como estão no banco — só para bloquear duplicata
+   * client-side (comparação sem caixa). Sem isto, sem bloqueio nenhum: o
+   * servidor ainda recusa duplicata exata via `@@unique`, só que com um
+   * 400/500 cru em vez de um aviso amigável.
+   */
+  existingNames?: string[]
 }
 
-function SimpleFormDialog({ open, onOpenChange, item, label, placeholder, onSave }: SimpleDialogProps) {
+function SimpleFormDialog({ open, onOpenChange, item, label, placeholder, onSave, normalize, existingNames }: SimpleDialogProps) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) setName(item?.name ?? '')
-    onOpenChange(v)
-  }
+  // Reset ao abrir — via efeito ligado ao PROP `open`, não dentro de um
+  // wrapper de `onOpenChange` (mesmo achado da revisão final da Fase 1,
+  // 2026-09-24, em AccountFormDialog.tsx): o Radix só chama `onOpenChange`
+  // quando é ELE quem pede a mudança (Esc, clique fora) — nunca quando o
+  // consumidor muda o prop `open` de fora, como "Nova"/"Editar" fazem aqui.
+  // Sem isto, o campo carregava o nome do item editado anteriormente.
+  useEffect(() => {
+    if (open) setName(item?.name ?? '')
+  }, [open, item])
+
+  const normalizedName = normalize ? normalize(name) : name.trim()
+  const alreadyExists = Boolean(
+    normalizedName &&
+    existingNames?.some(
+      n =>
+        n.toLowerCase() === normalizedName.toLowerCase() &&
+        n.toLowerCase() !== (item?.name ?? '').toLowerCase()
+    )
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!normalizedName) return
+    // Defesa igual à do botão desabilitado abaixo — Enter no campo pode
+    // disparar o submit mesmo com o botão de salvar desabilitado.
+    if (alreadyExists) return
     setSaving(true)
     try {
-      await onSave(name.trim(), item?.id)
+      await onSave(normalizedName, item?.id)
       toast({ title: item ? `${label} atualizado com sucesso` : `${label} criado com sucesso` })
       onOpenChange(false)
     } catch (err: unknown) {
@@ -60,7 +95,7 @@ function SimpleFormDialog({ open, onOpenChange, item, label, placeholder, onSave
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{item ? `Editar ${label}` : `Novo ${label}`}</DialogTitle>
@@ -72,10 +107,15 @@ function SimpleFormDialog({ open, onOpenChange, item, label, placeholder, onSave
           <div className="space-y-2">
             <Label>Nome <span className="text-red-500">*</span></Label>
             <Input required placeholder={placeholder} value={name} onChange={e => setName(e.target.value)} />
+            {alreadyExists && (
+              <p className="text-xs text-red-600">
+                "{normalizedName}" já existe — escolha outro nome ou edite o já cadastrado na lista.
+              </p>
+            )}
           </div>
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving}>
+            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving || alreadyExists}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {item ? 'Salvar' : `Criar ${label}`}
             </Button>
@@ -421,6 +461,8 @@ export default function Configuracoes() {
         item={catDialog.item}
         label="Categoria"
         placeholder="Ex: Contratos, Obras, Licitações…"
+        normalize={toTitleCase}
+        existingNames={categories.map(c => c.name)}
         onSave={async (name, id) => {
           if (id) await updateCat({ id, data: { name } })
           else await createCat({ name })

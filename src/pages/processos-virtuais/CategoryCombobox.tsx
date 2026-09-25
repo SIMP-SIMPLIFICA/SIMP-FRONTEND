@@ -6,20 +6,12 @@ import {
   useVirtualProcessCategories,
   useCreateVirtualProcessCategory,
 } from "@/hooks/useVirtualProcesses";
+import { toTitleCase } from "@/lib/string-utils";
 
 interface Props {
   value: string;
   onSelect: (name: string) => void;
   onManage: () => void;
-}
-
-/** "obras públicas" → "Obras Públicas". Mesma normalização usada pro bloqueio de duplicata. */
-function toTitleCase(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/\b\p{L}/gu, c => c.toUpperCase());
 }
 
 /**
