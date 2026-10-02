@@ -6,6 +6,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -17,6 +18,7 @@ import { useCovenants, useDeleteCovenant, useCovenantTypes } from '@/hooks/useCo
 import type { Covenant, CovenantStatus } from '@/lib/api/covenants'
 import CovenantFormDialog from './CovenantFormDialog'
 import CovenantDetailSheet from './CovenantDetailSheet'
+import { CovenantSettingsTab } from './CovenantSettingsTab'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 
@@ -164,6 +166,13 @@ export default function CovenantsPage() {
         </div>
       </div>
 
+      <Tabs defaultValue="convenios" className="flex flex-1 flex-col overflow-hidden">
+        <TabsList className="mx-6 mt-3 w-fit shrink-0">
+          <TabsTrigger value="convenios">Convênios</TabsTrigger>
+          <TabsTrigger value="configuracoes">Configurações de Dados</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="convenios" className="flex flex-1 flex-col overflow-hidden mt-0">
       {/* ── Filters ── */}
       <div className="border-b border-slate-100 bg-slate-50 px-6 py-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -326,6 +335,12 @@ export default function CovenantsPage() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="configuracoes" className="flex-1 overflow-auto mt-0">
+          <CovenantSettingsTab />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Create/Edit dialog ── */}
       <CovenantFormDialog
