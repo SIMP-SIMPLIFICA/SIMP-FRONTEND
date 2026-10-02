@@ -49,6 +49,7 @@ import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
 import CouncilSignReturnPage from "@/pages/councils/CouncilSignReturnPage";
+import AuditLogPage from "@/pages/auditoria/AuditLogPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -89,6 +90,11 @@ export const router = createBrowserRouter([
           { path: "/admin/organizations/new",      element: <AdminNewOrganizationPage /> },
           { path: "/admin/organizations/:id",      element: <AdminOrganizationDetailPage /> },
           { path: "/admin/support",                element: <SupportAdminPage /> },
+          // Movida de /auditoria (PermissionGate anyOf=["audit:read","audit:export"])
+          // para cá a pedido do produto (2026-09-22): decisão de arquitetura para
+          // alinhar com o Épico 5 (painel do Dono do Sistema), não uma correção de
+          // bug confirmado — ver nota no tasks.md do épico sobre o T001 original.
+          { path: "/admin/auditoria",              element: <AuditLogPage /> },
         ],
       },
     ],

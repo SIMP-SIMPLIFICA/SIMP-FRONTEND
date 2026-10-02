@@ -1,0 +1,671 @@
+<title>Dossiê SIMP Frontend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F6F7FB;
+    --surface: #FFFFFF;
+    --surface-2: #EEF0F6;
+    --ink: #161B27;
+    --ink-muted: #5C6478;
+    --ink-faint: #8A91A5;
+    --accent: #2E3F6E;
+    --accent-ink: #FFFFFF;
+    --accent-tint: #E7EBF6;
+    --accent-warm: #96702A;
+    --accent-warm-tint: #F3E8D3;
+    --rule: #DDE1EC;
+    --rule-strong: #C4C9D9;
+    --code-bg: #EEF0F6;
+    --shadow: 0 1px 2px rgba(22, 27, 39, 0.06), 0 6px 20px rgba(22, 27, 39, 0.06);
+
+    --good: #1E6B4F;
+    --good-tint: #E1F1EA;
+    --warn: #92400E;
+    --warn-tint: #FBEDD8;
+
+    --font-display: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10141D;
+      --surface: #171C28;
+      --surface-2: #1D2331;
+      --ink: #E7EAF3;
+      --ink-muted: #9AA2B8;
+      --ink-faint: #6C7488;
+      --accent: #8FA3E0;
+      --accent-ink: #10141D;
+      --accent-tint: #1E2740;
+      --accent-warm: #D8AE63;
+      --accent-warm-tint: #2C2413;
+      --rule: #262C3D;
+      --rule-strong: #333B52;
+      --code-bg: #1B2130;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px rgba(0, 0, 0, 0.35);
+      --good: #57C293;
+      --good-tint: #142A21;
+      --warn: #E3A854;
+      --warn-tint: #2C2313;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10141D;
+    --surface: #171C28;
+    --surface-2: #1D2331;
+    --ink: #E7EAF3;
+    --ink-muted: #9AA2B8;
+    --ink-faint: #6C7488;
+    --accent: #8FA3E0;
+    --accent-ink: #10141D;
+    --accent-tint: #1E2740;
+    --accent-warm: #D8AE63;
+    --accent-warm-tint: #2C2413;
+    --rule: #262C3D;
+    --rule-strong: #333B52;
+    --code-bg: #1B2130;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 30px rgba(0, 0, 0, 0.35);
+    --good: #57C293;
+    --good-tint: #142A21;
+    --warn: #E3A854;
+    --warn-tint: #2C2313;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 0;
+    padding-inline: max(20px, calc((100% - 720px) / 2));
+    padding-block: 3.5rem 6rem;
+  }
+  ::selection { background: var(--accent-tint); color: var(--ink); }
+
+  h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); text-wrap: balance; margin: 0; }
+  a { color: var(--accent); }
+  code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+  code {
+    background: var(--code-bg);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    white-space: nowrap;
+  }
+
+  /* ── Masthead ── */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--rule-strong);
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-warm);
+  }
+  .masthead h1 {
+    font-size: clamp(2rem, 4.6vw, 2.9rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.08;
+  }
+  .masthead .dek {
+    font-family: var(--font-body);
+    font-style: italic;
+    color: var(--ink-muted);
+    font-size: 1.1rem;
+    max-width: 56ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-top: 0.4rem;
+  }
+  .meta-row span::before { content: "· "; color: var(--rule-strong); }
+  .meta-row span:first-child::before { content: ""; }
+
+  /* ── Stack strip ── */
+  .stack-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.4rem;
+  }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    background: var(--surface-2);
+    border: 1px solid var(--rule);
+    color: var(--ink-muted);
+    padding: 0.28rem 0.6rem;
+    border-radius: 999px;
+  }
+
+  /* ── TOC ── */
+  .toc {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem 2rem;
+    list-style: none;
+    margin: 0 0 4rem;
+    padding: 0;
+    font-family: var(--font-display);
+  }
+  .toc li { border-bottom: 1px dotted var(--rule); }
+  .toc a {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.55rem 0;
+    text-decoration: none;
+    color: var(--ink);
+    font-size: 0.94rem;
+  }
+  .toc a:hover { color: var(--accent); }
+  .toc .num { font-family: var(--font-mono); color: var(--accent-warm); font-size: 0.82rem; }
+
+  /* ── Sections ── */
+  section { margin-bottom: 4.2rem; scroll-margin-top: 1.5rem; }
+  section > .eyebrow { display: block; margin-bottom: 0.5rem; }
+  section > h2 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--rule-strong);
+    margin-bottom: 1.6rem;
+  }
+  h3 {
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin: 2.4rem 0 0.9rem;
+  }
+  h3 .num { color: var(--accent-warm); font-family: var(--font-mono); font-size: 0.9rem; margin-right: 0.5rem; }
+  p { margin: 0 0 1.1rem; }
+  ul, ol { margin: 0 0 1.1rem; padding-left: 1.3rem; }
+  li { margin-bottom: 0.45rem; }
+  strong { font-weight: 600; }
+
+  .lede {
+    font-size: 1.16rem;
+    color: var(--ink-muted);
+  }
+
+  /* ── Callouts ── */
+  .callout {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    margin: 1.3rem 0;
+    font-size: 0.95rem;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-tint); }
+  .callout.warn strong { color: var(--warn); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout .label {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--warn);
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  /* ── Tables ── */
+  .table-wrap { overflow-x: auto; margin: 1.4rem 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+  caption {
+    text-align: left;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.5rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  td .mono { display: block; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Pills ── */
+  .pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 4px;
+    background: var(--accent-tint);
+    color: var(--accent);
+  }
+  .pill.good { background: var(--good-tint); color: var(--good); }
+  .pill.warn { background: var(--warn-tint); color: var(--warn); }
+
+  /* ── Diagrams ── */
+  figure { margin: 1.8rem 0; }
+  figure svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+  }
+  figure svg .accent-line { color: var(--accent); }
+  figure svg .warm-line { color: var(--accent-warm); }
+  figure svg text { fill: currentColor; font-family: var(--font-mono); }
+  figure svg .lbl-strong { font-family: var(--font-display); font-weight: 600; }
+  figcaption {
+    font-size: 0.86rem;
+    color: var(--ink-muted);
+    margin-top: 0.6rem;
+    max-width: 62ch;
+  }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 5rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .toc { grid-template-columns: 1fr; }
+    .masthead h1 { font-size: 1.9rem; }
+  }
+</style>
+
+<article>
+
+  <div class="masthead">
+    <span class="eyebrow">Dossiê Técnico · Arquitetura</span>
+    <h1>SIMP Frontend</h1>
+    <p class="dek">Resumo executivo e arquitetural da aplicação cliente do Sistema Integrado de Municípios e Prefeituras — stack, mecanismos de segurança e o contrato de integração com o backend.</p>
+    <div class="meta-row">
+      <span>simp-frontend</span>
+      <span>SPA · React Router (data router)</span>
+      <span>Documento vivo — reflete o código-fonte na data abaixo</span>
+    </div>
+    <div class="stack-strip">
+      <span class="chip">React 19</span>
+      <span class="chip">TypeScript 5.9</span>
+      <span class="chip">Vite 7</span>
+      <span class="chip">React Router 7</span>
+      <span class="chip">TanStack Query 5</span>
+      <span class="chip">React Hook Form + Zod</span>
+      <span class="chip">Radix UI + Tailwind</span>
+      <span class="chip">Vitest</span>
+    </div>
+  </div>
+
+  <ul class="toc">
+    <li><a href="#stack"><span>Stack Tecnológica</span> <span class="num">01</span></a></li>
+    <li><a href="#seguranca"><span>Segurança no Frontend</span> <span class="num">02</span></a></li>
+    <li><a href="#rbac"><span>&nbsp;&nbsp;RBAC e Guardas de Rota</span> <span class="num">02.1</span></a></li>
+    <li><a href="#tokens"><span>&nbsp;&nbsp;Gerenciamento de Tokens</span> <span class="num">02.2</span></a></li>
+    <li><a href="#interceptador"><span>&nbsp;&nbsp;Interceptador HTTP</span> <span class="num">02.3</span></a></li>
+    <li><a href="#impersonation"><span>&nbsp;&nbsp;Impersonation (Super Admin)</span> <span class="num">02.4</span></a></li>
+    <li><a href="#erros"><span>&nbsp;&nbsp;Tratamento de Erros</span> <span class="num">02.5</span></a></li>
+    <li><a href="#backend"><span>Relação com o Backend</span> <span class="num">03</span></a></li>
+  </ul>
+
+  <!-- ─────────────────────────── 01 STACK ─────────────────────────── -->
+  <section id="stack">
+    <span class="eyebrow">01</span>
+    <h2>Stack Tecnológica</h2>
+    <p class="lede">Uma SPA em React 19 + TypeScript, servida por Vite, sem framework de gerenciamento de estado global — o cache do TanStack Query cumpre esse papel para todo dado de servidor.</p>
+
+    <p>O frontend é organizado por <strong>domínio de negócio</strong>, não por tipo técnico de arquivo: cada módulo (Diárias, Conselhos, Financeiro, Processos Virtuais, Workspaces…) tem sua própria página em <code>src/pages/</code>, seus componentes em <code>src/components/</code>, seu hook de dados em <code>src/hooks/</code> e seu cliente de API em <code>src/lib/api/</code>. Essa simetria de três pontas por módulo é o padrão que se repete em todo o projeto.</p>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Camadas e responsabilidades</caption>
+        <thead>
+          <tr><th>Camada</th><th>Local</th><th>Responsabilidade</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Páginas</td><td class="mono">src/pages/&lt;módulo&gt;</td><td>Composição de tela, roteamento de estado local (filtros, modais)</td></tr>
+          <tr><td>Componentes</td><td class="mono">src/components/&lt;módulo&gt;</td><td>UI reutilizável do domínio; <code>components/ui</code> guarda os primitivos (Radix + shadcn)</td></tr>
+          <tr><td>Hooks de dados</td><td class="mono">src/hooks/use&lt;Módulo&gt;.ts</td><td>Envelopam TanStack Query — <code>useQuery</code>/<code>useMutation</code> por recurso, com invalidação de cache explícita</td></tr>
+          <tr><td>Clientes de API</td><td class="mono">src/lib/api/&lt;módulo&gt;.ts</td><td>Funções tipadas que chamam o endpoint REST correspondente; única camada que conhece as rotas do backend</td></tr>
+          <tr><td>Núcleo transversal</td><td class="mono">src/lib/*.ts</td><td>Autenticação, permissões, interceptador HTTP, impersonation, honeypot, Turnstile</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3><span class="num">01.1</span>Estado e dados de servidor</h3>
+    <p>Não há Redux, Zustand ou Context genérico de estado — <strong>TanStack React Query</strong> é a única fonte de verdade para dado vindo do backend, com <code>queryClient</code> centralizado em <code>src/lib/queryClient.ts</code> (extraído da árvore React de propósito: o interceptador HTTP precisa chamar <code>queryClient.clear()</code> fora de qualquer componente, ao reagir a uma sessão encerrada pelo servidor). Estado de formulário é responsabilidade do <strong>React Hook Form</strong>, validado com <strong>Zod</strong> — o mesmo par usado em praticamente todo formulário do sistema, de cadastro de beneficiário a emissão de diária.</p>
+
+    <h3><span class="num">01.2</span>Interface e componentes</h3>
+    <p>Os componentes visuais seguem o padrão <strong>shadcn/ui</strong>: primitivos acessíveis do <strong>Radix UI</strong> (diálogo, popover, seleção, abas, dropdown…) estilizados com <strong>Tailwind CSS</strong> e compostos localmente em <code>src/components/ui</code> — não é uma dependência de biblioteca de componentes, é código do próprio repositório, o que permite ajustar cada primitivo às regras de negócio do SIMP sem esperar por um <em>release</em> upstream. Gráficos usam <strong>Recharts</strong>; quadros arrastáveis (o board de tarefas dos Workspaces) usam <strong>dnd-kit</strong>; exportação de planilhas usa <strong>xlsx</strong>; datas passam por <strong>date-fns</strong>.</p>
+
+    <h3><span class="num">01.3</span>Roteamento e build</h3>
+    <p><strong>React Router 7</strong> no modo <em>data router</em> (<code>createBrowserRouter</code>) define toda a árvore de rotas em um único arquivo (<code>src/router.tsx</code>), incluindo os componentes de guarda descritos na seção 2.1 — a proteção de rota é, portanto, declarativa e visível num só lugar, não espalhada em cada página. O bundler é o <strong>Vite 7</strong>; testes usam <strong>Vitest</strong> + Testing Library, com suíte própria em <code>src/test</code>.</p>
+  </section>
+
+  <!-- ─────────────────────────── 02 SEGURANÇA ─────────────────────────── -->
+  <section id="seguranca">
+    <span class="eyebrow">02</span>
+    <h2>Segurança no Frontend</h2>
+    <p class="lede">A interface assume que o backend é a autoridade final — nenhuma checagem do lado do cliente é tratada como controle de acesso real. O que existe aqui é uma segunda barreira, pensada para esconder o que o usuário não pode ver e cortar chamadas que o servidor recusaria de qualquer forma.</p>
+
+    <h3 id="rbac"><span class="num">02.1</span>RBAC e guardas de rota</h3>
+    <p>O modelo de permissão é o mesmo do backend: cada usuário tem uma ou mais <em>Roles</em>, cada <em>Role</em> carrega uma lista de chaves de permissão no formato <code>domínio:ação</code> (<code>finance:write</code>, <code>protocols:admin</code>, <code>dailyAllowances:issue</code>…). O endpoint <code>/api/v1/auth/me</code> devolve essa lista já achatada dentro de <code>user.roles[].role.permissions</code>, e <code>src/lib/permissions.ts</code> a reduz a um <code>Set&lt;string&gt;</code> consultado por três funções puras: <code>hasPermission</code>, <code>hasAnyPermission</code> e <code>hasAllPermissions</code>.</p>
+
+    <p>O roteador aplica essa checagem em <strong>duas camadas independentes</strong>, empilhadas por rota:</p>
+    <ul>
+      <li><strong>Módulo</strong> (<code>ModuleGate</code>) — confere se a <em>organização</em> tem aquele módulo habilitado (<code>user.enabledModules</code>, um <em>feature flag</em> por tenant/plano). Super Admin sempre passa.</li>
+      <li><strong>Permissão</strong> (<code>PermissionGate</code>) — confere se o <em>usuário</em> tem ao menos uma das permissões exigidas por aquela tela (<code>anyOf={[...]}</code>).</li>
+    </ul>
+    <p>As duas existem porque resolvem problemas diferentes: uma organização no plano básico pode não ter o módulo de Convênios habilitado (isso é comercial, não é sobre quem é o usuário); dentro de uma organização que tem o módulo, nem todo usuário pode escrever nele (isso é sobre o cargo da pessoa). Tirar qualquer uma das duas reabriria uma tela por digitação direta da URL, mesmo com o item já oculto do menu lateral.</p>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Amostra de rotas e suas guardas (src/router.tsx)</caption>
+        <thead>
+          <tr><th>Rota</th><th>Módulo exigido</th><th>Permissão (qualquer uma)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">/financeiro/*</td><td class="mono">finance</td><td class="mono">finance:read · write · approve · export</td></tr>
+          <tr><td class="mono">/daily-allowances</td><td class="mono">dailyAllowances</td><td class="mono">dailyAllowances:read · write · issue · delete</td></tr>
+          <tr><td class="mono">/protocolos</td><td class="mono">protocols</td><td class="mono">protocols:read · write · admin</td></tr>
+          <tr><td class="mono">/conselhos/*</td><td class="mono">councils</td><td><span class="pill warn">pendente</span> — sem PermissionGate ainda (ver nota)</td></tr>
+          <tr><td class="mono">/usuarios</td><td>—</td><td class="mono">users:read · manage</td></tr>
+          <tr><td class="mono">/admin/*</td><td colspan="2"><code>SuperAdminRoute</code> isolado — exige <code>isSuperAdmin</code>, ignora módulo e permissão de organização</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <span class="label">Achado no código</span>
+      <p>As rotas de Conselhos Municipais têm um comentário <code>TODO</code> no próprio roteador: só passam pelo <code>ModuleGate</code>, ainda sem <code>PermissionGate</code> (<code>councils:read/write/admin</code>) por cima. Hoje, qualquer usuário de uma organização com o módulo habilitado acessa a tela — o controle fino por permissão ficou pendente de implementação, não é uma omissão deste resumo.</p>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 520 440" role="img" aria-label="Empilhamento de guardas de rota: Sessão, depois Módulo, depois Permissão, até chegar à Página; falha em qualquer camada redireciona sem renderizar a página.">
+        <defs>
+          <marker id="arrH" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+          </marker>
+        </defs>
+        <g font-size="12.5">
+          <!-- L1 Sessão -->
+          <rect x="40" y="20" width="280" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="60" y="46" class="lbl-strong" font-size="14">Sessão</text>
+          <text x="60" y="66" fill="currentColor" opacity="0.75">ProtectedRoute · SuperAdminRoute</text>
+
+          <line x1="180" y1="84" x2="180" y2="132" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrH)"/>
+          <text x="196" y="112" opacity="0.7">autenticado</text>
+
+          <!-- L2 Módulo -->
+          <rect x="40" y="134" width="280" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="60" y="160" class="lbl-strong" font-size="14">Módulo</text>
+          <text x="60" y="180" fill="currentColor" opacity="0.75">ModuleGate — feature flag da organização</text>
+
+          <line x1="180" y1="198" x2="180" y2="246" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrH)"/>
+          <text x="196" y="226" opacity="0.7">habilitado</text>
+
+          <!-- L3 Permissão -->
+          <rect x="40" y="248" width="280" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="60" y="274" class="lbl-strong" font-size="14">Permissão</text>
+          <text x="60" y="294" fill="currentColor" opacity="0.75">PermissionGate — Role.permissions do usuário</text>
+
+          <line x1="180" y1="312" x2="180" y2="360" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrH)"/>
+          <text x="196" y="340" opacity="0.7">concedida</text>
+
+          <!-- L4 Página -->
+          <rect x="40" y="362" width="280" height="50" rx="6" class="accent-line" fill="currentColor" fill-opacity="0.1" stroke="currentColor" stroke-width="1.6"/>
+          <text x="60" y="393" class="lbl-strong accent-line" font-size="14">Página</text>
+
+          <!-- Bracket + falha -->
+          <path d="M 360 20 h 14 v 292 h -14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.6"/>
+          <line x1="374" y1="166" x2="400" y2="166" stroke="currentColor" stroke-width="1.2" opacity="0.6" marker-end="url(#arrH)"/>
+          <text x="404" y="150" opacity="0.8">falha em qualquer</text>
+          <text x="404" y="167" opacity="0.8">camada acima →</text>
+          <text x="404" y="184" class="lbl-strong" font-size="12.5">&lt;Navigate to="/"&gt;</text>
+          <text x="404" y="202" opacity="0.6">(página nunca renderiza)</text>
+        </g>
+      </svg>
+      <figcaption>Fig. 1 — Toda rota protegida atravessa até três guardas empilhadas antes da página; qualquer uma delas pode desviar o usuário sem que o componente da tela chegue a montar.</figcaption>
+    </figure>
+
+    <h3 id="tokens"><span class="num">02.2</span>Gerenciamento de tokens</h3>
+    <p>A estratégia de armazenamento (documentada literalmente no topo de <code>src/lib/auth.ts</code>) segue a prática recomendada contra roubo de token via XSS:</p>
+    <div class="table-wrap">
+      <table>
+        <caption>Onde cada token vive</caption>
+        <thead><tr><th>Token</th><th>Onde fica</th><th>Por quê</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="pill">access token</span></td>
+            <td>Variável em memória (módulo JS), <strong>nunca</strong> em <code>localStorage</code>/<code>sessionStorage</code></td>
+            <td>Some ao fechar a aba; inacessível a um script injetado que leia o storage do navegador</td>
+          </tr>
+          <tr>
+            <td><span class="pill">refresh token</span></td>
+            <td>Cookie <code>httpOnly</code>, gerido só pelo backend</td>
+            <td>JavaScript não consegue lê-lo nem exfiltrá-lo — o navegador o envia sozinho com <code>credentials: "include"</code></td>
+          </tr>
+          <tr>
+            <td><span class="pill">refresh de impersonation</span></td>
+            <td>Também em memória (variável separada)</td>
+            <td>Ver seção 2.4 — não pode reaproveitar o cookie do Super Admin</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A sessão persiste entre recarregamentos de página sem nada em <em>storage</em> do lado do cliente: ao abrir o app, <code>useAuth</code> chama <code>/auth/me</code> sem token; o interceptador (seção 2.3) recebe o 401 esperado e usa o cookie <code>httpOnly</code> para buscar um access token novo antes de repetir a chamada — o usuário nunca vê essa renovação acontecer.</p>
+
+    <h3 id="interceptador"><span class="num">02.3</span>Interceptador HTTP</h3>
+    <p>Toda chamada ao backend passa por uma única função, <code>apiRequest()</code> em <code>src/lib/api.ts</code>, que funciona como interceptador central. Além de anexar o <code>Authorization: Bearer</code>, ela reconhece três respostas de erro com significado especial e reage antes de qualquer código de tela ver o erro:</p>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Códigos de resposta com tratamento dedicado</caption>
+        <thead><tr><th>Resposta</th><th>Gatilho</th><th>Ação do interceptador</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="pill">401</span> genérico</td>
+            <td>Access token expirado</td>
+            <td>Enfileira chamadas concorrentes, renova via <code>/auth/refresh-token</code>, repete a chamada original</td>
+          </tr>
+          <tr>
+            <td><span class="pill warn">403</span> <code>ORGANIZATION_SUSPENDED</code></td>
+            <td>Organização suspensa (inadimplência, bloqueio administrativo)</td>
+            <td>Vai direto para logout — renovar o token não resolveria; limpa o cache do Query e redireciona a <code>/acesso-suspenso</code></td>
+          </tr>
+          <tr>
+            <td><span class="pill warn">401</span> <code>SESSION_INVALIDATED</code></td>
+            <td>Fingerprint de sessão não confere (token em uso de outro dispositivo)</td>
+            <td>Também pula o fluxo de renovação — um token novo carregaria o mesmo problema — e vai direto para <code>/login</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>O ponto de desenho relevante: nem todo 401/403 é tratado igual. Um 403 comum de permissão nunca desloga ninguém — só os dois códigos específicos acima acionam a saída forçada, checados pelo corpo da resposta, não pelo HTTP status isolado. Chamadas concorrentes durante uma renovação são enfileiradas (<code>failedQueue</code>) em vez de disparar múltiplos refreshes em paralelo — evita a corrida de duas renovações tentando invalidar o mesmo refresh token.</p>
+
+    <figure>
+      <svg viewBox="0 0 660 340" role="img" aria-label="Fluxo de uma chamada de API: componente chama apiRequest, que envia ao backend; a resposta 2xx retorna os dados, um 401 genérico renova a sessão e repete a chamada, e um kill switch (403 organização suspensa ou 401 sessão invalidada) desloga imediatamente.">
+        <defs>
+          <marker id="arrF" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+          </marker>
+        </defs>
+        <g font-size="12">
+          <!-- top row -->
+          <rect x="20" y="20" width="170" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="35" y="44" class="lbl-strong" font-size="13">Componente</text>
+          <text x="35" y="62" opacity="0.7">hook de dados</text>
+
+          <line x1="190" y1="48" x2="248" y2="48" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrF)"/>
+          <text x="196" y="42" opacity="0.65" font-size="10.5">invoca</text>
+
+          <rect x="250" y="20" width="170" height="56" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="265" y="44" class="lbl-strong" font-size="13">apiRequest()</text>
+          <text x="265" y="62" opacity="0.7">anexa Bearer</text>
+
+          <line x1="420" y1="48" x2="478" y2="48" stroke="currentColor" stroke-width="1.4" marker-end="url(#arrF)"/>
+          <text x="426" y="42" opacity="0.65" font-size="10.5">fetch()</text>
+
+          <rect x="480" y="20" width="170" height="56" rx="6" class="accent-line" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <text x="495" y="44" class="lbl-strong accent-line" font-size="13">Backend</text>
+          <text x="495" y="62" opacity="0.7">Fastify + Prisma</text>
+
+          <!-- fan out -->
+          <line x1="565" y1="76" x2="105" y2="150" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" opacity="0.85"/>
+          <text x="150" y="118" opacity="0.75">2xx</text>
+
+          <line x1="565" y1="76" x2="335" y2="150" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" opacity="0.85"/>
+          <text x="360" y="118" opacity="0.75">401</text>
+
+          <line x1="565" y1="76" x2="565" y2="150" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" class="warm-line" opacity="0.95"/>
+          <text x="500" y="118" class="warm-line" opacity="0.95">403 / 401*</text>
+
+          <!-- outcomes -->
+          <rect x="20" y="150" width="170" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="35" y="174" class="lbl-strong" font-size="12.5">Sucesso</text>
+          <text x="35" y="192" opacity="0.7">dados voltam ao</text>
+          <text x="35" y="206" opacity="0.7">componente</text>
+
+          <rect x="250" y="150" width="170" height="64" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="265" y="174" class="lbl-strong" font-size="12.5">Renova sessão</text>
+          <text x="265" y="192" opacity="0.7">cookie httpOnly ou</text>
+          <text x="265" y="206" opacity="0.7">refresh de impersonation</text>
+
+          <rect x="480" y="150" width="170" height="64" rx="6" class="warm-line" fill="currentColor" fill-opacity="0.08" stroke="currentColor" stroke-width="1.4"/>
+          <text x="495" y="174" class="lbl-strong warm-line" font-size="12.5">Kill switch</text>
+          <text x="495" y="192" opacity="0.85">ORGANIZATION_SUSPENDED</text>
+          <text x="495" y="206" opacity="0.85">SESSION_INVALIDATED</text>
+
+          <!-- resolve loop -->
+          <line x1="150" y1="150" x2="150" y2="76" stroke="currentColor" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrF)" opacity="0.6"/>
+          <text x="156" y="112" opacity="0.6" font-size="10.5">resolve</text>
+
+          <!-- retry loop -->
+          <line x1="335" y1="214" x2="335" y2="262" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" opacity="0.85"/>
+          <rect x="250" y="264" width="170" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="265" y="286" class="lbl-strong" font-size="12.5">Repete a chamada</text>
+          <text x="265" y="302" opacity="0.7">original</text>
+          <polyline points="250,290 210,290 210,48 248,48" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" opacity="0.85"/>
+          <text x="158" y="284" opacity="0.6" font-size="10.5">retry</text>
+
+          <!-- redirect -->
+          <line x1="565" y1="214" x2="565" y2="262" stroke="currentColor" stroke-width="1.2" marker-end="url(#arrF)" class="warm-line" opacity="0.95"/>
+          <rect x="480" y="264" width="170" height="52" rx="6" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="495" y="286" class="lbl-strong" font-size="12.5">Logout imediato</text>
+          <text x="495" y="302" opacity="0.7">/login · /acesso-suspenso</text>
+        </g>
+      </svg>
+      <figcaption>Fig. 2 — Um único ponto (<code>apiRequest</code>) decide entre três caminhos: seguir em frente, renovar e repetir, ou encerrar a sessão sem tentar renovar. *403/401 aqui referem-se apenas aos dois códigos de negócio específicos da tabela acima — não a qualquer 401/403.</figcaption>
+    </figure>
+
+    <h3 id="impersonation"><span class="num">02.4</span>Fluxo de impersonation (Super Admin)</h3>
+    <p>O Painel do Super Admin tem um botão <strong>“Entrar”</strong> por organização, que assume a sessão de um administrador local sem conhecer sua senha — recurso de suporte, não de vigilância disfarçada: o backend só concede esse token a quem já tem <code>isSuperAdmin</code>.</p>
+    <ol>
+      <li>Super Admin clica “Entrar”; o frontend chama <code>POST /admin/organizations/:id/impersonate</code>.</li>
+      <li>O access token <em>atual</em> do Super Admin é guardado em <code>sessionStorage</code> (só o access token — o refresh token dele nunca sai do cookie <code>httpOnly</code>, e o endpoint de impersonate não o toca).</li>
+      <li>O par de tokens da organização impersonada é gravado <strong>em memória</strong>: o access token substitui o do Super Admin nas próximas chamadas; o refresh token vai para a variável separada <code>_impersonateRefreshToken</code>.</li>
+      <li>O cache do TanStack Query é limpo por inteiro — nenhum dado da sessão anterior sobrevive à troca de identidade.</li>
+    </ol>
+    <p>A parte mais delicada é a <strong>renovação de token durante a impersonação</strong>: se o interceptador usasse o caminho normal (cookie + <code>credentials:"include"</code>), o navegador enviaria o cookie <code>httpOnly</code> do <em>Super Admin</em> — que pertence a outra sessão. Por isso, enquanto <code>_impersonateRefreshToken</code> existir, a renovação muda de estratégia: o refresh token vai explicitamente no corpo da requisição, com <code>credentials:"omit"</code>, para que o cookie do Super Admin nunca seja lido nem sobrescrito. Sair da impersonação (<code>exitImpersonation</code>) restaura o access token guardado, descarta o token impersonado e limpa o cache — o refresh token original do Super Admin continua válido, porque jamais foi tocado.</p>
+
+    <h3 id="erros"><span class="num">02.5</span>Tratamento de erros</h3>
+    <p>Aqui vale uma distinção honesta entre duas coisas que costumam ser confundidas sob o mesmo nome:</p>
+    <ul>
+      <li><strong>Erros de rede/sessão</strong> têm tratamento global de verdade — é todo o mecanismo da seção 2.3: um único ponto de interceptação, reconhecimento de códigos de negócio, fila de requisições concorrentes e desvio automático de rota.</li>
+      <li><strong>Erros de renderização React</strong> (uma exceção lançada durante o <em>render</em> de um componente) <strong>não têm</strong> um <em>Error Boundary</em> no código hoje — não há <code>componentDidCatch</code>, nenhuma biblioteca como <code>react-error-boundary</code>, e o roteador não define <code>errorElement</code> em nenhuma rota. Um erro de render hoje resulta na tela em branco padrão do React, não numa página de fallback controlada.</li>
+    </ul>
+    <div class="callout warn">
+      <span class="label">Gap identificado</span>
+      <p>Recomenda-se adicionar um <em>Error Boundary</em> de nível de aplicação (envolvendo <code>&lt;RouterProvider&gt;</code> em <code>main.tsx</code>, ou via <code>errorElement</code> por rota em <code>router.tsx</code>) antes de qualquer demonstração ou uso em produção — hoje a única rede de segurança é o desenvolvedor não deixar o componente lançar.</p>
+    </div>
+    <p>Erros de requisição individuais (uma mutação que falha, um formulário que o backend rejeita) são, em geral, tratados <em>localmente</em>: cada hook/página captura o erro lançado por <code>apiRequest</code> e o mostra via <code>Toaster</code> (Radix Toast, <code>src/components/ui/toaster</code>) — não existe um <em>handler</em> global de erro de mutação configurado no <code>QueryClient</code> hoje.</p>
+
+    <p>Duas camadas adicionais valem menção por completar o quadro de segurança do lado do cliente, mesmo fora do escopo estrito de RBAC/sessão: formulários públicos (recuperação de senha, portal do cidadão) usam <strong>Cloudflare Turnstile</strong> para prova de humanidade e um <strong>campo-isca</strong> (<em>honeypot</em>, <code>src/lib/honeypot.ts</code>) com nome deliberadamente plausível para enganar preenchimento automático de bots — o mesmo nome de campo precisa bater com <code>HONEYPOT_FIELD</code> no middleware do backend. E toda sessão autenticada tem <strong>expiração por inatividade</strong> (<code>useIdleTimer</code>): 30 minutos sem interação encerram a sessão, com aviso nos últimos 60 segundos.</p>
+  </section>
+
+  <!-- ─────────────────────────── 03 BACKEND ─────────────────────────── -->
+  <section id="backend">
+    <span class="eyebrow">03</span>
+    <h2>Relação com o Backend</h2>
+    <p class="lede">Integração via REST puro sobre <code>fetch</code>, sem SDK gerado nem GraphQL — e uma regra simples que atravessa todo o desenho: o tenant nunca é uma decisão do cliente.</p>
+
+    <h3><span class="num">03.1</span>Modelo de integração</h3>
+    <p>Não há <code>axios</code>, cliente gerado a partir de OpenAPI, nem camada GraphQL — todas as ~18 áreas de negócio em <code>src/lib/api/</code> (diárias, conselhos, convênios, processos virtuais, financeiro…) são módulos TypeScript finos que chamam <code>api.get/post/put/patch/delete</code>, o adaptador que embrulha <code>apiRequest()</code> num formato <code>{ data }</code> compatível com o que os hooks esperam. Cada arquivo de API tipa manualmente a forma da resposta do backend (não há geração automática de tipos a partir do Prisma/Zod do lado do servidor) — a fonte da verdade dos tipos é mantida por convenção entre os dois times, não por ferramenta.</p>
+    <p>O backend serve como <em>API-first</em> puro: todas as rotas vivem sob <code>/api/v1/*</code>, autenticação é <strong>JWT + cookie</strong> (não sessão de servidor), e a própria tela de emissão de documentos (diárias, protocolos) é um bom exemplo do contrato: o frontend nunca calcula hash SHA-256 nem monta o PDF — ele envia a intenção (“emitir”), e o backend devolve o documento já assinado. A UI apenas reflete o estado (<code>PENDING</code> → <code>ISSUED</code>/<code>EMITIDO</code>) e bloqueia edição de campos imutáveis depois da emissão, mas a regra de negócio mora inteiramente no servidor.</p>
+
+    <h3><span class="num">03.2</span>Arquitetura multi-tenant nas requisições</h3>
+    <p>Um ponto de desenho notável: <strong>o frontend nunca envia um <code>organizationId</code></strong> em header, query string ou corpo de requisição — não existe esse conceito em <code>apiRequest()</code>. O isolamento entre prefeituras/câmaras acontece inteiramente do lado do servidor, a partir do <code>organizationId</code> embutido nas <em>claims</em> do próprio JWT que o usuário carrega. Isso fecha, por construção, uma classe inteira de bug: não existe um parâmetro de tenant que um componente possa esquecer de passar, trocar ou um usuário mal-intencionado manipular via DevTools — o servidor nunca confia em nada que o cliente diga sobre <em>qual</em> organização, só em quem o token prova que ele é.</p>
+    <p>Do lado da interface, isso aparece como um dado <em>lido</em>, nunca escrito: <code>/auth/me</code> devolve <code>organizationId</code>, <code>enabledModules</code> e a organização completa (nome, plano, CNPJ), e o app usa esses campos só para decidir o que <em>mostrar</em> (seção 2.1) — nunca para compor uma chamada. A única exceção deliberada ao modelo é o Super Admin: <code>isSuperAdmin</code> e o fluxo de impersonation (seção 2.4) existem exatamente para que a pessoa certa possa cruzar essa fronteira, sempre trocando de token — nunca anexando um segundo identificador de organização à mesma sessão.</p>
+
+    <h3><span class="num">03.3</span>Separação de responsabilidades</h3>
+    <div class="table-wrap">
+      <table>
+        <caption>Quem decide o quê</caption>
+        <thead><tr><th>Responsabilidade</th><th>Frontend</th><th>Backend</th></tr></thead>
+        <tbody>
+          <tr><td>Autorização (é permitido?)</td><td>Esconde/redireciona a UI (RBAC, seção 2.1)</td><td><strong>Decide de verdade</strong> — toda rota valida permissão de novo, independente do que o cliente mostrou</td></tr>
+          <tr><td>Isolamento de tenant</td><td>Nenhuma — não sabe compor esse filtro</td><td><strong>Único responsável</strong> — deriva do JWT em toda query</td></tr>
+          <tr><td>Cálculo de negócio (hash, saldo do QDD, numeração sequencial)</td><td>Só exibe o resultado</td><td><strong>Fonte da verdade</strong> — inclusive o que fica imutável após emitido</td></tr>
+          <tr><td>Validação de formulário</td><td>Primeira barreira (Zod, feedback imediato)</td><td>Revalida sempre — a do frontend é conveniência, não garantia</td></tr>
+          <tr><td>Sessão e token</td><td>Guarda em memória, interpreta a resposta</td><td>Emite, assina, roda o fingerprint de dispositivo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>O fio condutor é o mesmo em toda a tabela: o frontend otimiza a <em>experiência</em> de operar dentro das regras (esconder o que não interessa, validar cedo, reagir a sessão expirada sem fricção), e o backend continua sendo a única autoridade sobre se uma ação é, de fato, permitida. Essa separação é o que torna o RBAC descrito na seção 2 seguro para depender de configuração de rota em vez de lógica espalhada: mesmo que uma guarda tenha um <em>gap</em> (o caso de Conselhos, seção 2.1), o pior cenário é um usuário ver uma tela — não um usuário conseguir gravar um dado que a API vai recusar de qualquer forma.</p>
+  </section>
+
+  <footer>
+    <span>SIMP — Sistema Integrado de Municípios e Prefeituras</span>
+    <span>Dossiê gerado a partir de leitura direta do código-fonte</span>
+  </footer>
+
+</article>

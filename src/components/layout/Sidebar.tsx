@@ -469,6 +469,21 @@ export default function Sidebar({ mobileOpen, setMobileOpen }: SidebarProps) {
               {!collapsed && <span className="font-medium">Suporte</span>}
             </NavLink>
             <NavLink
+              to="/admin/auditoria"
+              className={({ isActive }) =>
+                cx(
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors text-sm w-full",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-amber-400 hover:bg-amber-500/10 hover:text-amber-300",
+                  collapsed && "justify-center"
+                )
+              }
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="font-medium">Auditoria</span>}
+            </NavLink>
+            <NavLink
               to="/configuracoes"
               className={({ isActive }) =>
                 cx(
