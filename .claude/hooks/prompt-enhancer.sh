@@ -15,7 +15,7 @@ Você está trabalhando no SIMP Frontend (React 19 + TypeScript + TanStack Query
 O CLAUDE.md do repo tem as regras completas — leia-o se ainda não leu.
 
 REGRAS QUE NUNCA PODEM SER IGNORADAS:
-• Branch: sempre `develop` — NUNCA commitar na `main`. Verifique com `git branch` antes de qualquer commit.
+• Branch: trabalhe em branch própria a partir do `develop` e entregue por PR com base `develop` (seção "Fluxo de Git" do CLAUDE.md). NUNCA commitar ou dar push direto em `develop`/`main`, nunca merge, nunca force push.
 • TypeScript: proibido `any` explícito — use interfaces tipadas. O ESLint vai rejeitar no CI.
 • Componentes: shadcn/ui como base. Tailwind para customização. Nunca CSS puro.
 • Dados: TanStack Query v5 para fetch/mutation. Nunca `useEffect` + `fetch` manual.
