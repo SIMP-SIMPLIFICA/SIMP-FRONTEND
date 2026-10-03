@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/hooks/use-toast'
 import { type Department, departmentService } from '@/lib/api/departments'
+import { sanitizeImageSrc } from '@/lib/image-url-safety'
 
 /**
  * Logo própria da secretaria, para o cabeçalho dos documentos dela.
@@ -34,6 +35,7 @@ export function DepartmentLogoField({ department, disabled }: Props) {
   // escolher seria trabalho à toa.
   const [preview, setPreview] = useState<string | null>(null)
   const [hasLogo, setHasLogo] = useState(Boolean(department.logoUrl))
+  const safePreview = sanitizeImageSrc(preview)
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['departments'] })
@@ -90,8 +92,8 @@ export function DepartmentLogoField({ department, disabled }: Props) {
 
       <div className="flex items-center gap-3 rounded-lg border border-slate-200 p-3">
         <div className="h-14 w-14 shrink-0 rounded-md border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-          {preview ? (
-            <img src={preview} alt="Prévia da logo do setor" className="h-full w-full object-contain" />
+          {safePreview ? (
+            <img src={safePreview} alt="Prévia da logo do setor" className="h-full w-full object-contain" />
           ) : (
             <ImageIcon className="h-5 w-5 text-slate-300" />
           )}

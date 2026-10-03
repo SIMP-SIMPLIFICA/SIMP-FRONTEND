@@ -5,6 +5,7 @@ import { ImageOff, Loader2, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
+import { sanitizeImageSrc } from "@/lib/image-url-safety";
 
 /**
  * Upload da logo da organização — white-label (Épico 3, FE.4).
@@ -121,7 +122,7 @@ export function LogoUpload({ organizationId, logoUrl }: Props) {
     upload.mutate(file);
   }
 
-  const currentLogo = preview ?? (logoUrl ? buildLogoUrl(logoUrl) : null);
+  const currentLogo = sanitizeImageSrc(preview ?? (logoUrl ? buildLogoUrl(logoUrl) : null));
   const busy = upload.isPending || remove.isPending;
 
   return (
