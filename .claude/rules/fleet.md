@@ -7,7 +7,7 @@ paths:
 
 # Regras do módulo Frotas (frontend)
 
-Decisões que se sobrepõem à spec: `../docs/frotas/decisoes.md`. Tela nova: skill `simp-tela-modulo`.
+Decisões que se sobrepõem à spec: `../SIMP-BACKEND/docs/frotas/decisoes.md`. Pela D9, nenhuma tela do Frotas oferece "assinar" (gov.br ou ICP-Brasil) no MVP: a prova do documento é PDF + `sha256Hash` + QR de validação. Tela nova: skill `simp-tela-modulo`.
 
 ## Tela pública do frentista (`/abastecer/:token`, em `src/pages/public/`)
 
