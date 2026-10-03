@@ -30,12 +30,6 @@ export type CouncilDocumentType =
   | 'PARECER'
   | 'OUTROS'
 
-export type SignatureStatus =
-  | 'PENDENTE'
-  | 'ASSINADO'
-  | 'FALHOU'
-  | 'EXPIRADO'
-
 // ─── Entity types ─────────────────────────────────────────────────────────────
 
 export interface UserSummary {
@@ -109,13 +103,6 @@ export interface SaveAttendanceDTO {
   }>
 }
 
-export interface SignatureRequestSummary {
-  id: string
-  status: SignatureStatus
-  signedAt: string | null
-  requestedById: string
-}
-
 export interface CouncilDocument {
   id: string
   organizationId: string
@@ -131,7 +118,6 @@ export interface CouncilDocument {
   createdAt: string
   updatedAt: string
   uploadedBy?: UserSummary
-  signatureRequests?: SignatureRequestSummary[]
 }
 
 export interface CouncilMeeting {
@@ -165,15 +151,6 @@ export interface CouncilMeeting {
 export interface CouncilDetail extends Council {
   memberships: CouncilMembership[]
   meetings: CouncilMeeting[]
-}
-
-export interface SignatureRequest {
-  id: string
-  status: SignatureStatus
-  signedAt: string | null
-  errorMsg: string | null
-  documentId: string
-  createdAt: string
 }
 
 // ─── DTO types ────────────────────────────────────────────────────────────────
@@ -434,20 +411,5 @@ export const councilService = {
 
   deleteDocument: async (councilId: string, meetingId: string, docId: string) => {
     await api.delete(`/councils/${councilId}/meetings/${meetingId}/documents/${docId}`)
-  },
-
-  // ── Assinatura Gov.br ────────────────────────────────────────────────────────
-
-  initiateSignature: async (documentId: string) => {
-    const res = await api.post<{ authorizationUrl: string; signatureRequestId: string }>(
-      '/councils/sign/initiate',
-      { documentId },
-    )
-    return res.data
-  },
-
-  getSignatureStatus: async (requestId: string) => {
-    const res = await api.get<SignatureRequest>(`/councils/sign/${requestId}/status`)
-    return res.data
   },
 }

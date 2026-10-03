@@ -48,7 +48,6 @@ import DepartmentDetailPage from "@/pages/departments/DepartmentDetailPage";
 import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
-import CouncilSignReturnPage from "@/pages/councils/CouncilSignReturnPage";
 import AuditLogPage from "@/pages/auditoria/AuditLogPage";
 
 export const router = createBrowserRouter([
@@ -244,8 +243,6 @@ export const router = createBrowserRouter([
               { path: "/conselhos",                                 element: <CouncilsPage /> },
               { path: "/conselhos/:id",                             element: <CouncilDetailPage /> },
               { path: "/conselhos/:id/reunioes/:meetingId",         element: <MeetingDetailPage /> },
-              // Route must match the backend's hardcoded redirect: /councils/sign/return
-              { path: "/councils/sign/return",                      element: <CouncilSignReturnPage /> },
             ],
           },
         ],
