@@ -69,6 +69,39 @@ export function useDeleteCouncil() {
 
 // ─── Membros ──────────────────────────────────────────────────────────────────
 
+// ─── Departamentos vinculados ───────────────────────────────────────────────
+
+export function useCouncilDepartments(councilId: string) {
+  return useQuery({
+    queryKey: ['council-departments', councilId],
+    queryFn: () => councilService.listDepartments(councilId),
+    enabled: !!councilId,
+  })
+}
+
+export function useLinkCouncilDepartment(councilId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (departmentId: string) => councilService.linkDepartment(councilId, departmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['council-departments', councilId] })
+      // O mesmo vínculo é lido do outro lado, na aba do departamento.
+      qc.invalidateQueries({ queryKey: ['departments'] })
+    },
+  })
+}
+
+export function useUnlinkCouncilDepartment(councilId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (departmentId: string) => councilService.unlinkDepartment(councilId, departmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['council-departments', councilId] })
+      qc.invalidateQueries({ queryKey: ['departments'] })
+    },
+  })
+}
+
 export function useCouncilMembers(councilId: string) {
   return useQuery({
     queryKey: ['council-members', councilId],

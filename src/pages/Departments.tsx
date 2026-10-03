@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-  Building2, Plus, Search, Loader2, Pencil, Trash2, Users,
+  Building2, Plus, Search, Loader2, Pencil, Trash2, Users, Eye,
 } from 'lucide-react'
 import { DepartmentMembersSheet } from '@/components/departments/DepartmentMembersSheet'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,13 @@ import {
   useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment,
 } from '@/hooks/useDepartments'
 import type { Department, CreateDepartmentDTO, UpdateDepartmentDTO } from '@/lib/api/departments'
+import { maskCnpjInput, normalizeCnpj } from '@/utils/cnpj'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DepartmentLogoField } from '@/components/departments/DepartmentLogoField'
+import { formatUserLabel, useOrganizationUsers } from '@/hooks/useOrganizationUsers'
+
+/** Sentinela do item "sem chefe": o Radix nao aceita value vazio. */
+const NO_MANAGER = '__none__'
 
 // ─── Form Dialog ─────────────────────────────────────────────────────────────
 
@@ -44,7 +52,16 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
   const [code, setCode] = useState(editing?.code ?? '')
   const [description, setDescription] = useState(editing?.description ?? '')
   const [isActive, setIsActive] = useState(editing?.isActive ?? true)
+  // O CNPJ vive MASCARADO no estado, porque é o que o campo exibe; a limpeza
+  // para dígitos acontece só no envio. Guardar os dígitos e reformatar a cada
+  // tecla faria o cursor pular para o fim a cada edição no meio do número.
+  const [cnpj, setCnpj] = useState(maskCnpjInput(editing?.cnpj ?? ''))
+  // O Ordenador de Despesa NÃO é mais texto livre: é o chefe do setor. Guardar
+  // um nome solto fazia o impresso nos empenhos divergir de quem realmente
+  // responde pela pasta assim que o secretário mudava.
+  const [managerId, setManagerId] = useState(editing?.managerId ?? '')
 
+  const { data: users = [], isLoading: loadingUsers } = useOrganizationUsers()
   const isPending = createMut.isPending || updateMut.isPending
 
   async function handleSubmit(e: React.FormEvent) {
@@ -53,6 +70,16 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
       toast({ title: 'Preencha nome e sigla.', variant: 'destructive' })
       return
     }
+
+    // Só os dígitos vão para a API: a máscara é apresentação, e enviá-la faria
+    // "11.222.333/0001-81" e "11222333000181" virarem dois registros do mesmo
+    // órgão. O backend ainda confere o dígito verificador e recusa com 400.
+    const cleanCnpj = normalizeCnpj(cnpj)
+    if (cleanCnpj && cleanCnpj.length !== 14) {
+      toast({ title: 'CNPJ incompleto.', description: 'Informe os 14 dígitos ou deixe o campo vazio.', variant: 'destructive' })
+      return
+    }
+
     try {
       if (isEditing && editing) {
         const data: UpdateDepartmentDTO = {
@@ -60,12 +87,18 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
           code:        code.trim().toUpperCase(),
           isActive,
           description: description.trim() || null,
+          // String vazia LIMPA o valor gravado; é o que permite apagar um CNPJ
+          // digitado errado, em vez de ficar preso a ele para sempre.
+          cnpj:        cleanCnpj,
+          managerId:   managerId || null,
         }
         await updateMut.mutateAsync({ id: editing.id, data })
         toast({ title: 'Departamento atualizado.' })
       } else {
         const data: CreateDepartmentDTO = { name: name.trim(), code: code.trim().toUpperCase() }
         if (description.trim()) data.description = description.trim()
+        if (cleanCnpj) data.cnpj = cleanCnpj
+        if (managerId) data.managerId = managerId
         await createMut.mutateAsync(data)
         toast({ title: 'Departamento criado.' })
       }
@@ -115,6 +148,54 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
               </div>
 
               <div className="space-y-1.5">
+                <Label>CNPJ</Label>
+                <Input
+                  placeholder="00.000.000/0000-00"
+                  value={cnpj}
+                  // A máscara é aplicada a cada tecla; o campo mostra o número
+                  // incompleto enquanto se digita, em vez de ficar em branco
+                  // até o 14º dígito.
+                  onChange={e => setCnpj(maskCnpjInput(e.target.value))}
+                  disabled={isPending}
+                  inputMode="numeric"
+                />
+                <p className="text-xs text-slate-400">
+                  Só quando o setor tem inscrição própria, separada da prefeitura.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Secretário / Chefe do Setor</Label>
+                <Select
+                  value={managerId || NO_MANAGER}
+                  onValueChange={v => setManagerId(v === NO_MANAGER ? '' : v)}
+                  disabled={isPending || loadingUsers}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingUsers ? 'Carregando...' : 'Selecione o chefe do setor'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_MANAGER}>Sem chefe definido</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {formatUserLabel(user)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">
+                  É ele o <strong>Ordenador de Despesa</strong>: o nome impresso nos documentos
+                  do setor vem daqui. Trocar o chefe troca o ordenador em todo lugar de uma vez.
+                </p>
+              </div>
+
+              {/* Logo só na EDIÇÃO: o upload precisa do id do setor, que ainda
+                  não existe enquanto ele está sendo criado. */}
+              {isEditing && editing && (
+                <DepartmentLogoField department={editing} disabled={isPending} />
+              )}
+
+              <div className="space-y-1.5">
                 <Label>Descrição</Label>
                 <Textarea
                   rows={3}
@@ -161,6 +242,7 @@ function DepartmentFormDialog({ open, onOpenChange, editing, onSuccess }: FormDi
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DepartmentsPage() {
+  const navigate = useNavigate()
   const { data: me } = useMe()
   const canWrite  = hasAnyPermission(me, ['departments:write']) || !!me?.user?.isSuperAdmin
   const canDelete = hasAnyPermission(me, ['departments:delete']) || !!me?.user?.isSuperAdmin
@@ -277,7 +359,18 @@ export default function DepartmentsPage() {
                     {dept.code}
                   </code>
                 </TableCell>
-                <TableCell className="font-medium text-slate-800">{dept.name}</TableCell>
+                <TableCell className="font-medium text-slate-800">
+                  {/* O nome é a porta de entrada do detalhe. As ações da linha
+                      (membros, editar, excluir) seguem sendo botões próprios:
+                      tornar a LINHA inteira clicável faria cada clique em
+                      "Excluir" também navegar. */}
+                  <Link
+                    to={`/departamentos/${dept.id}`}
+                    className="hover:text-blue-600 hover:underline"
+                  >
+                    {dept.name}
+                  </Link>
+                </TableCell>
                 <TableCell className="hidden md:table-cell text-sm text-slate-500 max-w-xs truncate">
                   {dept.description ?? '—'}
                 </TableCell>
@@ -299,6 +392,19 @@ export default function DepartmentsPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
+                    {/* Atalho explícito para o detalhe. O nome já leva para lá,
+                        mas um link sublinhado no meio da tabela não anuncia que
+                        existe uma página inteira do outro lado. */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title="Ver detalhes do setor"
+                      aria-label={`Ver detalhes de ${dept.name}`}
+                      onClick={() => navigate(`/departamentos/${dept.id}`)}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
                     {canWrite && (
                       <Button
                         variant="ghost"

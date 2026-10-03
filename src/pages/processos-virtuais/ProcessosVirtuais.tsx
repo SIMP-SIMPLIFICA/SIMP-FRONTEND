@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, FolderArchive, FileText, Upload, Trash2, Loader2,
   AlertTriangle, ChevronRight, Building2, Tag, X, Paperclip,
@@ -21,12 +22,14 @@ import {
   useVirtualProcesses, useVirtualProcessDetail, useCreateVirtualProcess,
   useUpdateProcessStatus, useDeleteVirtualProcess, useUploadProcessDocument, useDeleteProcessDocument,
   useVirtualProcessCategories, useVirtualProcessSources, useVirtualProcessCompanies,
-  useUpdateProcessValidity,
+  useUpdateProcessValidity, useUpdateProcessBudget,
 } from '@/hooks/useVirtualProcesses'
-import { useFinanceBankAccounts } from '@/hooks/useFinance'
 import { useDepartmentOptions } from '@/hooks/useDepartments'
-import { PROCESS_STATUSES } from '@/types/virtual-process'
-import type { VirtualProcess, UnifiedProcessDoc } from '@/types/virtual-process'
+import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
+import { QddItemSelect } from '@/pages/daily-allowances/QddItemSelect'
+import { useQddItems } from '@/hooks/useQddItems'
+import { PROCESS_STATUSES, EXPENSE_PHASE_LABELS } from '@/types/virtual-process'
+import type { VirtualProcess, UnifiedProcessDoc, ExpensePhase } from '@/types/virtual-process'
 import { virtualProcessService } from '@/lib/api/virtual-processes'
 import { libraryService } from '@/lib/api/library'
 import { formatCurrencyBRL, formatCurrencyInput, sanitizeCurrencyInput, parseCurrencyInput } from '@/lib/currency'
@@ -34,6 +37,8 @@ import { getExpiryAlert, EXPIRING_SOON_DAYS } from '@/lib/processExpiry'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
+import { BankAccountCombobox } from './BankAccountCombobox'
+import { CategoryCombobox } from './CategoryCombobox'
 
 // --- helpers ---
 function formatDocument(val: string) {
@@ -106,9 +111,9 @@ type CreateDialogProps = { open: boolean; onOpenChange: (v: boolean) => void }
 
 function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [form, setForm] = useState({
-    processNumber: '', secretaria: '', source: '', subject: '',
+    processNumber: '', departmentId: '', secretaria: '', source: '', subject: '',
     category: '', sourceDetail: '', companyName: '', companyCnpj: '',
-    bankAccountId: '', bankAccount: '', agency: '', bankName: '',
+    bankAccountId: '', bankAccount: '', agency: '', bankName: '', qddItemId: '',
   })
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
@@ -117,25 +122,45 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
   const [saving, setSaving] = useState(false)
   const { mutateAsync: create } = useCreateVirtualProcess(undefined)
   const { data: processesResponse } = useVirtualProcesses(undefined)
-  const { data: categories = [] } = useVirtualProcessCategories(undefined)
   const { data: sources = [] } = useVirtualProcessSources(undefined)
   const { data: companies = [] } = useVirtualProcessCompanies(undefined)
-  const { data: bankAccounts = [] } = useFinanceBankAccounts()
   const { data: deptData } = useDepartmentOptions()
-  const departments = (deptData?.data ?? []).filter(d => d.isActive)
+  // O nome vem da lista, não do que o usuário digitou: é o que mantém o
+  // texto e a chave estrangeira contando a mesma história.
+  const selectedDepartmentName =
+    (deptData?.data ?? []).find(d => d.id === form.departmentId)?.name ?? ''
   const { open: openProcessModal } = useUniversalProcessModal()
+
+  // Cascata do QDD (Row 8): filtrado por departamento, mesmo padrão de
+  // Conta Bancária. A ficha escolhida se desfaz sozinha se o departamento
+  // mudar e ela não pertencer mais a ele.
+  const { data: qddItemsForDept } = useQddItems({ departmentId: form.departmentId || undefined })
+  useEffect(() => {
+    if (form.qddItemId && !(qddItemsForDept ?? []).some(i => i.id === form.qddItemId)) {
+      setForm(f => ({ ...f, qddItemId: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.departmentId])
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
   function reset() {
-    setForm({ processNumber: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '' })
+    setForm({ processNumber: '', departmentId: '', secretaria: '', source: '', subject: '', category: '', sourceDetail: '', companyName: '', companyCnpj: '', bankAccountId: '', bankAccount: '', agency: '', bankName: '', qddItemId: '' })
     setStartDate(undefined); setEndDate(undefined)
     setValidityDate(undefined); setTotalValue('')
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Defesa extra (revisão final da Fase 1, 2026-09-24): o dialog inline de
+    // Nova Conta Bancária (dentro de BankAccountCombobox) já corta a
+    // propagação do próprio submit (`AccountFormDialog.handleSubmit`), mas
+    // este guard protege contra qualquer outro <form> aninhado que venha a
+    // existir aqui no futuro — um evento de submit vindo de dentro de um
+    // portal (Dialog) ainda sobe pela árvore de componentes do React, não
+    // pela árvore do DOM.
+    if (e.target !== e.currentTarget) return
     const num = form.processNumber.trim()
     if ((processesResponse?.data ?? []).some((p: VirtualProcess) => p.processNumber === num)) {
       toast({ title: 'Número já cadastrado', description: `O processo "${num}" já existe.`, variant: 'destructive' })
@@ -149,7 +174,11 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
     try {
       await create({
         processNumber: num,
-        secretaria: form.secretaria.trim(),
+        departmentId: form.departmentId || null,
+        // `secretaria` segue sendo coluna obrigatória do processo e é o que
+        // aparece nas listagens; passa a ser DERIVADA do setor escolhido,
+        // para o texto não divergir da chave que agora manda no vínculo.
+        secretaria: selectedDepartmentName || form.secretaria.trim(),
         source: form.source.trim(),
         subject: form.subject.trim(),
         category: form.category,
@@ -163,6 +192,7 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
         bankAccount: form.bankAccount.trim() || undefined,
         agency: form.agency.trim() || undefined,
         bankName: form.bankName.trim() || undefined,
+        qddItemId: form.qddItemId || undefined,
       })
       toast({ title: 'Processo autuado com sucesso' })
       reset()
@@ -192,46 +222,22 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Secretaria <span className="text-red-500">*</span></Label>
-                {departments.length > 0 ? (
-                  <Select
-                    value={form.secretaria}
-                    onValueChange={v => setForm(f => ({ ...f, secretaria: v }))}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecionar secretaria..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map(d => (
-                        <SelectItem key={d.id} value={d.name}>
-                          {d.code} — {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input required placeholder="Ex: Secretaria de Obras" value={form.secretaria} onChange={set('secretaria')} />
-                )}
+                <DepartmentSelect
+                  value={form.departmentId || null}
+                  onChange={next => setForm(f => ({ ...f, departmentId: next ?? '' }))}
+                  placeholder="Selecionar secretaria..."
+                />
               </div>
             </div>
 
             {/* Row 2: Categoria */}
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label>Categoria <span className="text-red-500">*</span></Label>
-                <button type="button" onClick={() => openProcessModal('categorias')}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline" tabIndex={-1}>
-                  <Settings2 className="h-3 w-3" /> Gerenciar categorias
-                </button>
-              </div>
-              <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {categories.length === 0
-                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma categoria cadastrada</div>
-                    : categories.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Categoria <span className="text-red-500">*</span></Label>
+              <CategoryCombobox
+                value={form.category}
+                onSelect={name => setForm(f => ({ ...f, category: name }))}
+                onManage={() => openProcessModal('categorias')}
+              />
             </div>
 
             {/* Row 3: Origem + Detalhe */}
@@ -338,37 +344,45 @@ function CreateProcessDialog({ open, onOpenChange }: CreateDialogProps) {
             {/* Row 7: Conta Bancária */}
             <div className="space-y-1.5">
               <Label>Conta Bancária</Label>
-              <Select
-                value={form.bankAccountId}
-                onValueChange={v => {
-                  const acc = bankAccounts.find(a => a.id === v)
-                  setForm(f => ({
-                    ...f,
-                    bankAccountId: v,
-                    bankName: acc?.name ?? '',
-                    agency: acc?.agency ?? '',
-                    bankAccount: acc?.accountNumber ?? '',
-                  }))
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a conta (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bankAccounts.length === 0
-                    ? <div className="px-3 py-2 text-sm text-slate-400">Nenhuma conta cadastrada</div>
-                    : bankAccounts.map(a => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}{a.agency ? ` — Ag. ${a.agency}` : ''}{a.accountNumber ? ` · Cc ${a.accountNumber}` : ''}
-                        </SelectItem>
-                      ))}
-                </SelectContent>
-              </Select>
+              <BankAccountCombobox
+                departmentId={form.departmentId || null}
+                value={form.bankAccountId || null}
+                onSelect={acc => setForm(f => ({
+                  ...f,
+                  bankAccountId: acc?.id ?? '',
+                  bankName: acc?.name ?? '',
+                  agency: acc?.agency ?? '',
+                  bankAccount: acc?.accountNumber ?? '',
+                }))}
+              />
               {form.bankName && (
                 <p className="text-xs text-slate-400">
                   {[form.bankName, form.agency && `Ag. ${form.agency}`, form.bankAccount && `Cc ${form.bankAccount}`].filter(Boolean).join(' · ')}
                 </p>
               )}
+            </div>
+
+            {/* Row 8: Dotação Orçamentária (QDD) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Dotação Orçamentária (QDD) <span className="text-slate-400 font-normal">(opcional)</span></Label>
+                {form.departmentId && (
+                  <a
+                    href={`/departamentos/${form.departmentId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                    title="Abre o departamento em outra aba — o que você já preencheu aqui não se perde"
+                  >
+                    <Settings2 className="h-3 w-3" /> Gerenciar
+                  </a>
+                )}
+              </div>
+              <QddItemSelect
+                departmentId={form.departmentId || null}
+                value={form.qddItemId || null}
+                onChange={next => setForm(f => ({ ...f, qddItemId: next ?? '' }))}
+              />
             </div>
           </form>
         </ScrollArea>
@@ -576,6 +590,25 @@ function ProcessDetailPanel({ processId, onClose }: DetailPanelProps) {
               <div>
                 <div className="text-xs text-slate-400">Valor total</div>
                 <div className="font-medium text-slate-700">{formatCurrencyBRL(process.totalValue)}</div>
+              </div>
+            )}
+            {process.qddItem && (
+              <div>
+                <div className="text-xs text-slate-400">Ficha orçamentária (QDD)</div>
+                <div className="font-medium text-slate-700 flex items-center gap-2 flex-wrap">
+                  {process.qddItem.ficha} · {process.qddItem.naturezaDespesa}
+                  {process.budgetOverrun && (
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                      Estouro de dotação
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {process.expensePhase && (
+              <div>
+                <div className="text-xs text-slate-400">Fase da despesa</div>
+                <div className="font-medium text-slate-700">{EXPENSE_PHASE_LABELS[process.expensePhase]}</div>
               </div>
             )}
             <div>
@@ -817,7 +850,10 @@ function ProcessItem({ process, selected, onClick, onEditValidity }: {
   )
 }
 
-// --- Editar prazo/valor de um processo já existente ---
+/** Sentinela do item "sem fase definida" — o Radix não aceita value vazio. */
+const NO_EXPENSE_PHASE = '__none__'
+
+// --- Editar prazo/valor/orçamento de um processo já existente ---
 function EditValidityDialog({ process, onClose }: { process: VirtualProcess | null; onClose: () => void }) {
   // O pai monta este componente com `key={process.id}`, então ele remonta a cada
   // processo diferente — inicializar o estado aqui basta, sem efeito de sincronização.
@@ -827,7 +863,16 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
   const [value, setValue] = useState(
     process?.totalValue != null ? formatCurrencyInput(String(Number(process.totalValue))) : ''
   )
-  const { mutateAsync: updateValidity, isPending } = useUpdateProcessValidity()
+  // Épico 8 (FR-011/FR-019): dotação do QDD e fase da despesa — dimensões
+  // orçamentárias do processo, separadas de prazo/valor no BACKEND
+  // (`/:id/budget` é uma rota própria), mas reunidas nesta MESMA tela para não
+  // multiplicar diálogos por uma ou duas linhas de conteúdo cada.
+  const [qddItemId, setQddItemId] = useState<string | null>(process?.qddItemId ?? null)
+  const [expensePhase, setExpensePhase] = useState<ExpensePhase | null>(process?.expensePhase ?? null)
+
+  const { mutateAsync: updateValidity, isPending: savingValidity } = useUpdateProcessValidity()
+  const { mutateAsync: updateBudget, isPending: savingBudget } = useUpdateProcessBudget()
+  const isPending = savingValidity || savingBudget
 
   async function handleSave() {
     if (!process) return
@@ -840,7 +885,15 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
           totalValue: parseCurrencyInput(value) ?? null,
         },
       })
-      toast({ title: 'Prazo e valor atualizados' })
+
+      // Só chama o endpoint de orçamento se algo de fato mudou — evita uma
+      // segunda requisição (e um segundo lançamento na trilha de auditoria)
+      // toda vez que o usuário só mexe em prazo/valor.
+      if (qddItemId !== (process.qddItemId ?? null) || expensePhase !== (process.expensePhase ?? null)) {
+        await updateBudget({ id: process.id, data: { qddItemId, expensePhase } })
+      }
+
+      toast({ title: 'Prazo, valor e orçamento atualizados' })
       onClose()
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? 'Tente novamente.'
@@ -852,7 +905,7 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
     <Dialog open={!!process} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Prazo e valor</DialogTitle>
+          <DialogTitle>Prazo, valor e orçamento</DialogTitle>
           <DialogDescription>
             Processo <span className="font-mono font-semibold">{process?.processNumber}</span>. A Data de Validade
             é a vigência legal — é ela que gera os alertas de vencimento.
@@ -876,6 +929,38 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
             </div>
           </div>
           <p className="text-xs text-slate-400">Deixe em branco para remover o valor já registrado.</p>
+
+          <div className="space-y-1.5 border-t border-slate-100 pt-4">
+            <Label>Ficha orçamentária (QDD)</Label>
+            <QddItemSelect
+              departmentId={process?.departmentId ?? null}
+              value={qddItemId}
+              onChange={setQddItemId}
+            />
+            {!process?.departmentId && (
+              <p className="text-xs text-slate-400">
+                Este processo não tem departamento vinculado — associe um para escolher a ficha.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Fase da despesa</Label>
+            <Select
+              value={expensePhase ?? NO_EXPENSE_PHASE}
+              onValueChange={next => setExpensePhase(next === NO_EXPENSE_PHASE ? null : (next as ExpensePhase))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Não definida" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_EXPENSE_PHASE}>Não definida</SelectItem>
+                {Object.entries(EXPENSE_PHASE_LABELS).map(([phase, label]) => (
+                  <SelectItem key={phase} value={phase}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <DialogFooter>
@@ -892,7 +977,11 @@ function EditValidityDialog({ process, onClose }: { process: VirtualProcess | nu
 
 // --- Main Page ---
 export default function ProcessosVirtuais() {
-  const [search, setSearch] = useState('')
+  // Semeada por `?busca=`, pelo mesmo motivo do convênio: não há rota de
+  // detalhe de processo, então a aba do departamento navega para cá já
+  // filtrado pelo número.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('busca') ?? '')
   const [statusFilter, setStatusFilter] = useState('ALL')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [selectedId, setSelectedId] = useState<string | null>(null)

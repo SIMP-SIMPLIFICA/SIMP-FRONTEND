@@ -41,13 +41,21 @@ export interface Concedente {
 export interface Covenant {
   id: string
   organizationId: string
+  /** Secretaria responsável pela execução (Épico 4). */
+  departmentId?: string | null
   number: string
   typeId?: string | null
   proponentId?: string | null
   convenenteId?: string | null
   concedenteId?: string | null
   processObject: string
+  /** Texto livre legado — mantido, mas o vínculo de verdade é `qddItemId` (Fase 3, 2026-09-24). */
   budgetaryAction?: string | null
+  /** Dotação orçamentária (ficha do QDD) que lastreia o convênio. */
+  qddItemId?: string | null
+  qddFichaSnapshot?: string | null
+  qddFonteSnapshot?: string | null
+  qddNaturezaSnapshot?: string | null
   executionStartDate?: string | null
   validityStartDate?: string | null
   validityEndDate?: string | null
@@ -65,6 +73,9 @@ export interface Covenant {
   proponent?: Pick<VirtualProcessCompany, 'id' | 'name' | 'cnpj'> | null
   convenente?: Pick<Convenente, 'id' | 'name' | 'cnpj'> | null
   concedente?: Pick<Concedente, 'id' | 'name' | 'cnpj'> | null
+  qddItem?: {
+    id: string; ficha: string; fonte: string; naturezaDespesa: string; year: number; valorOrcado: string
+  } | null
   _count?: { virtualProcesses: number; libraryDocuments: number }
 }
 
@@ -74,6 +85,8 @@ export interface CovenantListResponse {
 }
 
 export interface CreateCovenantDTO {
+  /** `null` desvincula o setor; `undefined` não mexe no campo. */
+  departmentId?: string | null
   number: string
   typeId?: string
   proponentId?: string
@@ -81,6 +94,8 @@ export interface CreateCovenantDTO {
   concedenteId?: string
   processObject: string
   budgetaryAction?: string
+  /** `null` desvincula a dotação; `undefined` não mexe no campo. */
+  qddItemId?: string | null
   executionStartDate?: string
   validityStartDate?: string
   validityEndDate?: string

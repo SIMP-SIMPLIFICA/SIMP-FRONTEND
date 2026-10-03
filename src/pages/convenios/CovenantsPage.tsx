@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Search, Plus, Handshake, ChevronRight, Loader2, AlertTriangle, Trash2, Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -16,6 +18,7 @@ import { useCovenants, useDeleteCovenant, useCovenantTypes } from '@/hooks/useCo
 import type { Covenant, CovenantStatus } from '@/lib/api/covenants'
 import CovenantFormDialog from './CovenantFormDialog'
 import CovenantDetailSheet from './CovenantDetailSheet'
+import { CovenantSettingsTab } from './CovenantSettingsTab'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 
@@ -72,7 +75,12 @@ export default function CovenantsPage() {
   const { data: me } = useMe()
   const canDelete = hasAnyPermission(me, ['covenants:delete']) || !!me?.user?.isSuperAdmin
 
-  const [search, setSearch]       = useState('')
+  // Semeada por `?busca=`: é o que faz a aba "Convênios" do departamento
+  // conseguir apontar para um registro específico. Não existe rota de detalhe
+  // de convênio — o detalhe é uma gaveta dentro desta listagem —, então a
+  // navegação possível é chegar aqui com o filtro já aplicado.
+  const [searchParams] = useSearchParams()
+  const [search, setSearch]       = useState(() => searchParams.get('busca') ?? '')
   const [statusFilter, setStatus] = useState<CovenantStatus | 'ALL'>('ALL')
   const [typeFilter, setType]     = useState<string>('')
   const [page, setPage]           = useState(1)
@@ -158,6 +166,13 @@ export default function CovenantsPage() {
         </div>
       </div>
 
+      <Tabs defaultValue="convenios" className="flex flex-1 flex-col overflow-hidden">
+        <TabsList className="mx-6 mt-3 w-fit shrink-0">
+          <TabsTrigger value="convenios">Convênios</TabsTrigger>
+          <TabsTrigger value="configuracoes">Configurações de Dados</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="convenios" className="flex flex-1 flex-col overflow-hidden mt-0">
       {/* ── Filters ── */}
       <div className="border-b border-slate-100 bg-slate-50 px-6 py-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -320,6 +335,12 @@ export default function CovenantsPage() {
           </div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="configuracoes" className="flex-1 overflow-auto mt-0">
+          <CovenantSettingsTab />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Create/Edit dialog ── */}
       <CovenantFormDialog

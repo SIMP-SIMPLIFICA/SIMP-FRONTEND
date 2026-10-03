@@ -47,6 +47,14 @@ export interface UserSummary {
   avatar?: string | null
 }
 
+/** Setor vinculado ao conselho (Épico 4). */
+export interface LinkedDepartment {
+  id: string
+  name: string
+  code: string
+  isActive: boolean
+}
+
 export interface Council {
   id: string
   organizationId: string
@@ -267,6 +275,26 @@ export const councilService = {
 
   remove: async (id: string) => {
     await api.delete(`/councils/${id}`)
+  },
+
+  // ── Departamentos vinculados (Épico 4) ─────────────────────────────────────
+  //
+  // N:N livre: um conselho representa vários setores, e um setor tem assento
+  // em vários conselhos. É o mesmo vínculo que a aba do departamento lê do
+  // outro lado.
+
+  listDepartments: async (councilId: string) => {
+    const res = await api.get<LinkedDepartment[]>(`/councils/${councilId}/departments`)
+    return res.data
+  },
+
+  linkDepartment: async (councilId: string, departmentId: string) => {
+    const res = await api.post<LinkedDepartment>(`/councils/${councilId}/departments`, { departmentId })
+    return res.data
+  },
+
+  unlinkDepartment: async (councilId: string, departmentId: string) => {
+    await api.delete(`/councils/${councilId}/departments/${departmentId}`)
   },
 
   // ── Membros ─────────────────────────────────────────────────────────────────

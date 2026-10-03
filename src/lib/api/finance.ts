@@ -1,5 +1,8 @@
 import { api } from "../api";
+import { getAccessToken } from "../auth";
 import type { FinanceEntry } from "../../pages/financeiro/types";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 // Tipagem para a Categoria que vem do Backend
 export interface FinanceCategory {
@@ -15,6 +18,14 @@ export interface BankAccount {
     name: string;
     agency?: string | null;
     accountNumber?: string | null;
+    /** Secretaria/Departamento responsável — vínculo obrigatório (Épico 8, FR-015). */
+    departmentId: string;
+    department?: { id: string; name: string; code: string };
+    /**
+     * Populado só pela futura integração bancária via API — a API MUST
+     * ignorar qualquer valor enviado pelo cliente (Épico 8, FR-016). Nunca
+     * editável na tela, mesmo que o formulário o exiba.
+     */
     initialBalanceCents: number;
     createdAt: string;
     updatedAt: string;
@@ -86,12 +97,15 @@ export const financeService = {
         return response.data;
     },
 
-    createBankAccount: async (data: { name: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+    // `initialBalanceCents` NÃO faz parte do DTO de propósito (Épico 8,
+    // FR-016) — o servidor ignora esse campo mesmo se enviado; a tela nunca
+    // deveria nem tentar.
+    createBankAccount: async (data: { name: string; agency?: string; accountNumber?: string; departmentId: string }) => {
         const response = await api.post<BankAccount>(`/finance/accounts`, data);
         return response.data;
     },
 
-    updateBankAccount: async (id: string, data: { name?: string; agency?: string; accountNumber?: string; initialBalanceCents?: number }) => {
+    updateBankAccount: async (id: string, data: { name?: string; agency?: string; accountNumber?: string; departmentId?: string }) => {
         const response = await api.put<BankAccount>(`/finance/accounts/${id}`, data);
         return response.data;
     },
@@ -117,5 +131,46 @@ export const financeService = {
     deleteAttachment: async (entryId: string, attachmentId: string) => {
         const response = await api.delete<void>(`/finance/entries/${entryId}/attachments/${attachmentId}`);
         return response.data;
-    }
+    },
+
+    /**
+     * Gera o relatório financeiro PDF no backend (com QR code de validação +
+     * hash SHA-256) e retorna o Blob para download imediato.
+     *
+     * Usa fetch direto com Authorization header porque apiRequest() não suporta
+     * respostas binárias (ele converte tudo para JSON/text).
+     */
+    downloadPdfReport: async (params: {
+        type?: 'INCOME' | 'EXPENSE';
+        search?: string;
+        categoryNames?: string[];
+        startDate?: string;
+        endDate?: string;
+    }): Promise<Blob> => {
+        const query = new URLSearchParams();
+        if (params.type)                       query.set('type', params.type);
+        if (params.search)                     query.set('search', params.search);
+        if (params.categoryNames?.length)      query.set('categoryNames', params.categoryNames.join(','));
+        if (params.startDate)                  query.set('startDate', params.startDate);
+        if (params.endDate)                    query.set('endDate', params.endDate);
+
+        const token = getAccessToken();
+        const res = await fetch(
+            `${API_URL}/finance/report/pdf?${query.toString()}`,
+            {
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    Accept: 'application/pdf',
+                },
+                credentials: 'include',
+            }
+        );
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw err;
+        }
+
+        return res.blob();
+    },
 };

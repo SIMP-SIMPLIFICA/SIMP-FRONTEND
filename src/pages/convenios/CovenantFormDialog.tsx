@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { QddItemSelect } from '@/pages/daily-allowances/QddItemSelect'
+import { useQddItems } from '@/hooks/useQddItems'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
@@ -10,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { CalendarIcon, Loader2, Plus } from 'lucide-react'
+import { CalendarIcon, Loader2, Plus, Settings2 } from 'lucide-react'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from '@/hooks/use-toast'
+import { DepartmentSelect } from '@/components/departments/DepartmentSelect'
 import { useCreateCovenant, useUpdateCovenant } from '@/hooks/useCovenants'
 import { useCovenantTypes, useCreateCovenantType } from '@/hooks/useCovenants'
 import { useConvenentes, useCreateConvenente } from '@/hooks/useCovenants'
@@ -208,17 +211,19 @@ function CreateTypeDialog({
 // ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
+  departmentId: string
   number: string; typeId: string; proponentId: string
   convenenteId: string; concedenteId: string
-  processObject: string; budgetaryAction: string; status: CovenantStatus | ''
+  processObject: string; budgetaryAction: string; qddItemId: string; status: CovenantStatus | ''
   executionStartDate: Date | undefined; validityStartDate: Date | undefined; validityEndDate: Date | undefined
   termDays: string; transferValue: string; counterpartValue: string
   bankName: string; bankAgency: string; bankAccount: string
 }
 
 const EMPTY: FormState = {
+  departmentId: '',
   number: '', typeId: '', proponentId: '', convenenteId: '', concedenteId: '',
-  processObject: '', budgetaryAction: '', status: '',
+  processObject: '', budgetaryAction: '', qddItemId: '', status: '',
   executionStartDate: undefined, validityStartDate: undefined, validityEndDate: undefined,
   termDays: '', transferValue: '', counterpartValue: '',
   bankName: '', bankAgency: '', bankAccount: '',
@@ -236,6 +241,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
   const [form, setForm] = useState<FormState>(() => {
     if (covenant) {
       return {
+        departmentId:       covenant.departmentId ?? '',
         number:             covenant.number,
         typeId:             covenant.typeId        ?? '',
         proponentId:        covenant.proponentId   ?? '',
@@ -243,6 +249,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
         concedenteId:       covenant.concedenteId  ?? '',
         processObject:      covenant.processObject,
         budgetaryAction:    covenant.budgetaryAction ?? '',
+        qddItemId:          covenant.qddItemId ?? '',
         status:             covenant.status,
         executionStartDate: covenant.executionStartDate ? new Date(covenant.executionStartDate) : undefined,
         validityStartDate:  covenant.validityStartDate  ? new Date(covenant.validityStartDate)  : undefined,
@@ -276,6 +283,17 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
   const createCompany    = useCreateVirtualProcessCompany()
 
   const isBusy = createCovenant.isPending || updateCovenant.isPending
+
+  // Cascata do QDD (Fase 3): filtrado por departamento, mesmo padrão de
+  // Processos Virtuais (Fase 1). A ficha escolhida se desfaz sozinha se o
+  // departamento mudar e ela não pertencer mais a ele.
+  const { data: qddItemsForDept } = useQddItems({ departmentId: form.departmentId || undefined })
+  useEffect(() => {
+    if (form.qddItemId && !(qddItemsForDept ?? []).some(i => i.id === form.qddItemId)) {
+      setForm(f => ({ ...f, qddItemId: '' }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.departmentId])
 
   // Auto-calculate termDays from validity dates (derived — no effect needed)
   const autoTermDays = useMemo(() => {
@@ -328,7 +346,15 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
       toast({ title: 'Status é obrigatório.', variant: 'destructive' })
       return
     }
+    // Obrigatório na CRIAÇÃO apenas: convênios antigos foram cadastrados antes
+    // de o setor existir, e exigi-lo na edição impediria de salvar qualquer
+    // outra correção neles.
+    if (!covenant && !form.departmentId) {
+      toast({ title: 'Selecione a secretaria responsável.', variant: 'destructive' })
+      return
+    }
     const payload: CreateCovenantDTO = {
+      departmentId:  form.departmentId || null,
       number:        form.number,
       processObject: form.processObject,
       status:        form.status as CovenantStatus,
@@ -337,6 +363,7 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
       convenenteId:  form.convenenteId  || undefined,
       concedenteId:  form.concedenteId  || undefined,
       budgetaryAction:    form.budgetaryAction    || undefined,
+      qddItemId:          form.qddItemId || undefined,
       executionStartDate: form.executionStartDate?.toISOString(),
       validityStartDate:  form.validityStartDate?.toISOString(),
       validityEndDate:    form.validityEndDate?.toISOString(),
@@ -424,6 +451,21 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
                   />
                 </div>
 
+                {/* Secretaria/Departamento */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="departmentId">
+                    Secretaria / Departamento <span className="text-red-500">*</span>
+                  </Label>
+                  <DepartmentSelect
+                    id="departmentId"
+                    value={form.departmentId || null}
+                    onChange={next => set('departmentId', next ?? '')}
+                  />
+                  <p className="text-xs text-slate-400">
+                    Setor responsável pela execução do convênio.
+                  </p>
+                </div>
+
                 {/* Objeto */}
                 <div className="space-y-1.5">
                   <Label htmlFor="processObject">Objeto <span className="text-red-500">*</span></Label>
@@ -448,6 +490,29 @@ export default function CovenantFormDialog({ open, onOpenChange, covenant }: Pro
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Dotação Orçamentária (QDD) — Fase 3 */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Dotação Orçamentária (QDD) <span className="text-slate-400 font-normal">(opcional)</span></Label>
+                    {form.departmentId && (
+                      <a
+                        href={`/departamentos/${form.departmentId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-800 hover:underline"
+                        title="Abre o departamento em outra aba — o que você já preencheu aqui não se perde"
+                      >
+                        <Settings2 className="h-3 w-3" /> Gerenciar
+                      </a>
+                    )}
+                  </div>
+                  <QddItemSelect
+                    departmentId={form.departmentId || null}
+                    value={form.qddItemId || null}
+                    onChange={next => set('qddItemId', next ?? '')}
+                  />
                 </div>
 
                 {/* Datas */}

@@ -11,6 +11,10 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import SuspendedAccess from "@/pages/SuspendedAccess";
 import DocumentValidation from "@/pages/public/DocumentValidation";
+import PublicHome from "@/pages/public/PublicHome";
+import { PublicLayout } from "@/components/layout/PublicLayout";
+import DailyAllowanceList from "@/pages/daily-allowances/DailyAllowanceList";
+import FleetFuelingList from "@/pages/fleet-fuelings/FleetFuelingList";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -40,10 +44,12 @@ import LibraryPage from "@/pages/library/LibraryPage"
 import CovenantsPage from "@/pages/convenios/CovenantsPage";
 import OfficialProtocolsPage from "@/pages/protocolos/OfficialProtocolsPage";
 import DepartmentsPage from "@/pages/Departments";
+import DepartmentDetailPage from "@/pages/departments/DepartmentDetailPage";
 import CouncilsPage from "@/pages/councils/CouncilsPage";
 import CouncilDetailPage from "@/pages/councils/CouncilDetailPage";
 import MeetingDetailPage from "@/pages/councils/MeetingDetailPage";
 import CouncilSignReturnPage from "@/pages/councils/CouncilSignReturnPage";
+import AuditLogPage from "@/pages/auditoria/AuditLogPage";
 
 export const router = createBrowserRouter([
   // Rotas públicas
@@ -58,7 +64,20 @@ export const router = createBrowserRouter([
   // Fica FORA de ProtectedRoute de propósito: quem abre é o cidadão ou o
   // fiscal vindo do QR Code, sem conta no sistema. Colocá-la sob autenticação
   // jogaria essa pessoa na tela de login e inutilizaria o QR Code impresso.
-  { path: "/validar-documento/:uuid", element: <DocumentValidation /> },
+  // ── Portal Público do Cidadão (monólito modular) ──
+  // Fora de ProtectedRoute de propósito: quem abre é o cidadão vindo do QR Code
+  // impresso, sem conta no sistema. O PublicLayout não monta sidebar, AppLayout
+  // nem guarda de sessão — o shell administrativo traria o timer de inatividade
+  // e o interceptor de refresh para uma página que nada disso atende.
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: "/portal", element: <PublicHome /> },
+      // Sem código na URL a página pede o código; com código, valida direto.
+      { path: "/validar-documento", element: <DocumentValidation /> },
+      { path: "/validar-documento/:uuid", element: <DocumentValidation /> },
+    ],
+  },
 
   // Rotas protegidas — Super Admin
   {
@@ -71,6 +90,11 @@ export const router = createBrowserRouter([
           { path: "/admin/organizations/new",      element: <AdminNewOrganizationPage /> },
           { path: "/admin/organizations/:id",      element: <AdminOrganizationDetailPage /> },
           { path: "/admin/support",                element: <SupportAdminPage /> },
+          // Movida de /auditoria (PermissionGate anyOf=["audit:read","audit:export"])
+          // para cá a pedido do produto (2026-09-22): decisão de arquitetura para
+          // alinhar com o Épico 5 (painel do Dono do Sistema), não uma correção de
+          // bug confirmado — ver nota no tasks.md do épico sobre o T001 original.
+          { path: "/admin/auditoria",              element: <AuditLogPage /> },
         ],
       },
     ],
@@ -166,6 +190,30 @@ export const router = createBrowserRouter([
               ],
             }],
           },
+
+          // Gestão Municipal (Épico 3). Dupla proteção, como no resto do
+          // sistema: ModuleGate confere a feature flag da organização e
+          // PermissionGate confere a permissão do usuário. Sem as duas, a rota
+          // continuaria acessível por digitação direta da URL, mesmo com o item
+          // oculto na sidebar.
+          {
+            element: <ModuleGate module="dailyAllowances" />,
+            children: [{
+              element: <PermissionGate anyOf={["dailyAllowances:read", "dailyAllowances:write", "dailyAllowances:issue", "dailyAllowances:delete"]} />,
+              children: [
+                { path: "/daily-allowances", element: <DailyAllowanceList /> },
+              ],
+            }],
+          },
+          {
+            element: <ModuleGate module="fleetFuelings" />,
+            children: [{
+              element: <PermissionGate anyOf={["fleetFuelings:read", "fleetFuelings:write", "fleetFuelings:issue", "fleetFuelings:delete"]} />,
+              children: [
+                { path: "/fleet-fuelings", element: <FleetFuelingList /> },
+              ],
+            }],
+          },
           {
             element: <PermissionGate anyOf={["settings:read", "settings:write", "system:admin"]} />,
             children: [{ path: "/configuracoes", element: <Placeholder title="Configurações" /> }],
@@ -184,7 +232,10 @@ export const router = createBrowserRouter([
           },
           {
             element: <PermissionGate anyOf={["departments:read", "departments:write", "departments:delete"]} />,
-            children: [{ path: "/departamentos", element: <DepartmentsPage /> }],
+            children: [
+              { path: "/departamentos", element: <DepartmentsPage /> },
+              { path: "/departamentos/:id", element: <DepartmentDetailPage /> },
+            ],
           },
           {
             // TODO: wrap children in PermissionGate anyOf={["councils:read","councils:write","councils:admin"]} when permission keys are configured

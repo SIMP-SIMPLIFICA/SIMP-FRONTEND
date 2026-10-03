@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Plus, Pencil, Trash2, Loader2, AlertTriangle,
   FolderOpen, Layers, Building2,
@@ -22,16 +22,22 @@ import {
 } from '@/hooks/useVirtualProcesses'
 import type { VirtualProcessCategory, VirtualProcessSource, VirtualProcessCompany } from '@/lib/api/virtual-processes'
 import { useUniversalProcessModal } from '@/context/UniversalProcessModalContext'
+import { toTitleCase, collapseWhitespace } from '@/lib/string-utils'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type SimpleItem = { id: string; name: string }
 type CompanyItem = { id: string; name: string; cnpj?: string | null }
 
+/** Só dígitos — pra "12.345.678/0001-99" e "12345678000199" compararem iguais. */
+function cnpjDigits(raw: string): string {
+  return raw.replace(/\D/g, '')
+}
+
 // ─── Dialog de criar/editar item simples (só nome) ────────────────────────────
 
 function SimpleFormDialog({
-  open, onOpenChange, item, label, placeholder, onSave,
+  open, onOpenChange, item, label, placeholder, onSave, normalize, existingNames,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -39,21 +45,51 @@ function SimpleFormDialog({
   label: string
   placeholder: string
   onSave: (name: string, id?: string) => Promise<void>
+  /**
+   * Normaliza o texto ANTES de comparar contra `existingNames` e de salvar
+   * (ex: Title Case). Sem esta prop, salva exatamente como digitado —
+   * comportamento anterior, preservado para quem não passar (hoje: Origens
+   * e Empresas). Achado de bug (2026-09-24): este é o modal de VERDADE que
+   * o botão "Gerenciar" abre (via `useUniversalProcessModal`, montado
+   * globalmente em `AppLayout.tsx`) — uma cópia quase idêntica deste mesmo
+   * `SimpleFormDialog` existe também em `pages/processos-virtuais/Configuracoes.tsx`
+   * (acessível pelo menu "Configurações"), e só ELA tinha sido corrigida
+   * antes. "oBrAs" continuava passando batido aqui.
+   */
+  normalize?: (raw: string) => string
+  /** Nomes já cadastrados — bloqueia duplicata client-side (comparação sem caixa). */
+  existingNames?: string[]
 }) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) setName(item?.name ?? '')
-    onOpenChange(v)
-  }
+  // Reset ao abrir — via efeito ligado ao PROP `open`, não dentro de um
+  // wrapper de `onOpenChange` (mesmo achado da revisão final da Fase 1,
+  // 2026-09-24: o Radix só chama `onOpenChange` quando é ELE quem pede a
+  // mudança, nunca quando o consumidor muda o prop `open` de fora).
+  useEffect(() => {
+    if (open) setName(item?.name ?? '')
+  }, [open, item])
+
+  const normalizedName = normalize ? normalize(name) : name.trim()
+  const alreadyExists = Boolean(
+    normalizedName &&
+    existingNames?.some(
+      n =>
+        n.toLowerCase() === normalizedName.toLowerCase() &&
+        n.toLowerCase() !== (item?.name ?? '').toLowerCase()
+    )
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!normalizedName) return
+    // Defesa igual à do botão desabilitado abaixo — Enter no campo pode
+    // disparar o submit mesmo com o botão de salvar desabilitado.
+    if (alreadyExists) return
     setSaving(true)
     try {
-      await onSave(name.trim(), item?.id)
+      await onSave(normalizedName, item?.id)
       toast({ title: item ? `${label} atualizado com sucesso` : `${label} criado com sucesso` })
       onOpenChange(false)
     } catch (err: unknown) {
@@ -65,7 +101,7 @@ function SimpleFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{item ? `Editar ${label}` : `Novo ${label}`}</DialogTitle>
@@ -77,10 +113,15 @@ function SimpleFormDialog({
           <div className="space-y-2">
             <Label>Nome <span className="text-red-500">*</span></Label>
             <Input required placeholder={placeholder} value={name} onChange={e => setName(e.target.value)} />
+            {alreadyExists && (
+              <p className="text-xs text-red-600">
+                "{normalizedName}" já existe — escolha outro nome ou edite o já cadastrado na lista.
+              </p>
+            )}
           </div>
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving}>
+            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving || alreadyExists}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {item ? 'Salvar' : `Criar ${label}`}
             </Button>
@@ -94,27 +135,47 @@ function SimpleFormDialog({
 // ─── Dialog de criar/editar Empresa ──────────────────────────────────────────
 
 function CompanyFormDialog({
-  open, onOpenChange, item, onSave,
+  open, onOpenChange, item, onSave, existingCompanies,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   item: CompanyItem | null
   onSave: (data: { name: string; cnpj?: string | null }, id?: string) => Promise<void>
+  /** Empresas já cadastradas — usado só para bloquear CNPJ duplicado (achado de bug, 2026-09-24). */
+  existingCompanies?: CompanyItem[]
 }) {
   const [form, setForm] = useState({ name: '', cnpj: '' })
   const [saving, setSaving] = useState(false)
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) setForm({ name: item?.name ?? '', cnpj: item?.cnpj ?? '' })
-    onOpenChange(v)
-  }
+  // Reset ao abrir — mesmo achado da revisão da Fase 1 (onOpenChange do
+  // Radix não dispara quando o consumidor muda o prop `open` de fora).
+  useEffect(() => {
+    if (open) setForm({ name: item?.name ?? '', cnpj: item?.cnpj ?? '' })
+  }, [open, item])
+
+  const normalizedCnpj = cnpjDigits(form.cnpj)
+  const cnpjAlreadyExists = Boolean(
+    normalizedCnpj &&
+    existingCompanies?.some(c => c.id !== item?.id && cnpjDigits(c.cnpj ?? '') === normalizedCnpj)
+  )
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) return
+    const trimmedName = form.name.trim()
+    if (!trimmedName) return
+    // Defesa igual à do botão desabilitado — Enter no campo pode disparar o
+    // submit mesmo com o botão de salvar desabilitado.
+    if (cnpjAlreadyExists) {
+      toast({
+        title: 'CNPJ já cadastrado',
+        description: 'Já existe uma empresa com este CNPJ na lista.',
+        variant: 'destructive',
+      })
+      return
+    }
     setSaving(true)
     try {
-      await onSave({ name: form.name.trim(), cnpj: form.cnpj.trim() || null }, item?.id)
+      await onSave({ name: trimmedName, cnpj: form.cnpj.trim() || null }, item?.id)
       toast({ title: item ? 'Empresa atualizada com sucesso' : 'Empresa criada com sucesso' })
       onOpenChange(false)
     } catch (err: unknown) {
@@ -126,7 +187,7 @@ function CompanyFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{item ? 'Editar Empresa' : 'Nova Empresa'}</DialogTitle>
@@ -142,10 +203,13 @@ function CompanyFormDialog({
           <div className="space-y-2">
             <Label>CNPJ</Label>
             <Input placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} />
+            {cnpjAlreadyExists && (
+              <p className="text-xs text-red-600">Já existe uma empresa com este CNPJ na lista.</p>
+            )}
           </div>
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
-            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving}>
+            <Button type="submit" className="bg-[#0A5BC4] hover:bg-[#094FA8] text-white" disabled={saving || cnpjAlreadyExists}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {item ? 'Salvar' : 'Criar Empresa'}
             </Button>
@@ -378,6 +442,8 @@ export function UniversalProcessModal() {
         item={catDialog.item}
         label="Categoria"
         placeholder="Ex: Contratos, Obras, Licitações…"
+        normalize={toTitleCase}
+        existingNames={categories.map(c => c.name)}
         onSave={async (name, id) => { if (id) await updateCat({ id, data: { name } }); else await createCat({ name }) }}
       />
       <SimpleFormDialog
@@ -386,12 +452,15 @@ export function UniversalProcessModal() {
         item={srcDialog.item}
         label="Origem"
         placeholder="Ex: Emenda Parlamentar, Recurso Próprio…"
+        normalize={collapseWhitespace}
+        existingNames={sources.map(s => s.name)}
         onSave={async (name, id) => { if (id) await updateSrc({ id, data: { name } }); else await createSrc({ name }) }}
       />
       <CompanyFormDialog
         open={cmpDialog.open}
         onOpenChange={v => setCmpDialog(d => ({ ...d, open: v }))}
         item={cmpDialog.item}
+        existingCompanies={companies}
         onSave={async (data, id) => { if (id) await updateCmp({ id, data }); else await createCmp(data) }}
       />
       <DeleteDialog

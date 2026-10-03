@@ -8,7 +8,14 @@ import { queryClient } from "./queryClient";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-type ApiOptions = RequestInit & { noAuth?: boolean };
+type ApiOptions = RequestInit & {
+  noAuth?: boolean;
+  /**
+   * "blob" para respostas binárias (PDF, ZIP). Sem isto, o corpo é lido como
+   * texto e os bytes chegam corrompidos.
+   */
+  responseType?: "json" | "blob";
+};
 
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -54,7 +61,11 @@ export async function apiRequest<T = unknown>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let data: any;
 
-  if (contentType.includes("application/json")) {
+  if (options.responseType === "blob" && res.ok) {
+    // Só no caminho de sucesso: um erro vem em JSON e precisa ser lido como
+    // tal para que a mensagem chegue ao tratamento abaixo.
+    data = await res.blob();
+  } else if (contentType.includes("application/json")) {
     data = await res.json().catch(() => ({}));
   } else {
     data = await res.text();

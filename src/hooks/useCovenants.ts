@@ -54,6 +54,14 @@ export function useCreateCovenantType() {
   })
 }
 
+export function useDeleteCovenantType() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => covenantService.deleteType(id),
+    onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['covenant-types'] }) },
+  })
+}
+
 // ── Convenente hooks ──────────────────────────────────────────────────────────
 
 export function useConvenentes() {
@@ -71,6 +79,14 @@ export function useCreateConvenente() {
   })
 }
 
+export function useDeleteConvenente() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => covenantService.deleteConvenente(id),
+    onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['convenentes'] }) },
+  })
+}
+
 // ── Concedente hooks ──────────────────────────────────────────────────────────
 
 export function useConcedentes() {
@@ -84,6 +100,14 @@ export function useCreateConcedente() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (data: { name: string; cnpj?: string }) => covenantService.createConcedente(data),
+    onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['concedentes'] }) },
+  })
+}
+
+export function useDeleteConcedente() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => covenantService.deleteConcedente(id),
     onSuccess:  () => { queryClient.invalidateQueries({ queryKey: ['concedentes'] }) },
   })
 }
