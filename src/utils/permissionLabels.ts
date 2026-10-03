@@ -71,7 +71,6 @@ const LABELS: Record<string, string> = {
   'councils:read':  'Visualizar Conselhos Municipais',
   'councils:write': 'Criar e Editar Atas e Pautas',
   'councils:admin': 'Administrar Conselhos (total)',
-  'councils:sign':  'Assinar Documentos de Conselhos',
 
   // Suporte
   'support:read':   'Visualizar Tickets de Suporte',

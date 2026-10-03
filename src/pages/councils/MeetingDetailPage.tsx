@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   AlertTriangle,
@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Users,
   Download,
-  PenLine,
   Loader2,
   Upload,
   Lock,
@@ -32,11 +31,9 @@ import {
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { toast } from '@/hooks/use-toast'
-import { initiateGovBrSigning } from '@/hooks/useGovBrSigning'
 import { AgendaItemsEditor } from '@/components/councils/AgendaItemsEditor'
 import { MeetingAttendanceList } from '@/components/councils/MeetingAttendanceList'
 import { UploadDocumentModal } from '@/components/councils/UploadDocumentModal'
-import { SignatureStatusBadge } from '@/components/councils/SignatureStatusBadge'
 import type {
   MeetingStatus,
   CouncilDocumentType,
@@ -103,7 +100,6 @@ function DocumentRowSkeleton() {
       <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
       <td className="px-4 py-3 hidden md:table-cell"><Skeleton className="h-4 w-24" /></td>
       <td className="px-4 py-3 hidden lg:table-cell"><Skeleton className="h-4 w-20" /></td>
-      <td className="px-4 py-3"><Skeleton className="h-5 w-18 rounded-full" /></td>
       <td className="px-4 py-3"><Skeleton className="h-8 w-24" /></td>
     </tr>
   )
@@ -155,9 +151,7 @@ interface DocumentsSectionProps {
   councilId: string
   meetingId: string
   onUpload: () => void
-  returnPath: string
   canWrite: boolean
-  canSign: boolean
   isFrozen: boolean
 }
 
@@ -167,24 +161,11 @@ function DocumentsSection({
   councilId,
   meetingId,
   onUpload,
-  returnPath,
   canWrite,
-  canSign,
   isFrozen,
 }: DocumentsSectionProps) {
   const [pendingDocId, setPendingDocId] = useState<string | null>(null)
-  const [signingDocId, setSigningDocId] = useState<string | null>(null)
   const documentDownload = useDocumentDownload(councilId, meetingId)
-
-  async function handleSign(docId: string) {
-    setSigningDocId(docId)
-    try {
-      await initiateGovBrSigning(docId, returnPath)
-    } catch {
-      toast({ title: 'Erro ao iniciar assinatura Gov.br.', variant: 'destructive' })
-      setSigningDocId(null)
-    }
-  }
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -216,7 +197,6 @@ function DocumentsSection({
             <th className="px-4 py-3 text-left font-medium text-slate-600">Tamanho</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden md:table-cell">Enviado por</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600 hidden lg:table-cell">SHA-256</th>
-            <th className="px-4 py-3 text-left font-medium text-slate-600">Assinatura</th>
             <th className="px-4 py-3 text-left font-medium text-slate-600">Ações</th>
           </tr>
         </thead>
@@ -225,17 +205,12 @@ function DocumentsSection({
             Array.from({ length: 3 }).map((_, i) => <DocumentRowSkeleton key={i} />)
           ) : documents.length === 0 ? (
             <tr>
-              <td colSpan={7} className="py-16 text-center text-slate-400 text-sm">
+              <td colSpan={6} className="py-16 text-center text-slate-400 text-sm">
                 Nenhum documento enviado.
               </td>
             </tr>
           ) : (
             documents.map((doc) => {
-              const latestSignature =
-                doc.signatureRequests && doc.signatureRequests.length > 0
-                  ? doc.signatureRequests[doc.signatureRequests.length - 1]
-                  : null
-
               return (
                 <tr
                   key={doc.id}
@@ -260,13 +235,6 @@ function DocumentsSection({
                     {doc.sha256Hash ? `${doc.sha256Hash.slice(0, 8)}...` : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    {latestSignature ? (
-                      <SignatureStatusBadge status={latestSignature.status} />
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
@@ -287,23 +255,6 @@ function DocumentsSection({
                           <Download className="h-3.5 w-3.5" />
                         )}
                       </Button>
-                      {canSign && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5 h-8 px-2.5"
-                          onClick={() => handleSign(doc.id)}
-                          disabled={signingDocId === doc.id}
-                          title="Assinar via Gov.br"
-                        >
-                          {signingDocId === doc.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <PenLine className="h-3.5 w-3.5" />
-                          )}
-                          <span className="hidden sm:inline text-xs">Assinar Gov.br</span>
-                        </Button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -321,7 +272,6 @@ function DocumentsSection({
 export default function MeetingDetailPage() {
   const { id, meetingId } = useParams<{ id: string; meetingId: string }>()
   const navigate  = useNavigate()
-  const location  = useLocation()
 
   const councilId = id        ?? ''
   const mId       = meetingId ?? ''
@@ -330,7 +280,6 @@ export default function MeetingDetailPage() {
 
   const { data: me } = useMe()
   const canWrite = hasAnyPermission(me, ['councils:write', 'councils:admin'])
-  const canSign  = hasAnyPermission(me, ['councils:sign'])
 
   const { data: meeting, isLoading, isError } = useCouncilMeeting(councilId, mId)
   const { data: documents = [], isLoading: docsLoading } = useMeetingDocuments(councilId, mId)
@@ -492,9 +441,7 @@ export default function MeetingDetailPage() {
         councilId={councilId}
         meetingId={mId}
         onUpload={() => setShowUpload(true)}
-        returnPath={location.pathname}
         canWrite={canWrite}
-        canSign={canSign}
         isFrozen={isFrozen}
       />
 
