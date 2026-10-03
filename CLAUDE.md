@@ -105,7 +105,7 @@ Valem para os dois repositórios; o detalhe de backend está no CLAUDE.md do SIM
 
 ## Módulo Frotas
 
-Especificações na pasta `docs/frotas/` do workspace (fora deste repositório, em `../docs/frotas/`):
+Especificações versionadas no SIMP-BACKEND, em `SIMP-BACKEND/docs/frotas/` (a partir deste repo: `../SIMP-BACKEND/docs/frotas/`):
 
 - **`decisoes.md` — decisões que se sobrepõem à spec.** Ler primeiro.
 - `Simplifica Frotas — Especificação Técnica de Desenvolvimento.md` — TASKs 1 a 10 (telas na TASK 8, testes na TASK 10).
