@@ -19,7 +19,7 @@ Frontend do **SIMP — Sistema Integrado de Modernização e Processos**. SaaS B
 ## Regras obrigatórias
 
 - **Node 22** (`.nvmrc`): `nvm use 22` antes de qualquer comando npm/npx.
-- **Branch:** sempre `develop`, nunca commitar em `main`. `develop` tem auto-deploy na Vercel. Verificar `git branch` antes do primeiro commit da sessão.
+- **Branch:** trabalho em branch própria criada a partir do `develop`, entregue por PR (ver "Fluxo de Git"). Nunca commitar direto em `develop` ou `main`. `develop` tem auto-deploy na Vercel. Verificar `git branch` antes do primeiro commit da sessão.
 
 ```bash
 npm run dev                  # vite
@@ -115,6 +115,24 @@ Como trabalhamos:
 - **Uma TASK por sessão**, na ordem da spec técnica.
 - O `FleetFueling` atual (`src/pages/fleet-fuelings/`, `useFleetFuelings`, `src/lib/api/fleet-fuelings.ts`) **será apagado e recriado do zero** na TASK 1. Telas novas em `src/pages/fleet/`, componentes em `src/components/fleet/`, tela pública do frentista em `src/pages/public/`. URLs atuais mantidas.
 - Regras de código do Frotas: `.claude/rules/fleet.md`. Tela nova: skill `simp-tela-modulo`.
+
+---
+
+## Fluxo de Git
+
+- **Claude** cria a branch a partir do `develop` atualizado, faz os commits (mensagens no padrão do repo: `tipo(escopo): descrição` em português), faz o push e abre o PR com `gh`, sempre com **base `develop`**. O PR tem título claro e uma descrição com: o que mudou, por quê, como foi testado e o que o revisor deve olhar.
+- **O humano** faz o merge pelo GitHub. O Claude **nunca** faz merge, **nunca** faz push direto em `develop` ou `main` e **nunca** usa force push.
+- Uma branch e um PR por assunto. Se um PR depende de outro (inclusive um PR do SIMP-BACKEND), a descrição diz qual.
+- Antes do push: `npm run lint`, `npm run type-check` e `npm test` passando.
+- **Push:** o `origin` é SSH e a chave pode não estar carregada. Não alterar o `origin`. Rodar `gh auth setup-git` e:
+  ```bash
+  REPO=https://github.com/SIMP-SIMPLIFICA/SIMP-FRONTEND.git
+  git fetch $REPO '+refs/heads/*:refs/remotes/origin/*'   # antes de criar a branch: develop atualizado
+  git push $REPO <branch>
+  git fetch $REPO '+refs/heads/<branch>:refs/remotes/origin/<branch>'   # push pela URL não atualiza origin/<branch>
+  git branch --set-upstream-to=origin/<branch> <branch>
+  gh pr create --base develop --head <branch> --title "..." --body "..."
+  ```
 
 ---
 
