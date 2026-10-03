@@ -1,6 +1,6 @@
 # CLAUDE.md — SIMP Frontend
 
-Guia de contexto absoluto para o Claude Code trabalhar neste repositório. Leia integralmente antes de qualquer tarefa.
+Guia de contexto absoluto para o Claude Code trabalhar neste repositório. Leia integralmente antes de qualquer tarefa. O passo a passo de tela nova de módulo está na skill `.claude/skills/simp-tela-modulo/`.
 
 ---
 
@@ -12,292 +12,116 @@ Frontend do **SIMP — Sistema Integrado de Modernização e Processos**. SaaS B
 
 **Colaboradores:**
 - **Marllon** — auth, financeiro, sidebar, RBAC UI
-- **Carlos** — workspaces avançados, comunicação, processos virtuais, convênios, protocolos, GED/biblioteca
+- **Carlos** — workspaces avançados, comunicação, processos virtuais, convênios, protocolos, GED/biblioteca, Frotas
 
 ---
 
 ## Regras obrigatórias
 
-### Node
+- **Node 22** (`.nvmrc`): `nvm use 22` antes de qualquer comando npm/npx.
+- **Branch:** sempre `develop`, nunca commitar em `main`. `develop` tem auto-deploy na Vercel. Verificar `git branch` antes do primeiro commit da sessão.
+
 ```bash
-nvm use 22   # SEMPRE antes de qualquer comando npm/npx
+npm run dev                  # vite
+npm run type-check           # tsc -b — type check REAL
+npm run lint                 # eslint . — zero erros (warnings ok)
+npm run build                # tsc -b && vite build
+npm test                     # vitest (jsdom + Testing Library; src/**/*.{test,spec}.{ts,tsx})
+npx vitest run src/components/fleet/PlateInput.test.tsx   # um arquivo
+npx vitest run -t "nome do teste"                         # um teste pelo nome
 ```
 
-### Branch
-- Trabalhar **sempre** em `develop`
-- **Nunca** commitar diretamente em `main`
-- `develop` tem auto-deploy na Vercel — cada push vai para produção dev
-- Verificar `git branch` antes do primeiro commit da sessão
-
-### Antes de commitar
-```bash
-npx tsc -b          # type check REAL — NÃO usar tsc --noEmit
-npx eslint .        # zero erros obrigatório (warnings são ok)
-npm run build       # confirmar que o build passa
-```
-
-> **ATENÇÃO:** `tsc --noEmit` não verifica nada neste projeto. O `tsconfig.json` raiz tem `"files": []`. O check real é `npx tsc -b` (build mode, segue referências para `tsconfig.app.json`).
+> **ATENÇÃO:** `tsc --noEmit` não verifica nada neste projeto — o `tsconfig.json` raiz tem `"files": []` e só referencia `tsconfig.app.json`/`tsconfig.node.json`. O check real é `tsc -b` (é o que `npm run type-check` roda; ambos os tsconfigs têm `noEmit: true`, então nada é escrito em `dist/`).
+>
+> **Testes:** a infraestrutura (Vitest + jsdom + `@testing-library/react` + `user-event` + `jest-dom`, setup em `src/test/setup.ts`) está pronta, mas ainda **não existe nenhum arquivo de teste**. O Frotas traz os primeiros.
 
 ---
 
 ## TypeScript
 
-- **Proibido** usar `any` explícito — ESLint quebra o CI (`@typescript-eslint/no-explicit-any`)
-- Se o backend retorna um campo que o tipo não declara, adicionar o campo ao tipo (ex: `signedUrl?: string`)
-- Nunca usar `as any` como atalho — definir o tipo correto
+- **Proibido** `any` explícito — o ESLint quebra o CI (`@typescript-eslint/no-explicit-any`). Nada de `as any`.
+- Se o backend devolve um campo que o tipo não declara, adicionar ao tipo (ex.: `signedUrl?: string`). Os tipos não são compartilhados com o backend; são mantidos à mão em `src/lib/api/*.ts` e `src/types/`.
 
 ---
 
 ## Data fetching — TanStack Query v5
 
-Todo dado do backend deve passar por TanStack Query. Nunca usar `fetch`/`axios` diretamente em componentes.
+Todo dado do backend passa por TanStack Query; nunca `fetch` direto em componente. Par obrigatório por domínio: serviço puro em `src/lib/api/<dominio>.ts` (sobre `api`/`apiRequest` de `src/lib/api.ts`) + hooks em `src/hooks/use<Dominio>.ts` com uma constante `KEY` e `invalidateQueries({ queryKey: [KEY] })` no `onSuccess` das mutations. Exemplo real: `src/lib/api/daily-allowances.ts` + `src/hooks/useDailyAllowances.ts`. PDF/ZIP: `apiRequest<Blob>(url, { responseType: 'blob' })`.
 
-```typescript
-// Hook padrão
-const { data, isLoading } = useMinhaQuery()
-
-// Mutação
-const { mutateAsync } = useMinhaMutation()
-```
-
-Invalidar queries após mutations:
-```typescript
-queryClient.invalidateQueries({ queryKey: ['minhaQuery'] })
-```
-
-Estrutura padrão de um hook:
-```typescript
-// src/lib/api/modulo.ts — serviço puro
-export const moduloService = {
-  list: async (params?) => { const res = await api.get('/modulo'); return res.data },
-  create: async (data: CreateDTO) => { const res = await api.post('/modulo', data); return res.data },
-}
-
-// src/hooks/useModulo.ts — hook React Query
-export function useModulos(params?) {
-  return useQuery({ queryKey: ['modulos', params], queryFn: () => moduloService.list(params) })
-}
-export function useCreateModulo() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: moduloService.create,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['modulos'] }),
-  })
-}
-```
+O backend limita `limit` a **100**; pedir mais devolve 400 e a tela abre vazia sem erro visível.
 
 ---
 
-## Uploads — Cloudflare R2
+## Uploads
 
-**Nunca** construir URLs de arquivo com `${API_URL}/uploads/...`. O backend usa R2 e retorna signed URLs.
-
-```typescript
-// CORRETO
-href={file.signedUrl}
-
-// ERRADO
-href={`${API_URL}/uploads/${file.fileName}`}
-```
+Nunca montar URL de arquivo com `${API_URL}/uploads/...`; usar sempre a `signedUrl` devolvida pelo backend.
 
 ---
 
-## Estrutura de contextos e providers
+## Providers, shadcn/ui e padrões de UI
 
-Providers globais ficam em `src/components/layout/AppLayout.tsx`. Antes de criar um novo provider, verificar se já existe um adequado.
-
-Providers existentes:
-- `QueryClientProvider` — TanStack Query
-- `AuthProvider` — autenticação
-- `UniversalFinanceModalContext` — modal inline de categorias/contas financeiras
-
----
-
-## shadcn/ui
-
-Usar componentes existentes em `src/components/ui/` antes de criar novos. Os componentes são gerados pelo shadcn — **não modificar** os arquivos em `src/components/ui/` diretamente (risco de conflito ao atualizar).
-
-```bash
-npx shadcn@latest add <componente>
-```
+- Providers globais em `src/components/layout/AppLayout.tsx` (`QueryClientProvider`, `AuthProvider`, `UniversalFinanceModalContext`, modal universal de Processos). Verificar antes de criar outro.
+- Componentes shadcn em `src/components/ui/` — **não editar** à mão; adicionar com `npx shadcn@latest add <componente>`.
+- Preferir `Dialog`/`Sheet` a navegar para fora do contexto. Não duplicar o X do `DialogContent`.
+- Modal com formulário longo: `DialogContent` com `flex flex-col max-h-[90vh] overflow-hidden p-0`, conteúdo em `<ScrollArea className="flex-1">` e rodapé de botões fora do scroll (sempre visível).
+- Toasts: `toast({ title })` / `toast({ title, variant: 'destructive' })` de `@/hooks/use-toast`. Erros de documento oficial passam por `describeDocumentError` (`src/lib/official-documents.ts`), que traduz o `error` (código) do backend em mensagem orientadora.
+- Desabilitar botão e mostrar spinner durante mutation (`isPending`).
 
 ---
 
-## Padrões de UI/UX
+## Estado, auth e guards
 
-### Modais e Sheets
-
-- Preferir modais (`Dialog`) ou sheets (`Sheet`) a navegação para fora do contexto
-- **Nunca duplicar o botão de fechar (X):** o shadcn `DialogContent` já inclui um X nativo. Não adicionar outro no `DialogHeader`
-- Modais com formulários longos: envolver o conteúdo em `<ScrollArea>` para não cortar campos
-
-### ScrollArea em modais grandes
-
-Padrão para modais com formulários que podem ultrapassar a altura da tela:
-
-```tsx
-<DialogContent className="max-w-lg overflow-hidden p-0 gap-0 flex flex-col max-h-[90vh]">
-  <DialogHeader className="px-6 pt-6 pb-4 border-b">
-    <DialogTitle>Título</DialogTitle>
-  </DialogHeader>
-
-  {/* Conteúdo scrollável */}
-  <form className="flex flex-col min-h-0 flex-1" onSubmit={handleSubmit}>
-    <ScrollArea className="flex-1">
-      <div className="px-6 py-5 space-y-5">
-        {/* campos */}
-      </div>
-    </ScrollArea>
-
-    {/* Botões sempre visíveis no rodapé */}
-    <div className="flex justify-end gap-3 px-6 py-4 border-t">
-      <Button variant="outline">Cancelar</Button>
-      <Button type="submit">Salvar</Button>
-    </div>
-  </form>
-</DialogContent>
-```
-
-Usar `flex flex-col max-h-[90vh]` no `DialogContent` + `flex-1` no `ScrollArea` para que os botões do rodapé fiquem sempre visíveis.
-
-### Toasts de feedback
-
-```typescript
-import { toast } from '@/hooks/use-toast'
-
-// Sucesso
-toast({ title: 'Documento salvo com sucesso.' })
-
-// Erro
-toast({ title: 'Erro ao salvar.', variant: 'destructive' })
-```
-
-### Loading states
-
-- Usar `isLoading` / `isPending` dos hooks para desabilitar botões e mostrar spinners
-- Nunca deixar botão clicável durante uma mutation em andamento
+- Identidade e permissões vêm do cache `["auth","me"]`: `const { data: me } = useMe()` → `me.user.isSuperAdmin`, `me.user.permissions`. Funções puras em `src/lib/permissions.ts` (`hasAnyPermission(me, [...])`).
+- **Guards de rota** em `src/router.tsx`, sempre aninhados como layout: `ProtectedRoute` → `ModuleGate module="x"` → `PermissionGate anyOf={[...]}` → página. Esconder da sidebar não basta; a URL também precisa ser protegida.
+- **Sidebar** data-driven: `NAV_SECTIONS` em `src/components/layout/Sidebar.tsx`, cada item com `module` e `anyOf`.
+- **Módulos** (chaves exatas, estilos misturados): `tasks, finance, communication, virtual_processes, calendar, notes, departments, library, covenants, protocols, councils, support, dailyAllowances, fleetFuelings`. Padrão ao criar organização: `tasks, finance, communication, calendar, notes, departments, library, covenants, dailyAllowances, fleetFuelings`. Manuais (super admin): `virtual_processes, protocols, councils, support`. Rótulos em `src/lib/moduleLabels.ts`.
 
 ---
 
-## Gestão de Estado e Auth
+## Fluxos de negócio
 
-### useMe — dados do usuário autenticado
-
-```typescript
-const { data: me } = useMe()
-// me.user.id, me.user.firstName, me.user.organizationId
-// me.user.isSuperAdmin
-// me.user.permissions: string[]
-```
-
-### Verificação de permissões
-
-```typescript
-import { hasAnyPermission } from '@/lib/permissions'
-
-const isAdmin = hasAnyPermission(me, ['protocols:admin']) || !!me?.user?.isSuperAdmin
-```
-
-### Feature Flags — Módulos habilitados
-
-Rotas e menus são condicionais baseados nos módulos habilitados para a organização:
-
-```typescript
-// Na Sidebar e no Router, verificar se o módulo está habilitado:
-const enabledModules = me?.organization?.enabledModules ?? []
-const hasProtocols = enabledModules.includes('protocols')
-```
-
-Módulos habilitados por padrão: `tasks`, `finance`, `communication`, `calendar`, `notes`, `departments`, `library`, `covenants`.
-
-Módulos que requerem habilitação manual pelo super admin: `virtual_processes`, `protocols`.
+- **Protocolos** (`GenerateProtocolModal.tsx`): `COMUNICACAO` (Sequencial ou Aleatório, por setor) ou `NORMATIVO` (sempre sequencial, setor `CENTRAL`, sem destinatário). Após gerar: copiar número ou anexar PDF — `libraryService.upload` e depois `updateStatus({ status: 'EMITIDO', libraryDocumentId })`. A restrição de quem pode emitir é no backend.
+- **Convênios × Processos Virtuais:** N:M com link/unlink nos dois detalhes. Criar Tipo de Convênio cria automaticamente a Origem de Processo Virtual (no backend).
+- **Documento oficial** (Diárias, Frota): rascunho editável enquanto `sha256Hash` é nulo; emitido, o backend devolve 409 a qualquer alteração.
+- Deep link de notificações via `?msgId=`; modal de categorias/contas financeiras via `useUniversalFinanceModal()`.
 
 ---
 
-## Fluxo: Geração de Protocolos (Numeração Oficial)
+## Invariantes do SIMP (nunca violar)
 
-O fluxo completo de geração e emissão de um protocolo oficial é:
+Valem para os dois repositórios; o detalhe de backend está no CLAUDE.md do SIMP-BACKEND.
 
-### 1. Formulário de geração (`GenerateProtocolModal.tsx`)
-
-- Usuário escolhe **Categoria**: `COMUNICACAO` ou `NORMATIVO`
-- Para `COMUNICACAO`: aparece toggle de **Tipo de Numeração** (`Sequencial` ou `Aleatório`)
-- Para `NORMATIVO`: numeração sempre `SEQUENTIAL`, setor forçado como `CENTRAL`
-- Campos: tipo de documento, setor de origem, assunto/ementa, destinatário
-
-```typescript
-await generateMutation.mutateAsync({
-  documentCategory: form.documentCategory,
-  documentType: form.documentType,
-  numberingType: form.numberingType,   // 'SEQUENTIAL' | 'RANDOM'
-  subject: form.subject,
-  sector: isNormativo ? 'CENTRAL' : form.sector,
-  recipient: isNormativo ? undefined : form.recipient,
-})
-```
-
-### 2. Tela de sucesso
-
-Após gerar, exibe o número oficial reservado e dois botões:
-- **Copiar Número** — copia `formattedNumber` para clipboard
-- **Anexar PDF Agora** — abre file picker e executa o fluxo de emissão
-
-### 3. Fluxo de emissão (anexo PDF)
-
-```typescript
-// 1. Upload do PDF para o GED (retorna LibraryDocument com .id)
-const uploaded = await libraryService.upload(formData)
-
-// 2. Vincular ao protocolo e marcar como EMITIDO
-await updateStatus.mutateAsync({
-  id: doc.id,
-  data: { status: 'EMITIDO', libraryDocumentId: uploaded.id },
-})
-```
-
-**Permissões para marcar EMITIDO:**
-- Usuários com `protocols:admin` podem emitir qualquer documento
-- Criador sem permissão admin pode emitir **apenas seus próprios** documentos
-- Qualquer usuário pode ver o botão — a restrição é no backend
+1. `organizationId` nunca é enviado pelo frontend no corpo, na query ou na URL — o backend o tira do token.
+2. `Department.id` é `nanoid` (IDs mistos `cuid`/`nanoid`/`uuid`): nunca validar `departmentId` como UUID em schema de formulário.
+3. Documento `ISSUED` é imutável no backend; a UI esconde a edição, mas nunca é a única barreira. PDF sempre baixado do original.
+4. Saldo QDD é calculado no backend na leitura; estouro **avisa, não bloqueia** (aviso amarelo, nunca botão desabilitado).
+5. Conferir o prefixo da rota em `SIMP-BACKEND/src/config/routes.ts` antes de assumir `/api/v1`.
+6. Toda escrita do Frotas é auditada no backend na mesma transação; o frontend não grava auditoria.
+7. Dinheiro e litros chegam como string decimal (Prisma `Decimal`): nunca fazer conta com `Number`/float em valor que volta ao backend — o total oficial é sempre calculado no servidor.
+8. Rotas novas do backend usam Zod `.strict()`: enviar só os campos do contrato. Erros chegam como `{ error: CODIGO, message }` — exibir a `message` orientadora; nunca mostrar stack, "Erro 409" ou "operação inválida".
+9. Tarefa só termina com `npm run lint`, `npm run type-check` e `npm test` passando.
 
 ---
 
-## Fluxo: Convênios e Processos Virtuais
+## Módulo Frotas
 
-### Relacionamento N:M
+Especificações na pasta `docs/frotas/` do workspace (fora deste repositório, em `../docs/frotas/`):
 
-Um convênio pode estar vinculado a múltiplos processos virtuais. A interface expõe:
-- No detalhe do convênio: lista de processos vinculados + botão de link/unlink
-- No detalhe do processo virtual: lista de convênios vinculados
+- **`decisoes.md` — decisões que se sobrepõem à spec.** Ler primeiro.
+- `Simplifica Frotas — Especificação Técnica de Desenvolvimento.md` — TASKs 1 a 10 (telas na TASK 8, testes na TASK 10).
+- `Simplifica Frotas — Especificação Funcional e Arquitetural.md` — domínio e fluxos.
 
-### One-Way Sync — Tipos de Convênio
-
-Ao criar um novo **Tipo de Convênio**, o sistema automaticamente cria uma **Origem de Processo Virtual** com o mesmo nome (sync unidirecional no backend). Não é necessário criar manualmente a origem.
-
----
-
-## Navegação e Deep Linking
-
-- Preferir modais/sheets a navegação para fora do contexto atual
-- Usar `useUniversalFinanceModal()` para abrir o modal de categorias/contas dentro do formulário de lançamento
-- Deep linking de notificações mantém o contexto do usuário via `?msgId=` na URL
+Como trabalhamos:
+- **Uma TASK por sessão**, na ordem da spec técnica.
+- O `FleetFueling` atual (`src/pages/fleet-fuelings/`, `useFleetFuelings`, `src/lib/api/fleet-fuelings.ts`) **será apagado e recriado do zero** na TASK 1. Telas novas em `src/pages/fleet/`, componentes em `src/components/fleet/`, tela pública do frentista em `src/pages/public/`. URLs atuais mantidas.
+- Regras de código do Frotas: `.claude/rules/fleet.md`. Tela nova: skill `simp-tela-modulo`.
 
 ---
 
-## CI/CD
+## CI/CD e Deploy
 
-### Pipelines ativos
-- `ci.yml` — Validator (lint + tsc) → Test (vitest, passWithNoTests) → Build
-- `security.yml` — npm audit + CodeQL + TruffleHog + Claude Security Review (PRs)
-- `failure-analyst.yml` — CI falha → Claude Haiku analisa → Issue + Discord
-
-### Secrets necessários (GitHub)
-`ANTHROPIC_API_KEY`, `DISCORD_WEBHOOK_URL`
-
-### Deploy (Vercel — branch `develop`)
-- Auto-deploy a cada push em `develop`
-- `vercel.json` na raiz configura SPA routing (rewrites para `/index.html`)
-- Variáveis de ambiente Vercel: `VITE_API_URL`, `VITE_SENTRY_DSN`
+- `ci.yml` — Validator (lint + tsc) → Test (vitest, `passWithNoTests`) → Build · `security.yml` — npm audit + CodeQL + TruffleHog + Claude Security Review · `failure-analyst.yml` — CI falha → Claude Haiku → Issue + Discord.
+- Vercel, auto-deploy em `develop`; `vercel.json` faz rewrite de SPA e aplica headers de segurança. Variáveis: `VITE_API_URL`, `VITE_SENTRY_DSN`, `VITE_TURNSTILE_SITE_KEY`. Secrets GitHub: `ANTHROPIC_API_KEY`, `DISCORD_WEBHOOK_URL`.
 
 ---
 
@@ -305,17 +129,10 @@ Ao criar um novo **Tipo de Convênio**, o sistema automaticamente cria uma **Ori
 
 | Módulo | Responsável | Status |
 |--------|-------------|--------|
-| Auth / Login | Marllon | ✅ |
-| Dashboard | Marllon | ✅ |
-| Users / Roles RBAC | Marllon | ✅ |
-| Sidebar / Layout | Marllon | ✅ |
-| Financeiro | Marllon | ✅ |
-| Workspaces + Kanban + Tasks | Carlos | ✅ |
-| Comunicação (ofícios, memorandos) | Carlos | ✅ |
-| Processos Virtuais | Carlos | ✅ |
-| Convênios | Carlos | ✅ |
-| Protocolos (numeração oficial) | Carlos | ✅ |
+| Auth / Login · Dashboard · Users / Roles RBAC · Sidebar / Layout · Financeiro · Profile | Marllon | ✅ |
+| Workspaces + Kanban + Tasks · Comunicação · Processos Virtuais · Convênios · Protocolos | Carlos | ✅ |
+| Notificações (SSE) · Calendar / Notes | Carlos | ✅ |
 | GED / Biblioteca | Carlos | 🔴 pendente refinamento |
-| Notificações (SSE) | Carlos | ✅ |
-| Calendar / Notes | Carlos | ✅ |
-| Profile | Marllon | ✅ |
+| Frotas (substitui `fleet-fuelings`) | Carlos | 🚧 em especificação |
+
+Também existem: Diárias, Conselhos, Suporte, Departamentos (com dossiê), Auditoria (super admin) e o Portal Público de validação.

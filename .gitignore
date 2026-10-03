@@ -29,4 +29,4 @@ dist-ssr
 e2e/.auth/*
 !e2e/.auth/.gitkeep
 playwright-report/
-test-results/
+test-results/.claude/settings.local.json
