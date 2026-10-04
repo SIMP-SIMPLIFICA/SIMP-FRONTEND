@@ -19,7 +19,7 @@ vi.mock('@/hooks/use-toast', () => ({ toast: vi.fn() }))
 const EXISTING: FleetDriver = {
   id: 'drv-1',
   name: 'João Pereira',
-  cpfMasked: '***.982.247-**',
+  cpfMasked: '***.982.***-**',
   cnhMasked: '*******6461',
   cnhCategory: 'B',
   cnhExpiry: '2028-03-15',
@@ -71,7 +71,7 @@ describe('DriverFormDialog', () => {
   test('na edição, CPF e CNH vazios não são enviados (mantém o valor cifrado no servidor)', async () => {
     render(<DriverFormDialog open onOpenChange={vi.fn()} driver={EXISTING} />)
 
-    expect(screen.getByLabelText('CPF')).toHaveAttribute('placeholder', '***.982.247-** (manter)')
+    expect(screen.getByLabelText('CPF')).toHaveAttribute('placeholder', '***.982.***-** (manter)')
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
 
     expect(updateMock).toHaveBeenCalledTimes(1)

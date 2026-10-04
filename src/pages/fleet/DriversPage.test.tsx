@@ -38,8 +38,20 @@ describe('DriversPage — busca', () => {
     await userEvent.type(screen.getByLabelText('Buscar motorista'), '529.982.247-25')
 
     expect(lookupMock).toHaveBeenCalledWith('52998224725', expect.any(Object))
-    const leaked = listParamsSeen.some(p => JSON.stringify(p ?? {}).includes('52998224725') || JSON.stringify(p ?? {}).includes('529.982.247-25'))
+    // Nenhum prefixo do CPF ('529.982.247' já determina o CPF inteiro) chega à
+    // listagem, cuja busca viaja na URL: nenhum parâmetro pode ter dígito.
+    const leaked = listParamsSeen.some(p => /\d/.test(String((p as { search?: string } | undefined)?.search ?? '')))
     expect(leaked).toBe(false)
+  })
+
+  test('CPF incompleto: orienta e não consulta nada', async () => {
+    render(<DriversPage />)
+
+    await userEvent.type(screen.getByLabelText('Buscar motorista'), '529.982.247')
+
+    expect(lookupMock).not.toHaveBeenCalled()
+    expect(screen.getByText(/digite o CPF completo/i)).toBeInTheDocument()
+    expect(listParamsSeen.some(p => /\d/.test(String((p as { search?: string } | undefined)?.search ?? '')))).toBe(false)
   })
 
   test('texto comum: busca por nome na listagem, sem lookup', async () => {

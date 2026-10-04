@@ -39,9 +39,13 @@ export default function DriversPage() {
 
   // CPF completo e válido vira localização por POST (CPF fora da URL); qualquer
   // outro texto é busca por nome na listagem.
+  // Qualquer dígito tira o texto da listagem: a busca por nome viaja na URL, e
+  // um CPF parcial (9 dígitos já determinam o CPF inteiro) iria para o log.
   const searchDigits = onlyDigits(search);
-  const cpfSearch = searchDigits.length === 11 && isValidCpf(searchDigits) ? searchDigits : null;
-  const nameSearch = cpfSearch ? undefined : search.trim() || undefined;
+  const hasDigits = searchDigits.length > 0;
+  const cpfSearch = hasDigits && searchDigits.length === 11 && isValidCpf(searchDigits) ? searchDigits : null;
+  const incompleteCpf = hasDigits && !cpfSearch;
+  const nameSearch = hasDigits ? undefined : search.trim() || undefined;
 
   const { data, isLoading, isError } = useFleetDrivers({ search: nameSearch, limit: 100 });
   const lookup = useLookupFleetDriverByCpf();
@@ -61,7 +65,7 @@ export default function DriversPage() {
 
   const deleteDriver = useDeleteFleetDriver();
   const drivers = cpfSearch ? (cpfResult ?? []) : (data?.data ?? []);
-  const listLoading = cpfSearch ? cpfResult === null : isLoading;
+  const listLoading = incompleteCpf ? false : cpfSearch ? cpfResult === null : isLoading;
 
   async function confirmDelete() {
     if (!deleting) return;
@@ -106,7 +110,13 @@ export default function DriversPage() {
         />
       </div>
 
-      {listLoading && (
+      {incompleteCpf && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Para localizar por CPF, digite o CPF completo (11 dígitos). Para buscar por nome, use só letras.
+        </div>
+      )}
+
+      {!incompleteCpf && listLoading && (
         <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-10 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm">Carregando motoristas...</span>
@@ -119,7 +129,7 @@ export default function DriversPage() {
         </div>
       )}
 
-      {!listLoading && !isError && drivers.length === 0 && (
+      {!incompleteCpf && !listLoading && !isError && drivers.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
           <IdCard className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-slate-700">
@@ -131,7 +141,7 @@ export default function DriversPage() {
         </div>
       )}
 
-      {!listLoading && !isError && drivers.length > 0 && (
+      {!incompleteCpf && !listLoading && !isError && drivers.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <Table>
             <TableHeader>
