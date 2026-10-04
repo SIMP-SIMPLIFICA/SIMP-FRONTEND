@@ -12,7 +12,8 @@ export const MODULE_LABELS: Record<string, string> = {
   councils:          "Conselhos",
   support:           "Suporte",
   dailyAllowances:   "Diárias",
-  fleetFuelings:     "Frota",
+  fleetFuelings:     "Frota — abastecimento",
+  fleet:             "Frota",
 }
 
 export function getModuleLabel(key: string): string {

@@ -26,7 +26,7 @@ import {
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/useMe";
-import { Fuel, Plane } from "lucide-react";
+import { Car, IdCard, Plane } from "lucide-react";
 import { hasAnyPermission } from "@/lib/permissions";
 import { clearAccessToken } from "@/lib/auth";
 
@@ -150,17 +150,25 @@ const NAV_SECTIONS: NavSection[] = [
           "dailyAllowances:delete",
         ],
       },
+    ],
+  },
+  {
+    // Simplifica Frotas — cada item com o mesmo module/anyOf da rota.
+    label: "Frota",
+    items: [
       {
-        label: "Frota",
-        to: "/fleet-fuelings",
-        icon: <Fuel className="h-4 w-4" />,
-        module: "fleetFuelings",
-        anyOf: [
-          "fleetFuelings:read",
-          "fleetFuelings:write",
-          "fleetFuelings:issue",
-          "fleetFuelings:delete",
-        ],
+        label: "Veículos",
+        to: "/frota/veiculos",
+        icon: <Car className="h-4 w-4" />,
+        module: "fleet",
+        anyOf: ["fleet:read", "fleet:manage"],
+      },
+      {
+        label: "Motoristas",
+        to: "/frota/motoristas",
+        icon: <IdCard className="h-4 w-4" />,
+        module: "fleet",
+        anyOf: ["fleet:read", "fleet:manage"],
       },
     ],
   },

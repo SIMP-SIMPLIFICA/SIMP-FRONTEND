@@ -18,7 +18,8 @@ const ALL_MODULES = [
   { key: "departments",       label: "Departamentos" },
   { key: "virtual_processes", label: "Processos Virtuais" },
   { key: "dailyAllowances",   label: "Diárias" },
-  { key: "fleetFuelings",     label: "Frota" },
+  { key: "fleetFuelings",     label: "Frota — abastecimento" },
+  { key: "fleet",             label: "Frota (exige abastecimento)" },
 ];
 
 const DEFAULT_ENABLED = [
