@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IdCard, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DriverFormDialog } from "@/components/fleet/DriverFormDialog";
 import { toast } from "@/hooks/use-toast";
-import { useDeleteFleetDriver, useFleetDrivers } from "@/hooks/useFleet";
+import { useDeleteFleetDriver, useFleetDrivers, useLookupFleetDriverByCpf } from "@/hooks/useFleet";
 import { useMe } from "@/hooks/useMe";
 import { CNH_STATUS_LABELS, EMPLOYMENT_KIND_LABELS, type FleetDriver } from "@/lib/api/fleet";
 import { describeFleetError } from "@/lib/fleet-errors";
+import { isValidCpf, onlyDigits } from "@/lib/fleet-validation";
 import { hasAnyPermission } from "@/lib/permissions";
 
 function formatDate(iso: string): string {
@@ -36,9 +37,31 @@ export default function DriversPage() {
   const [editing, setEditing] = useState<FleetDriver | null>(null);
   const [deleting, setDeleting] = useState<FleetDriver | null>(null);
 
-  const { data, isLoading, isError } = useFleetDrivers({ search: search.trim() || undefined, limit: 100 });
+  // CPF completo e válido vira localização por POST (CPF fora da URL); qualquer
+  // outro texto é busca por nome na listagem.
+  const searchDigits = onlyDigits(search);
+  const cpfSearch = searchDigits.length === 11 && isValidCpf(searchDigits) ? searchDigits : null;
+  const nameSearch = cpfSearch ? undefined : search.trim() || undefined;
+
+  const { data, isLoading, isError } = useFleetDrivers({ search: nameSearch, limit: 100 });
+  const lookup = useLookupFleetDriverByCpf();
+  const [cpfResult, setCpfResult] = useState<FleetDriver[] | null>(null);
+  const lookupByCpf = lookup.mutate;
+
+  useEffect(() => {
+    if (!cpfSearch) {
+      setCpfResult(null);
+      return;
+    }
+    lookupByCpf(cpfSearch, {
+      onSuccess: result => setCpfResult(result.data),
+      onError: () => setCpfResult([]),
+    });
+  }, [cpfSearch, lookupByCpf]);
+
   const deleteDriver = useDeleteFleetDriver();
-  const drivers = data?.data ?? [];
+  const drivers = cpfSearch ? (cpfResult ?? []) : (data?.data ?? []);
+  const listLoading = cpfSearch ? cpfResult === null : isLoading;
 
   async function confirmDelete() {
     if (!deleting) return;
@@ -83,7 +106,7 @@ export default function DriversPage() {
         />
       </div>
 
-      {isLoading && (
+      {listLoading && (
         <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white p-10 text-slate-500">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm">Carregando motoristas...</span>
@@ -96,7 +119,7 @@ export default function DriversPage() {
         </div>
       )}
 
-      {!isLoading && !isError && drivers.length === 0 && (
+      {!listLoading && !isError && drivers.length === 0 && (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
           <IdCard className="mx-auto h-8 w-8 text-slate-300" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-slate-700">
@@ -108,7 +131,7 @@ export default function DriversPage() {
         </div>
       )}
 
-      {!isLoading && !isError && drivers.length > 0 && (
+      {!listLoading && !isError && drivers.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <Table>
             <TableHeader>

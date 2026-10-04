@@ -49,6 +49,14 @@ export function useFleetDrivers(params?: DriverListParams) {
   })
 }
 
+/**
+ * Localização por CPF como mutation, de propósito: o CPF não entra numa
+ * queryKey (que fica no cache e nas devtools) nem na URL.
+ */
+export function useLookupFleetDriverByCpf() {
+  return useMutation({ mutationFn: (cpf: string) => fleetService.lookupDriverByCpf(cpf) })
+}
+
 export function useCreateFleetDriver() {
   const queryClient = useQueryClient()
   return useMutation({

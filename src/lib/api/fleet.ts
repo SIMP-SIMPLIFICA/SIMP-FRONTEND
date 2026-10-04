@@ -137,6 +137,7 @@ export interface VehicleListParams {
 }
 
 export interface DriverListParams {
+  /** Só por nome. Para CPF use `lookupDriverByCpf`. */
   search?: string
   active?: boolean
   departmentId?: string
@@ -163,6 +164,9 @@ export const fleetService = {
 
   listDrivers: (params?: DriverListParams) =>
     api.get<Paginated<FleetDriver>>(`${BASE}/drivers${query(params)}`).then(r => r.data),
+  /** CPF completo no CORPO de um POST — nunca na URL (log de requisição, histórico). */
+  lookupDriverByCpf: (cpf: string) =>
+    api.post<{ data: FleetDriver[] }>(`${BASE}/drivers/lookup`, { cpf }).then(r => r.data),
   createDriver: (data: DriverInput) => api.post<FleetDriver>(`${BASE}/drivers`, data).then(r => r.data),
   updateDriver: (id: string, data: Partial<DriverInput>) =>
     api.patch<FleetDriver>(`${BASE}/drivers/${id}`, data).then(r => r.data),
