@@ -24,3 +24,19 @@ Object.defineProperty(window, 'sessionStorage', { value: storageMock })
 // Silence console.error em testes (React warnings esperados)
 // Remova se quiser ver todos os warnings
 vi.spyOn(console, 'error').mockImplementation(() => {})
+
+// jsdom não implementa ResizeObserver nem as APIs de ponteiro que os componentes
+// Radix (ScrollArea, Select) chamam ao montar. Stubs mínimos, sem comportamento.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+if (!('ResizeObserver' in globalThis)) {
+  Object.defineProperty(globalThis, 'ResizeObserver', { value: ResizeObserverStub, writable: true })
+}
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.releasePointerCapture = () => {}
+  Element.prototype.scrollIntoView = () => {}
+}

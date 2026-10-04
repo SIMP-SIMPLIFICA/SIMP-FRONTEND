@@ -14,7 +14,8 @@ import DocumentValidation from "@/pages/public/DocumentValidation";
 import PublicHome from "@/pages/public/PublicHome";
 import { PublicLayout } from "@/components/layout/PublicLayout";
 import DailyAllowanceList from "@/pages/daily-allowances/DailyAllowanceList";
-import FleetFuelingList from "@/pages/fleet-fuelings/FleetFuelingList";
+import VehiclesPage from "@/pages/fleet/VehiclesPage";
+import DriversPage from "@/pages/fleet/DriversPage";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -205,11 +206,13 @@ export const router = createBrowserRouter([
             }],
           },
           {
-            element: <ModuleGate module="fleetFuelings" />,
+            // Simplifica Frotas (TASK 1/2): cadastros de veículos e motoristas.
+            element: <ModuleGate module="fleet" />,
             children: [{
-              element: <PermissionGate anyOf={["fleetFuelings:read", "fleetFuelings:write", "fleetFuelings:issue", "fleetFuelings:delete"]} />,
+              element: <PermissionGate anyOf={["fleet:read", "fleet:manage"]} />,
               children: [
-                { path: "/fleet-fuelings", element: <FleetFuelingList /> },
+                { path: "/frota/veiculos", element: <VehiclesPage /> },
+                { path: "/frota/motoristas", element: <DriversPage /> },
               ],
             }],
           },

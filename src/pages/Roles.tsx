@@ -138,7 +138,7 @@ const CATEGORY_MODULE_MAP: Record<string, string> = {
   processes:     "virtual_processes",
   covenants:     "covenants",
   dailyAllowances: "dailyAllowances",
-  fleetFuelings:   "fleetFuelings",
+  fleet:           "fleet",
 };
 
 // --- Helpers ---

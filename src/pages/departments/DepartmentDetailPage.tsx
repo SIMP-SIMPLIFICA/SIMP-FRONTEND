@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDepartment } from '@/hooks/useDepartments'
+import { useAuth } from '@/hooks/useAuth'
 import { useMe } from '@/hooks/useMe'
 import { hasAnyPermission } from '@/lib/permissions'
 import { formatCnpj } from '@/utils/cnpj'
@@ -27,7 +28,7 @@ import { CovenantsTab } from './tabs/CovenantsTab'
 import { VirtualProcessesTab } from './tabs/VirtualProcessesTab'
 import { MembersTab } from './tabs/MembersTab'
 import { DailyAllowancesTab } from './tabs/DailyAllowancesTab'
-import { FleetFuelingsTab } from './tabs/FleetFuelingsTab'
+import { FleetVehiclesTab } from './tabs/FleetVehiclesTab'
 import { BudgetTab } from './qdd/BudgetTab'
 
 /**
@@ -80,6 +81,10 @@ export default function DepartmentDetailPage() {
   const [dossierOpen, setDossierOpen] = useState(false)
 
   const { data: me } = useMe()
+  // A aba Frota só existe com o módulo ligado: sem ele a consulta responderia
+  // 403 e a aba mostraria erro para algo que a organização nem contratou.
+  const { isSuperAdmin, enabledModules } = useAuth()
+  const showFleet = isSuperAdmin || enabledModules.includes('fleet')
   const canExport = hasAnyPermission(me, ['departments:read', 'departments:write'])
   const canWriteDepartment = hasAnyPermission(me, ['departments:write'])
   const { data: department, isLoading, isError } = useDepartment(id)
@@ -191,17 +196,19 @@ export default function DepartmentDetailPage() {
               <FolderArchive className="h-4 w-4 mr-1.5" />
               Processos ({counts.virtualProcesses ?? 0})
             </TabsTrigger>
-            {/* Diárias e abastecimentos não trazem contagem no rótulo: o
+            {/* Diárias e frota não trazem contagem no rótulo: o
                 `_count` do setor não as inclui, e exibir "(0)" antes de abrir a
                 aba afirmaria que não há nenhuma — o que seria mentira. */}
             <TabsTrigger value="allowances">
               <Plane className="h-4 w-4 mr-1.5" />
               Diárias
             </TabsTrigger>
-            <TabsTrigger value="fuelings">
-              <Fuel className="h-4 w-4 mr-1.5" />
-              Abastecimentos
-            </TabsTrigger>
+            {showFleet && (
+              <TabsTrigger value="fleet">
+                <Fuel className="h-4 w-4 mr-1.5" />
+                Frota
+              </TabsTrigger>
+            )}
             <TabsTrigger value="budget">
               <Wallet className="h-4 w-4 mr-1.5" />
               Orçamento &amp; QDD ({counts.qddItems ?? 0})
@@ -226,9 +233,11 @@ export default function DepartmentDetailPage() {
           <TabsContent value="allowances">
             <DailyAllowancesTab departmentId={department.id} />
           </TabsContent>
-          <TabsContent value="fuelings">
-            <FleetFuelingsTab departmentId={department.id} />
-          </TabsContent>
+          {showFleet && (
+            <TabsContent value="fleet">
+              <FleetVehiclesTab departmentId={department.id} />
+            </TabsContent>
+          )}
           <TabsContent value="budget">
             <BudgetTab departmentId={department.id} canWrite={canWriteDepartment} />
           </TabsContent>
