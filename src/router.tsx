@@ -16,6 +16,8 @@ import { PublicLayout } from "@/components/layout/PublicLayout";
 import DailyAllowanceList from "@/pages/daily-allowances/DailyAllowanceList";
 import VehiclesPage from "@/pages/fleet/VehiclesPage";
 import DriversPage from "@/pages/fleet/DriversPage";
+import VehicleDetailPage from "@/pages/fleet/VehicleDetailPage";
+import DriverDetailPage from "@/pages/fleet/DriverDetailPage";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -213,6 +215,8 @@ export const router = createBrowserRouter([
               children: [
                 { path: "/frota/veiculos", element: <VehiclesPage /> },
                 { path: "/frota/motoristas", element: <DriversPage /> },
+                { path: "/frota/veiculos/:id", element: <VehicleDetailPage /> },
+                { path: "/frota/motoristas/:id", element: <DriverDetailPage /> },
               ],
             }],
           },

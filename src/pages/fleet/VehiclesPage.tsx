@@ -1,21 +1,38 @@
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Car, Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ExportPdfButton } from "@/components/fleet/ExportPdfButton";
 import { VehicleFormDialog } from "@/components/fleet/VehicleFormDialog";
 import { toast } from "@/hooks/use-toast";
 import { useDeleteFleetVehicle, useFleetVehicles } from "@/hooks/useFleet";
 import { useMe } from "@/hooks/useMe";
-import { type FleetVehicle, FUEL_TYPE_LABELS, VEHICLE_STATUS_LABELS, VEHICLE_TYPE_LABELS } from "@/lib/api/fleet";
+import { type FleetVehicle, FUEL_TYPE_LABELS, VEHICLE_STATUS_LABELS, VEHICLE_TYPE_LABELS, fleetService } from "@/lib/api/fleet";
 import { describeFleetError } from "@/lib/fleet-errors";
+import { todayForFileName } from "@/lib/fleet-format";
 import { formatPlate } from "@/lib/fleet-validation";
 import { hasAnyPermission } from "@/lib/permissions";
 
-/** Simplifica Frotas — cadastro de veículos (TASK 1/2). */
+/** Clique (ou Enter) na linha abre o detalhe; os botões de ação não. */
+function rowNavigation(open: () => void) {
+  return {
+    role: "link",
+    tabIndex: 0,
+    className: "cursor-pointer hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-slate-400",
+    onClick: open,
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === "Enter") open();
+    },
+  };
+}
+
+/** Simplifica Frotas — cadastro de veículos. */
 export default function VehiclesPage() {
+  const navigate = useNavigate();
   const { data: me } = useMe();
   const canManage = hasAnyPermission(me, ["fleet:manage"]);
 
@@ -52,12 +69,18 @@ export default function VehiclesPage() {
           <h1 className="text-xl font-semibold text-slate-800">Veículos</h1>
           <p className="mt-1 text-sm text-slate-500">Frota da organização, com placa e Renavam conferidos.</p>
         </div>
-        {canManage && (
-          <Button onClick={openNew}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo veículo
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ExportPdfButton
+            onExport={() => fleetService.exportVehicles({ search: search.trim() || undefined })}
+            fileName={`relacao-frota-${todayForFileName()}.pdf`}
+          />
+          {canManage && (
+            <Button onClick={openNew}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo veículo
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="relative max-w-sm">
@@ -102,6 +125,7 @@ export default function VehiclesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Placa</TableHead>
+                <TableHead>Patrimônio</TableHead>
                 <TableHead>Modelo</TableHead>
                 <TableHead className="hidden md:table-cell">Tipo</TableHead>
                 <TableHead className="hidden md:table-cell">Combustível</TableHead>
@@ -113,8 +137,13 @@ export default function VehiclesPage() {
             </TableHeader>
             <TableBody>
               {vehicles.map(vehicle => (
-                <TableRow key={vehicle.id}>
+                <TableRow
+                  key={vehicle.id}
+                  aria-label={`Ver detalhes de ${formatPlate(vehicle.plate)}`}
+                  {...rowNavigation(() => navigate(`/frota/veiculos/${vehicle.id}`))}
+                >
                   <TableCell className="font-mono font-medium text-slate-800">{formatPlate(vehicle.plate)}</TableCell>
+                  <TableCell className="font-mono text-slate-600">{vehicle.assetTag ?? "—"}</TableCell>
                   <TableCell className="text-slate-700">{vehicle.makeModel ?? "—"}</TableCell>
                   <TableCell className="hidden md:table-cell text-slate-600">{VEHICLE_TYPE_LABELS[vehicle.vehicleType]}</TableCell>
                   <TableCell className="hidden md:table-cell text-slate-600">{FUEL_TYPE_LABELS[vehicle.fuelType]}</TableCell>
@@ -130,7 +159,7 @@ export default function VehiclesPage() {
                     </Badge>
                   </TableCell>
                   {canManage && (
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button
                           size="icon"
