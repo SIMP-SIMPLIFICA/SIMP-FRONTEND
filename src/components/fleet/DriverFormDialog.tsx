@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
@@ -21,6 +21,7 @@ import {
   type FleetCnhStatus,
   type FleetDriver,
   type FleetEmploymentKind,
+  REGISTRATION_REQUIRED_KINDS,
 } from "@/lib/api/fleet";
 import { describeFleetError } from "@/lib/fleet-errors";
 import { formatCpfInput, isValidCnhNumber, isValidCpf, onlyDigits } from "@/lib/fleet-validation";
@@ -29,21 +30,31 @@ import { formatCpfInput, isValidCnhNumber, isValidCpf, onlyDigits } from "@/lib/
  * Cadastro de motorista. CPF e CNH nunca chegam inteiros do servidor (só a
  * máscara); na edição, os campos ficam vazios e só são enviados se digitados —
  * vazio mantém o valor já cifrado no banco.
+ *
+ * Matrícula: obrigatória para efetivo/comissionado. No cadastro pode ficar em
+ * branco — o servidor busca a matrícula de Diárias pelo mesmo CPF e só recusa
+ * se não achar. Na edição não há essa busca, então o campo é exigido aqui.
  */
 function buildSchema(isEdit: boolean) {
   const optionalOnEdit = (validate: (v: string) => boolean) => (v: string) => (isEdit && v === "") || validate(v);
-  return z.object({
-    name: z.string().trim().min(3, "Informe o nome completo."),
-    cpf: z.string().refine(optionalOnEdit(v => isValidCpf(onlyDigits(v))), "CPF inválido. Confira os 11 dígitos."),
-    cnhNumber: z
-      .string()
-      .refine(optionalOnEdit(v => isValidCnhNumber(onlyDigits(v))), "A CNH precisa ter 11 dígitos."),
-    cnhCategory: z.string(),
-    cnhExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a validade da CNH."),
-    cnhStatus: z.string(),
-    employmentKind: z.string(),
-    departmentId: z.string().nullable(),
-  });
+  return z
+    .object({
+      name: z.string().trim().min(3, "Informe o nome completo."),
+      registrationNumber: z.string().trim().max(30, "Use até 30 caracteres."),
+      cpf: z.string().refine(optionalOnEdit(v => isValidCpf(onlyDigits(v))), "CPF inválido. Confira os 11 dígitos."),
+      cnhNumber: z
+        .string()
+        .refine(optionalOnEdit(v => isValidCnhNumber(onlyDigits(v))), "A CNH precisa ter 11 dígitos."),
+      cnhCategory: z.string(),
+      cnhExpiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a validade da CNH."),
+      cnhStatus: z.string(),
+      employmentKind: z.string(),
+      departmentId: z.string().nullable(),
+    })
+    .refine(
+      v => !isEdit || !REGISTRATION_REQUIRED_KINDS.includes(v.employmentKind as FleetEmploymentKind) || v.registrationNumber !== "",
+      { message: "Informe a matrícula: obrigatória para efetivo e comissionado.", path: ["registrationNumber"] }
+    );
 }
 
 type FormValues = z.infer<ReturnType<typeof buildSchema>>;
@@ -51,6 +62,7 @@ type FormValues = z.infer<ReturnType<typeof buildSchema>>;
 function toFormValues(driver?: FleetDriver | null): FormValues {
   return {
     name: driver?.name ?? "",
+    registrationNumber: driver?.registrationNumber ?? "",
     cpf: "",
     cnhNumber: "",
     cnhCategory: driver?.cnhCategory ?? "B",
@@ -90,6 +102,10 @@ export function DriverFormDialog({ open, onOpenChange, driver }: Props) {
     if (open) reset(toFormValues(driver));
   }, [open, driver, reset]);
 
+  const registrationRequired = REGISTRATION_REQUIRED_KINDS.includes(
+    useWatch({ control, name: "employmentKind" }) as FleetEmploymentKind
+  );
+
   async function onSubmit(values: FormValues) {
     const base = {
       name: values.name.trim(),
@@ -97,6 +113,7 @@ export function DriverFormDialog({ open, onOpenChange, driver }: Props) {
       cnhExpiry: values.cnhExpiry,
       cnhStatus: values.cnhStatus as FleetCnhStatus,
       employmentKind: values.employmentKind as FleetEmploymentKind,
+      registrationNumber: values.registrationNumber || null,
       departmentId: values.departmentId,
     };
     const cpf = values.cpf ? onlyDigits(values.cpf) : undefined;
@@ -206,6 +223,26 @@ export function DriverFormDialog({ open, onOpenChange, driver }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 {enumSelect("cnhStatus", "Situação da CNH", CNH_STATUS_LABELS)}
                 {enumSelect("employmentKind", "Vínculo", EMPLOYMENT_KIND_LABELS)}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="registrationNumber">
+                  {registrationRequired ? "Matrícula" : "Matrícula (opcional)"}
+                </Label>
+                <Input
+                  id="registrationNumber"
+                  autoComplete="off"
+                  aria-required={registrationRequired && isEdit}
+                  aria-describedby="registrationNumber-hint"
+                  {...register("registrationNumber")}
+                />
+                {registrationRequired && !isEdit && (
+                  <p id="registrationNumber-hint" className="text-xs text-slate-500">
+                    Obrigatória para efetivo e comissionado. Em branco, o SIMP usa a matrícula do cadastro de
+                    beneficiários de Diárias com o mesmo CPF.
+                  </p>
+                )}
+                <FieldError message={errors.registrationNumber?.message} />
               </div>
 
               <div className="space-y-1.5">

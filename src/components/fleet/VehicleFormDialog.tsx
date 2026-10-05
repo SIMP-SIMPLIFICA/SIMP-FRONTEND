@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
@@ -59,6 +59,11 @@ const schema = z
   .refine(v => !v.manufactureYear || !v.modelYear || Number(v.manufactureYear) <= Number(v.modelYear), {
     message: "O ano de fabricação não pode ser maior que o do modelo.",
     path: ["manufactureYear"],
+  })
+  // Mesma regra do backend: veículo próprio é bem tombado e tem patrimônio.
+  .refine(v => v.ownership !== "PROPRIO" || v.assetTag !== "", {
+    message: "Informe o nº de patrimônio: obrigatório para veículo próprio.",
+    path: ["assetTag"],
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -105,6 +110,7 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle }: Props) {
     reset,
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: toFormValues(vehicle) });
+  const assetTagRequired = useWatch({ control, name: "ownership" }) === "PROPRIO";
 
   useEffect(() => {
     if (open) reset(toFormValues(vehicle));
@@ -247,8 +253,11 @@ export function VehicleFormDialog({ open, onOpenChange, vehicle }: Props) {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="assetTag">Nº de patrimônio (opcional)</Label>
-                <Input id="assetTag" {...register("assetTag")} />
+                <Label htmlFor="assetTag">
+                  {assetTagRequired ? "Nº de patrimônio" : "Nº de patrimônio (opcional)"}
+                </Label>
+                <Input id="assetTag" aria-required={assetTagRequired} {...register("assetTag")} />
+                <FieldError message={errors.assetTag?.message} />
               </div>
 
               <div className="space-y-1.5">

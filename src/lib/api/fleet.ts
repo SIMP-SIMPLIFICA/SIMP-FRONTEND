@@ -49,6 +49,19 @@ interface DepartmentRef {
   name: string
 }
 
+/** Autor de cadastro/alteração: só id e nome. */
+export interface FleetUserRef {
+  id: string
+  name: string
+}
+
+export const WORK_REGIME_LABELS: Record<FleetVehicle['workRegime'], string> = {
+  PADRAO_8H: 'Padrão (8h)', INTEGRAL_24H: 'Integral (24h)',
+}
+
+/** Vínculos em que a matrícula é obrigatória (mesma regra do backend). */
+export const REGISTRATION_REQUIRED_KINDS: FleetEmploymentKind[] = ['EFETIVO', 'COMISSIONADO']
+
 export interface FleetVehicle {
   id: string
   plate: string
@@ -71,13 +84,17 @@ export interface FleetVehicle {
   departmentId: string | null
   ownerEntityId: string | null
   department: DepartmentRef | null
+  ownerEntity: DepartmentRef | null
   createdAt: string
   updatedAt: string
+  createdBy: FleetUserRef | null
+  updatedBy: FleetUserRef | null
 }
 
 export interface FleetDriver {
   id: string
   name: string
+  registrationNumber: string | null
   cpfMasked: string
   cnhMasked: string
   cnhCategory: FleetCnhCategory
@@ -88,9 +105,12 @@ export interface FleetDriver {
   active: boolean
   departmentId: string | null
   userId: string | null
+  user: FleetUserRef | null
   department: DepartmentRef | null
   createdAt: string
   updatedAt: string
+  createdBy: FleetUserRef | null
+  updatedBy: FleetUserRef | null
 }
 
 export interface Paginated<T> {
@@ -123,6 +143,8 @@ export interface DriverInput {
   cnhExpiry: string
   cnhStatus?: FleetCnhStatus
   employmentKind: FleetEmploymentKind
+  /** Em branco: o servidor tenta a matrícula de Diárias (mesmo CPF). */
+  registrationNumber?: string | null
   departmentId?: string | null
   active?: boolean
 }
@@ -145,6 +167,35 @@ export interface DriverListParams {
   limit?: number
 }
 
+/** Filtros da relação de motoristas em PDF — vão no CORPO do POST. */
+export interface DriverExportFilters {
+  search?: string
+  registration?: string
+  active?: boolean
+  departmentId?: string
+}
+
+export type VehicleExportFilters = Omit<VehicleListParams, 'page' | 'limit'>
+
+/** Remove chaves vazias: o backend usa `.strict()` e trata '' como valor. */
+function compact<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined && v !== null && v !== '')) as Partial<T>
+}
+
+/**
+ * PDFs autenticados: POST com filtros no corpo e resposta binária. `responseType:
+ * 'blob'` pelo adaptador (que renova o token), nunca `fetch` cru.
+ */
+const pdf = (path: string, body: object = {}) =>
+  api.post<Blob>(`${BASE}${path}`, compact(body), { responseType: 'blob' }).then(r => r.data)
+
+/**
+ * Id vindo da rota (`useParams` já decodifica `%2F`) entra no caminho da API
+ * sempre codificado: sem isso, um link como `/frota/veiculos/..%2F..%2Fadmin`
+ * faria o navegador do usuário chamar outra rota com o token dele.
+ */
+const seg = (id: string) => encodeURIComponent(id)
+
 function query(params: object = {}): string {
   const qs = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -159,16 +210,26 @@ export const fleetService = {
     api.get<Paginated<FleetVehicle>>(`${BASE}/vehicles${query(params)}`).then(r => r.data),
   createVehicle: (data: VehicleInput) => api.post<FleetVehicle>(`${BASE}/vehicles`, data).then(r => r.data),
   updateVehicle: (id: string, data: Partial<Omit<VehicleInput, 'odometerKm'>>) =>
-    api.patch<FleetVehicle>(`${BASE}/vehicles/${id}`, data).then(r => r.data),
-  removeVehicle: (id: string) => api.delete<void>(`${BASE}/vehicles/${id}`).then(r => r.data),
+    api.patch<FleetVehicle>(`${BASE}/vehicles/${seg(id)}`, data).then(r => r.data),
+  removeVehicle: (id: string) => api.delete<void>(`${BASE}/vehicles/${seg(id)}`).then(r => r.data),
 
   listDrivers: (params?: DriverListParams) =>
     api.get<Paginated<FleetDriver>>(`${BASE}/drivers${query(params)}`).then(r => r.data),
   /** CPF completo no CORPO de um POST — nunca na URL (log de requisição, histórico). */
   lookupDriverByCpf: (cpf: string) =>
     api.post<{ data: FleetDriver[] }>(`${BASE}/drivers/lookup`, { cpf }).then(r => r.data),
+  /** Matrícula no CORPO: a tela não distingue matrícula numérica de CPF incompleto. */
+  searchDriversByRegistration: (registration: string) =>
+    api.post<{ data: FleetDriver[] }>(`${BASE}/drivers/search-by-registration`, { registration }).then(r => r.data),
+  getVehicle: (id: string) => api.get<FleetVehicle>(`${BASE}/vehicles/${seg(id)}`).then(r => r.data),
+  getDriver: (id: string) => api.get<FleetDriver>(`${BASE}/drivers/${seg(id)}`).then(r => r.data),
+
+  exportVehicles: (filters: VehicleExportFilters = {}) => pdf('/vehicles/export', filters),
+  exportVehicleSheet: (id: string) => pdf(`/vehicles/${seg(id)}/export`),
+  exportDrivers: (filters: DriverExportFilters = {}) => pdf('/drivers/export', filters),
+  exportDriverSheet: (id: string) => pdf(`/drivers/${seg(id)}/export`),
   createDriver: (data: DriverInput) => api.post<FleetDriver>(`${BASE}/drivers`, data).then(r => r.data),
   updateDriver: (id: string, data: Partial<DriverInput>) =>
-    api.patch<FleetDriver>(`${BASE}/drivers/${id}`, data).then(r => r.data),
-  removeDriver: (id: string) => api.delete<void>(`${BASE}/drivers/${id}`).then(r => r.data),
+    api.patch<FleetDriver>(`${BASE}/drivers/${seg(id)}`, data).then(r => r.data),
+  removeDriver: (id: string) => api.delete<void>(`${BASE}/drivers/${seg(id)}`).then(r => r.data),
 }
