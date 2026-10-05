@@ -189,6 +189,13 @@ function compact<T extends object>(value: T): Partial<T> {
 const pdf = (path: string, body: object = {}) =>
   api.post<Blob>(`${BASE}${path}`, compact(body), { responseType: 'blob' }).then(r => r.data)
 
+/**
+ * Id vindo da rota (`useParams` já decodifica `%2F`) entra no caminho da API
+ * sempre codificado: sem isso, um link como `/frota/veiculos/..%2F..%2Fadmin`
+ * faria o navegador do usuário chamar outra rota com o token dele.
+ */
+const seg = (id: string) => encodeURIComponent(id)
+
 function query(params: object = {}): string {
   const qs = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
@@ -203,8 +210,8 @@ export const fleetService = {
     api.get<Paginated<FleetVehicle>>(`${BASE}/vehicles${query(params)}`).then(r => r.data),
   createVehicle: (data: VehicleInput) => api.post<FleetVehicle>(`${BASE}/vehicles`, data).then(r => r.data),
   updateVehicle: (id: string, data: Partial<Omit<VehicleInput, 'odometerKm'>>) =>
-    api.patch<FleetVehicle>(`${BASE}/vehicles/${id}`, data).then(r => r.data),
-  removeVehicle: (id: string) => api.delete<void>(`${BASE}/vehicles/${id}`).then(r => r.data),
+    api.patch<FleetVehicle>(`${BASE}/vehicles/${seg(id)}`, data).then(r => r.data),
+  removeVehicle: (id: string) => api.delete<void>(`${BASE}/vehicles/${seg(id)}`).then(r => r.data),
 
   listDrivers: (params?: DriverListParams) =>
     api.get<Paginated<FleetDriver>>(`${BASE}/drivers${query(params)}`).then(r => r.data),
@@ -214,15 +221,15 @@ export const fleetService = {
   /** Matrícula no CORPO: a tela não distingue matrícula numérica de CPF incompleto. */
   searchDriversByRegistration: (registration: string) =>
     api.post<{ data: FleetDriver[] }>(`${BASE}/drivers/search-by-registration`, { registration }).then(r => r.data),
-  getVehicle: (id: string) => api.get<FleetVehicle>(`${BASE}/vehicles/${id}`).then(r => r.data),
-  getDriver: (id: string) => api.get<FleetDriver>(`${BASE}/drivers/${id}`).then(r => r.data),
+  getVehicle: (id: string) => api.get<FleetVehicle>(`${BASE}/vehicles/${seg(id)}`).then(r => r.data),
+  getDriver: (id: string) => api.get<FleetDriver>(`${BASE}/drivers/${seg(id)}`).then(r => r.data),
 
   exportVehicles: (filters: VehicleExportFilters = {}) => pdf('/vehicles/export', filters),
-  exportVehicleSheet: (id: string) => pdf(`/vehicles/${id}/export`),
+  exportVehicleSheet: (id: string) => pdf(`/vehicles/${seg(id)}/export`),
   exportDrivers: (filters: DriverExportFilters = {}) => pdf('/drivers/export', filters),
-  exportDriverSheet: (id: string) => pdf(`/drivers/${id}/export`),
+  exportDriverSheet: (id: string) => pdf(`/drivers/${seg(id)}/export`),
   createDriver: (data: DriverInput) => api.post<FleetDriver>(`${BASE}/drivers`, data).then(r => r.data),
   updateDriver: (id: string, data: Partial<DriverInput>) =>
-    api.patch<FleetDriver>(`${BASE}/drivers/${id}`, data).then(r => r.data),
-  removeDriver: (id: string) => api.delete<void>(`${BASE}/drivers/${id}`).then(r => r.data),
+    api.patch<FleetDriver>(`${BASE}/drivers/${seg(id)}`, data).then(r => r.data),
+  removeDriver: (id: string) => api.delete<void>(`${BASE}/drivers/${seg(id)}`).then(r => r.data),
 }
