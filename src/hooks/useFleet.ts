@@ -17,6 +17,27 @@ export function useFleetVehicles(params?: VehicleListParams) {
   })
 }
 
+export function useFleetVehicle(id: string | undefined) {
+  return useQuery({
+    queryKey: [VEHICLES, 'detail', id],
+    queryFn: () => fleetService.getVehicle(id as string),
+    enabled: Boolean(id),
+  })
+}
+
+export function useFleetDriver(id: string | undefined) {
+  return useQuery({
+    queryKey: [DRIVERS, 'detail', id],
+    queryFn: () => fleetService.getDriver(id as string),
+    enabled: Boolean(id),
+  })
+}
+
+/** Matrícula fora da queryKey e da URL, como o CPF: mutation com o termo no corpo. */
+export function useSearchFleetDriversByRegistration() {
+  return useMutation({ mutationFn: (registration: string) => fleetService.searchDriversByRegistration(registration) })
+}
+
 export function useCreateFleetVehicle() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -25,12 +25,16 @@ const EXISTING: FleetDriver = {
   cnhExpiry: '2028-03-15',
   cnhStatus: 'REGULAR',
   employmentKind: 'EFETIVO',
+  registrationNumber: '4455',
   active: true,
   departmentId: null,
   userId: null,
+  user: null,
   department: null,
   createdAt: '2026-10-01T00:00:00.000Z',
   updatedAt: '2026-10-01T00:00:00.000Z',
+  createdBy: null,
+  updatedBy: null,
 }
 
 async function fillRequired() {
@@ -79,5 +83,36 @@ describe('DriverFormDialog', () => {
     expect(data).not.toHaveProperty('cpf')
     expect(data).not.toHaveProperty('cnhNumber')
     expect(data.name).toBe('João Pereira')
+    expect(data.registrationNumber).toBe('4455')
+  })
+
+  test('cadastro de efetivo com matrícula em branco: explica a sugestão de Diárias e envia null', async () => {
+    render(<DriverFormDialog open onOpenChange={vi.fn()} />)
+
+    expect(screen.getByText(/usa a matrícula do cadastro de beneficiários de Diárias/i)).toBeInTheDocument()
+    await fillRequired()
+    await userEvent.type(screen.getByLabelText('CPF'), '52998224725')
+    await userEvent.click(screen.getByRole('button', { name: 'Cadastrar' }))
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+    expect(createMock.mock.calls[0][0]).toMatchObject({ employmentKind: 'EFETIVO', registrationNumber: null })
+  })
+
+  test('na edição de efetivo, matrícula vazia é recusada (não há sugestão na alteração)', async () => {
+    render(<DriverFormDialog open onOpenChange={vi.fn()} driver={EXISTING} />)
+
+    await userEvent.clear(screen.getByLabelText('Matrícula'))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByText('Informe a matrícula: obrigatória para efetivo e comissionado.')).toBeInTheDocument()
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+
+  test('contratado: matrícula opcional', async () => {
+    render(<DriverFormDialog open onOpenChange={vi.fn()} driver={{ ...EXISTING, employmentKind: 'CONTRATADO', registrationNumber: null }} />)
+
+    expect(screen.getByLabelText('Matrícula (opcional)')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(updateMock).toHaveBeenCalledTimes(1)
   })
 })
