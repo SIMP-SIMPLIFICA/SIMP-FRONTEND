@@ -26,7 +26,7 @@ import {
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/useMe";
-import { Car, IdCard, Plane } from "lucide-react";
+import { Car, FileSignature, Fuel, IdCard, Plane } from "lucide-react";
 import { hasAnyPermission } from "@/lib/permissions";
 import { clearAccessToken } from "@/lib/auth";
 
@@ -169,6 +169,20 @@ const NAV_SECTIONS: NavSection[] = [
         icon: <IdCard className="h-4 w-4" />,
         module: "fleet",
         anyOf: ["fleet:read", "fleet:manage"],
+      },
+      {
+        label: "Abastecimentos",
+        to: "/frota/abastecimentos",
+        icon: <Fuel className="h-4 w-4" />,
+        module: "fleet",
+        anyOf: ["fleet:read", "fleet:authorize_fuel", "fleet:review_fuel"],
+      },
+      {
+        label: "Contratos",
+        to: "/frota/contratos",
+        icon: <FileSignature className="h-4 w-4" />,
+        module: "fleet",
+        anyOf: ["fleet:read", "fleet:manage", "fleet:authorize_fuel"],
       },
     ],
   },

@@ -32,6 +32,8 @@ interface ValidatedDocument {
   organization: { name: string };
   /** Já ofuscado na origem (ex: "Carlos M. A. S***"). */
   exporterName?: string;
+  /** Situação da autorização de abastecimento (aberta, usada, vencida...). */
+  situation?: string;
 }
 
 type ValidationState =
@@ -250,6 +252,7 @@ function ValidCard({ document }: { document: ValidatedDocument }) {
 
       <dl className="divide-y divide-slate-100">
         <Field label="Tipo de documento" value={document.typeLabel} />
+        {document.situation && <Field label="Situação" value={document.situation} />}
         <Field label="Órgão emissor" value={document.organization.name} />
         <Field label="Data de emissão" value={formatDateTime(document.issuedAt)} />
         {document.exporterName && (
