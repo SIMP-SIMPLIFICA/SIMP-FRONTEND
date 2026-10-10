@@ -18,6 +18,9 @@ import VehiclesPage from "@/pages/fleet/VehiclesPage";
 import DriversPage from "@/pages/fleet/DriversPage";
 import VehicleDetailPage from "@/pages/fleet/VehicleDetailPage";
 import DriverDetailPage from "@/pages/fleet/DriverDetailPage";
+import FuelingsPage from "@/pages/fleet/FuelingsPage";
+import FuelingDetailPage from "@/pages/fleet/FuelingDetailPage";
+import ContractsPage from "@/pages/fleet/ContractsPage";
 
 import Dashboard from "@/pages/Dashboard";
 import Placeholder from "@/pages/Placeholder";
@@ -218,6 +221,16 @@ export const router = createBrowserRouter([
                 { path: "/frota/veiculos/:id", element: <VehicleDetailPage /> },
                 { path: "/frota/motoristas/:id", element: <DriverDetailPage /> },
               ],
+            }, {
+              // TASK 3A: autorização de abastecimento (mesmo anyOf da rota do backend).
+              element: <PermissionGate anyOf={["fleet:read", "fleet:authorize_fuel", "fleet:review_fuel"]} />,
+              children: [
+                { path: "/frota/abastecimentos", element: <FuelingsPage /> },
+                { path: "/frota/abastecimentos/:id", element: <FuelingDetailPage /> },
+              ],
+            }, {
+              element: <PermissionGate anyOf={["fleet:read", "fleet:manage", "fleet:authorize_fuel"]} />,
+              children: [{ path: "/frota/contratos", element: <ContractsPage /> }],
             }],
           },
           {
